@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-from __future__ import absolute_import
-from __future__ import print_function
-
 import io
 import re
 from glob import glob
@@ -28,9 +25,9 @@ setup(
     version='0.0.1',
     license='BSD 2-Clause License',
     description="Builds a graph of a Python project's internal dependencies.",
-    long_description='%s\n%s' % (
-        re.compile('^.. start-badges.*^.. end-badges', re.M | re.S).sub('', read('README.rst')),
-        re.sub(':[a-z]+:`~?(.*?)`', r'``\1``', read('CHANGELOG.rst'))
+    long_description='%s' % (
+        re.compile(
+            '^.. start-badges.*^.. end-badges', re.M | re.S).sub('', read('README.rst'))
     ),
     author='David Seddon',
     author_email='david@seddonym.me',
