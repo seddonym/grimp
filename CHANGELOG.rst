@@ -6,3 +6,8 @@ Changelog
 ------------------
 
 * Released blank project on PyPI.
+
+latest
+------
+
+* Add ability to build a graph.
