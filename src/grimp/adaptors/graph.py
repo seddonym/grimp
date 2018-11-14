@@ -18,6 +18,15 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
             all_modules.add(Module(module_name))
         return all_modules
 
+    @property
+    def direct_imports(self) -> Set[DirectImport]:
+        all_direct_imports = set()
+        for importer, imported in self._networkx_graph.edges():
+            all_direct_imports.add(
+                DirectImport(importer=Module(importer), imported=Module(imported))
+            )
+        return all_direct_imports
+
     def find_modules_directly_imported_by(self, module: Module) -> Set[Module]:
         imported_modules = set()
         for imported_module_name in self._networkx_graph.successors(module.name):

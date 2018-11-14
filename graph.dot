@@ -1,0 +1,63 @@
+digraph G {
+	compound=true newrank=true ranksep=4
+	subgraph "cluster_grimp.adaptors" {
+		node [color=white group="grimp.adaptors" rank=source style=filled]
+		color=bisque label="grimp.adaptors" rank=same style="rounded,filled"
+		"grimp.adaptors"
+		"grimp.adaptors.graph"
+		"grimp.adaptors.importscanner"
+		"grimp.adaptors.modulefinder"
+		"grimp.adaptors.packagefinder"
+		"grimp.adaptors.filesystem"
+	}
+	subgraph "cluster_grimp.domain" {
+		node [color=white group="grimp.domain" rank=source style=filled]
+		color=bisque label="grimp.domain" rank=same style="rounded,filled"
+		"grimp.domain"
+		"grimp.domain.valueobjects"
+	}
+	subgraph "cluster_grimp.main" {
+		node [color=white group="grimp.main" rank=source style=filled]
+		color=bisque label="grimp.main" rank=same style="rounded,filled"
+		"grimp.main"
+	}
+	subgraph "cluster_grimp.application" {
+		node [color=white group="grimp.application" rank=source style=filled]
+		color=bisque label="grimp.application" rank=same style="rounded,filled"
+		"grimp.application"
+		"grimp.application.ports.graph"
+		"grimp.application.ports.packagefinder"
+		"grimp.application.ports.filesystem"
+		"grimp.application.config"
+		"grimp.application.ports.importscanner"
+		"grimp.application.ports.modulefinder"
+		"grimp.application.ports"
+		"grimp.application.usecases"
+	}
+	"grimp.application" -> "grimp.domain" [lhead="cluster_grimp.domain" ltail="cluster_grimp.application"]
+	"grimp.adaptors" -> "grimp.domain" [lhead="cluster_grimp.domain" ltail="cluster_grimp.adaptors"]
+	"grimp.application.ports.graph" -> "grimp.domain.valueobjects"
+	"grimp.application.ports.packagefinder" -> "grimp.application.ports.filesystem"
+	"grimp.adaptors.graph" -> "grimp.application.ports.graph"
+	"grimp.adaptors.graph" -> "grimp.domain.valueobjects"
+	"grimp.adaptors.importscanner" -> "grimp.application.ports.importscanner"
+	"grimp.adaptors.importscanner" -> "grimp.domain.valueobjects"
+	"grimp.adaptors.importscanner" -> "grimp.application.ports.filesystem"
+	"grimp.adaptors.modulefinder" -> "grimp.domain.valueobjects"
+	"grimp.adaptors.modulefinder" -> "grimp.application.ports.filesystem"
+	"grimp.adaptors.modulefinder" -> "grimp.application.ports.modulefinder"
+	"grimp.adaptors.packagefinder" -> "grimp.application.ports.packagefinder"
+	"grimp.adaptors.packagefinder" -> "grimp.application.ports.filesystem"
+	"grimp.adaptors.filesystem" -> "grimp.application.ports.filesystem"
+	"grimp.application.ports.importscanner" -> "grimp.domain.valueobjects"
+	"grimp.application.ports.importscanner" -> "grimp.application.ports.filesystem"
+	"grimp.application.ports.modulefinder" -> "grimp.domain.valueobjects"
+	"grimp.application.ports.modulefinder" -> "grimp.application.ports.filesystem"
+	"grimp.application.usecases" -> "grimp.application.ports.graph"
+	"grimp.application.usecases" -> "grimp.application.ports.packagefinder"
+	"grimp.application.usecases" -> "grimp.application.ports.filesystem"
+	"grimp.application.usecases" -> "grimp.application.config"
+	"grimp.application.usecases" -> "grimp.application.ports.importscanner"
+	"grimp.application.usecases" -> "grimp.application.ports.modulefinder"
+	"grimp.application.usecases" -> "grimp.domain.valueobjects"
+}

@@ -62,6 +62,7 @@ def test_find_descendants():
         Module('testpackage.one.delta.blue'),
     }
 
+
 def test_find_downstream_modules():
     graph = build_graph('testpackage')
 

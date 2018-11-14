@@ -1,6 +1,6 @@
 __all__ = ['build_graph']
 
-from .application.usecases import build_graph
+from .application.usecases import build_graph, draw_graph
 from .application.config import settings
 from .adaptors.importscanner import ImportScanner
 from .adaptors.modulefinder import ModuleFinder
