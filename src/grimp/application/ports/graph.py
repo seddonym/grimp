@@ -97,6 +97,22 @@ class AbstractImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def path_exists(
+            self, upstream_module: Module, downstream_module: Module, as_subpackages=False,
+    ) -> bool:
+        """
+        Return whether any ImportPath exists between the upstream and the downstream module;
+        in other words, does the downstream module depend on the upstream module?
+
+        Optional args:
+            as_subpackages: Whether to treat the supplied modules as individual modules,
+                            or as an entire subpackages (including any descendants). If
+                            treating them as subpackages, all descendants of the upstream and
+                            downstream modules will be checked too.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def add_module(self, module: Module) -> None:
         """
         Add a module to the graph.

@@ -96,6 +96,26 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
 
         return ImportPath(*map(Module, path))
 
+    def path_exists(
+            self, upstream_module: Module, downstream_module: Module, as_subpackages=False,
+    ) -> bool:
+        if not as_subpackages:
+            return has_path(self._networkx_graph,
+                            source=downstream_module.name,
+                            target=upstream_module.name)
+
+        upstream_modules = {upstream_module} | self.find_descendants(upstream_module)
+        downstream_modules = {downstream_module} | self.find_descendants(downstream_module)
+
+        # Return True as soon as we find a path between any of the modules in the subpackages.
+        for upstream in upstream_modules:
+            for downstream in downstream_modules:
+                if self.path_exists(upstream_module=upstream,
+                                    downstream_module=downstream):
+                    return True
+
+        return False
+
     def add_module(self, module: Module) -> None:
         self._networkx_graph.add_node(module.name)
 
