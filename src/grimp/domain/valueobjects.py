@@ -49,7 +49,7 @@ class DirectImport(ValueObject):
         self.imported = imported
 
     def __str__(self) -> str:
-        return "{} <- {}".format(self.importer, self.imported)
+        return "{} -> {}".format(self.importer, self.imported)
 
 
 class ImportPath(ValueObject):
@@ -60,6 +60,6 @@ class ImportPath(ValueObject):
         self.modules = modules
 
     def __str__(self) -> str:
-        return ' <- '.join(
+        return ' -> '.join(
             reversed([str(m) for m in self.modules])
         )
