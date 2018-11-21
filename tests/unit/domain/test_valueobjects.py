@@ -33,7 +33,7 @@ class TestDirectImport:
         import_path = DirectImport(
             importer=Module('foo'), imported=Module('bar')
         )
-        assert repr(import_path) == '<DirectImport: foo <- bar>'
+        assert repr(import_path) == '<DirectImport: foo -> bar>'
 
     def test_equals(self):
         a = DirectImport(importer=Module('foo'), imported=Module('bar'))
@@ -62,7 +62,7 @@ class TestImportPath:
             Module('two'),
             Module('three'),
         )
-        assert repr(import_path) == '<ImportPath: three <- two <- one>'
+        assert repr(import_path) == '<ImportPath: three -> two -> one>'
 
     def test_equals(self):
         a = ImportPath(
