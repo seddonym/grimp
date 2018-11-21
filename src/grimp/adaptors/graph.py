@@ -1,10 +1,10 @@
-from typing import Set, Optional
+from typing import Set, Tuple, Optional
 
 import networkx  # type: ignore
 from networkx.algorithms import shortest_path, has_path  # type: ignore
 
 from grimp.application.ports import graph
-from grimp.domain.valueobjects import DirectImport, Module, ImportPath
+from grimp.domain.valueobjects import Module, ImportPath
 
 
 class NetworkXBackedImportGraph(graph.AbstractImportGraph):
@@ -12,31 +12,16 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
         self._networkx_graph = networkx.DiGraph()
 
     @property
-    def modules(self) -> Set[Module]:
-        all_modules = set()
-        for module_name in self._networkx_graph.nodes:
-            all_modules.add(Module(module_name))
-        return all_modules
+    def modules(self) -> Set[str]:
+        return set(self._networkx_graph.nodes)
 
-    def find_modules_directly_imported_by(self, module: Module) -> Set[Module]:
-        imported_modules = set()
-        for imported_module_name in self._networkx_graph.successors(module.name):
-            imported_modules.add(
-                Module(imported_module_name)
-            )
-        return imported_modules
+    def find_modules_directly_imported_by(self, module: str) -> Set[str]:
+        return set(self._networkx_graph.successors(module))
 
-    def find_modules_that_directly_import(self, module: Module) -> Set[Module]:
-        importers = set()
-        for importer_name in self._networkx_graph.predecessors(module.name):
-            importers.add(
-                Module(importer_name)
-            )
-        return importers
+    def find_modules_that_directly_import(self, module: str) -> Set[str]:
+        return set(self._networkx_graph.predecessors(module))
 
-    def find_downstream_modules(
-        self, module: Module, as_subpackage: bool = False
-    ) -> Set[Module]:
+    def find_downstream_modules(self, module: str, as_subpackage: bool = False) -> Set[str]:
         # TODO optimise for as_subpackage.
         source_modules = {module}
         if as_subpackage:
@@ -46,15 +31,15 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
 
         for candidate in filter(lambda m: m not in source_modules, self.modules):
             for source_module in source_modules:
-                if has_path(self._networkx_graph, candidate.name, source_module.name):
+                if has_path(self._networkx_graph, candidate, source_module):
                     downstream_modules.add(candidate)
                     break
 
         return downstream_modules
 
     def find_upstream_modules(
-        self, module: Module, as_subpackage: bool = False
-    ) -> Set[Module]:
+        self, module: str, as_subpackage: bool = False
+    ) -> Set[str]:
         # TODO optimise for as_subpackage.
         destination_modules = {module}
         if as_subpackage:
@@ -64,45 +49,43 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
 
         for candidate in filter(lambda m: m not in destination_modules, self.modules):
             for destination_module in destination_modules:
-                if has_path(self._networkx_graph, destination_module.name, candidate.name):
+                if has_path(self._networkx_graph, destination_module, candidate):
                     upstream_modules.add(candidate)
                     break
 
         return upstream_modules
 
-    def find_children(self, module: Module) -> Set[Module]:
+    def find_children(self, module: str) -> Set[str]:
         children = set()
         for potential_child in self.modules:
-            if potential_child.is_child_of(module):
+            if Module(potential_child).is_child_of(Module(module)):
                 children.add(potential_child)
         return children
 
-    def find_descendants(self, module: Module) -> Set[Module]:
+    def find_descendants(self, module: str) -> Set[str]:
         descendants = set()
         for potential_descendant in self.modules:
-            if potential_descendant.is_descendant_of(module):
+            if Module(potential_descendant).is_descendant_of(Module(module)):
                 descendants.add(potential_descendant)
         return descendants
 
     def find_shortest_path(
-        self, upstream_module: Module, downstream_module: Module,
-    ) -> Optional[ImportPath]:
+        self, upstream_module: str, downstream_module: str,
+    ) -> Optional[Tuple[str, ...]]:
         try:
-            path = shortest_path(self._networkx_graph,
-                                 source=upstream_module.name,
-                                 target=downstream_module.name)
+            return tuple(shortest_path(self._networkx_graph,
+                                       source=upstream_module,
+                                       target=downstream_module))
         except networkx.NetworkXNoPath:
             return None
 
-        return ImportPath(*map(Module, path))
-
     def path_exists(
-            self, upstream_module: Module, downstream_module: Module, as_subpackages=False,
+            self, upstream_module: str, downstream_module: str, as_subpackages=False,
     ) -> bool:
         if not as_subpackages:
             return has_path(self._networkx_graph,
-                            source=downstream_module.name,
-                            target=upstream_module.name)
+                            source=downstream_module,
+                            target=upstream_module)
 
         upstream_modules = {upstream_module} | self.find_descendants(upstream_module)
         downstream_modules = {downstream_module} | self.find_descendants(downstream_module)
@@ -116,12 +99,12 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
 
         return False
 
-    def add_module(self, module: Module) -> None:
-        self._networkx_graph.add_node(module.name)
+    def add_module(self, module: str) -> None:
+        self._networkx_graph.add_node(module)
 
-    def add_import(self, direct_import: DirectImport) -> None:
-        self._networkx_graph.add_edge(direct_import.importer.name, direct_import.imported.name)
+    def add_import(self, *, importer: str, imported: str) -> None:
+        self._networkx_graph.add_edge(importer, imported)
 
-    def remove_import(self, direct_import: DirectImport) -> None:
-        self._networkx_graph.remove_edge(direct_import.importer.name, direct_import.imported.name)
+    def remove_import(self, *, importer: str, imported: str) -> None:
+        self._networkx_graph.remove_edge(importer, imported)
 

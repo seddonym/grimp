@@ -45,6 +45,7 @@ class TestBuildGraph:
         ):
             graph = usecases.build_graph('mypackage')
 
-        assert set(FakeImportScanner.import_map.keys()) == graph.modules
+        assert set([m.name for m in FakeImportScanner.import_map.keys()]) == graph.modules
         for module, imported_modules in FakeImportScanner.import_map.items():
-            assert graph.find_modules_directly_imported_by(module) == set(imported_modules)
+            imported_module_names = set(m.name for m in imported_modules)
+            assert graph.find_modules_directly_imported_by(module.name) == imported_module_names

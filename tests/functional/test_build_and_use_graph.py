@@ -1,5 +1,3 @@
-import pytest
-
 from grimp import build_graph
 
 """
