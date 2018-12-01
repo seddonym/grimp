@@ -8,18 +8,56 @@ from grimp.domain.valueobjects import Module, ImportPath
 
 
 class NetworkXBackedImportGraph(graph.AbstractImportGraph):
+    """
+    Implementation of the ImportGraph, backed by a networkx directional graph.
+    """
     def __init__(self) -> None:
         self._networkx_graph = networkx.DiGraph()
+
+    # Mechanics
+    # ---------
 
     @property
     def modules(self) -> Set[str]:
         return set(self._networkx_graph.nodes)
+
+    def add_module(self, module: str) -> None:
+        self._networkx_graph.add_node(module)
+
+    def add_import(self, *, importer: str, imported: str) -> None:
+        self._networkx_graph.add_edge(importer, imported)
+
+    def remove_import(self, *, importer: str, imported: str) -> None:
+        self._networkx_graph.remove_edge(importer, imported)
+
+    # Descendants
+    # -----------
+
+    def find_children(self, module: str) -> Set[str]:
+        children = set()
+        for potential_child in self.modules:
+            if Module(potential_child).is_child_of(Module(module)):
+                children.add(potential_child)
+        return children
+
+    def find_descendants(self, module: str) -> Set[str]:
+        descendants = set()
+        for potential_descendant in self.modules:
+            if Module(potential_descendant).is_descendant_of(Module(module)):
+                descendants.add(potential_descendant)
+        return descendants
+
+    # Direct imports
+    # --------------
 
     def find_modules_directly_imported_by(self, module: str) -> Set[str]:
         return set(self._networkx_graph.successors(module))
 
     def find_modules_that_directly_import(self, module: str) -> Set[str]:
         return set(self._networkx_graph.predecessors(module))
+
+    # Indirect imports
+    # ----------------
 
     def find_downstream_modules(self, module: str, as_subpackage: bool = False) -> Set[str]:
         # TODO optimise for as_subpackage.
@@ -55,20 +93,6 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
 
         return upstream_modules
 
-    def find_children(self, module: str) -> Set[str]:
-        children = set()
-        for potential_child in self.modules:
-            if Module(potential_child).is_child_of(Module(module)):
-                children.add(potential_child)
-        return children
-
-    def find_descendants(self, module: str) -> Set[str]:
-        descendants = set()
-        for potential_descendant in self.modules:
-            if Module(potential_descendant).is_descendant_of(Module(module)):
-                descendants.add(potential_descendant)
-        return descendants
-
     def find_shortest_path(
         self, upstream_module: str, downstream_module: str,
     ) -> Optional[Tuple[str, ...]]:
@@ -98,13 +122,3 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
                     return True
 
         return False
-
-    def add_module(self, module: str) -> None:
-        self._networkx_graph.add_node(module)
-
-    def add_import(self, *, importer: str, imported: str) -> None:
-        self._networkx_graph.add_edge(importer, imported)
-
-    def remove_import(self, *, importer: str, imported: str) -> None:
-        self._networkx_graph.remove_edge(importer, imported)
-

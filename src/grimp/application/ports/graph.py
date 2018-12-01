@@ -8,6 +8,7 @@ class AbstractImportGraph(abc.ABC):
     """
     # Mechanics
     # ---------
+
     @property
     @abc.abstractmethod
     def modules(self) -> Set[str]:
@@ -68,6 +69,9 @@ class AbstractImportGraph(abc.ABC):
     def find_modules_that_directly_import(self, module: str) -> Set[str]:
         raise NotImplementedError
 
+    # Indirect imports
+    # ----------------
+
     @abc.abstractmethod
     def find_downstream_modules(
         self, module: str, as_subpackage: bool = False
@@ -108,9 +112,6 @@ class AbstractImportGraph(abc.ABC):
                            the subpackage.
         """
         raise NotImplementedError
-
-    # Indirect imports
-    # ----------------
 
     @abc.abstractmethod
     def find_shortest_path(
