@@ -18,8 +18,10 @@ testpackage.utils: testpackage.one, testpackage.two.alpha
 
 """
 
+# Mechanics
+# ---------
 
-def test_graph_modules():
+def test_modules():
     graph = build_graph('testpackage')
 
     assert graph.modules == {
@@ -37,6 +39,28 @@ def test_graph_modules():
         'testpackage.utils',
     }
 
+
+def test_add_module():
+    assert False
+
+def test_add_and_remove_import():
+    graph = build_graph('testpackage')
+    a = 'testpackage.one.delta.blue'
+    b = 'testpackage.two.alpha'
+    assert graph.find_downstream_modules(a) == set()
+
+    graph.add_import(importer=b, imported=a)
+
+    assert graph.find_downstream_modules(a) == {
+        b, 'testpackage.utils', 'testpackage.two.gamma'}
+
+    graph.remove_import(importer=b, imported=a)
+
+    assert graph.find_downstream_modules(a) == set()
+
+
+# Descendants
+# -----------
 
 def test_find_children():
     graph = build_graph('testpackage')
@@ -59,6 +83,31 @@ def test_find_descendants():
         'testpackage.one.delta',
         'testpackage.one.delta.blue',
     }
+
+
+# Direct imports
+# --------------
+
+def test_find_modules_directly_imported_by():
+    graph = build_graph('testpackage')
+
+    assert graph.find_modules_directly_imported_by('testpackage.utils') == {
+        'testpackage.one', 'testpackage.two.alpha',
+    }
+
+
+def test_find_modules_that_directly_import():
+    graph = build_graph('testpackage')
+
+    assert graph.find_modules_that_directly_import('testpackage.one.alpha') == {
+        'testpackage.one.beta',
+        'testpackage.two.alpha',
+        'testpackage.two.beta'
+    }
+
+
+# Indirect imports
+# ----------------
 
 def test_find_downstream_modules():
     graph = build_graph('testpackage')
@@ -98,35 +147,5 @@ def test_find_shortest_path():
     )
 
 
-def test_find_modules_directly_imported_by():
-    graph = build_graph('testpackage')
-
-    assert graph.find_modules_directly_imported_by('testpackage.utils') == {
-        'testpackage.one', 'testpackage.two.alpha',
-    }
-
-
-def test_find_modules_that_directly_import():
-    graph = build_graph('testpackage')
-
-    assert graph.find_modules_that_directly_import('testpackage.one.alpha') == {
-        'testpackage.one.beta',
-        'testpackage.two.alpha',
-        'testpackage.two.beta'
-    }
-
-
-def test_add_and_remove_import():
-    graph = build_graph('testpackage')
-    a = 'testpackage.one.delta.blue'
-    b = 'testpackage.two.alpha'
-    assert graph.find_downstream_modules(a) == set()
-
-    graph.add_import(importer=b, imported=a)
-
-    assert graph.find_downstream_modules(a) == {
-        b, 'testpackage.utils', 'testpackage.two.gamma'}
-
-    graph.remove_import(importer=b, imported=a)
-
-    assert graph.find_downstream_modules(a) == set()
+def test_path_exists():
+    assert False
