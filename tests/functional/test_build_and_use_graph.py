@@ -41,22 +41,28 @@ def test_modules():
 
 
 def test_add_module():
-    assert False
+    graph = build_graph('testpackage')
+    number_of_modules = len(graph.modules)
+
+    graph.add_module('foo')
+    assert 'foo' in graph.modules
+    assert number_of_modules + 1 == len(graph.modules)
+
 
 def test_add_and_remove_import():
     graph = build_graph('testpackage')
     a = 'testpackage.one.delta.blue'
     b = 'testpackage.two.alpha'
-    assert graph.find_downstream_modules(a) == set()
+
+    assert not graph.does_direct_import_exist(importer=b, imported=a)
 
     graph.add_import(importer=b, imported=a)
 
-    assert graph.find_downstream_modules(a) == {
-        b, 'testpackage.utils', 'testpackage.two.gamma'}
+    assert graph.does_direct_import_exist(importer=b, imported=a)
 
     graph.remove_import(importer=b, imported=a)
 
-    assert graph.find_downstream_modules(a) == set()
+    assert not graph.does_direct_import_exist(importer=b, imported=a)
 
 
 # Descendants
@@ -105,9 +111,65 @@ def test_find_modules_that_directly_import():
         'testpackage.two.beta'
     }
 
+def test_does_direct_import_exist():
+    graph = build_graph('testpackage')
+
+    assert False is graph.does_direct_import_exist(
+        importer='testpackage.one.alpha',
+        imported='testpackage.two.alpha',
+    )
+    assert True is graph.does_direct_import_exist(
+        importer='testpackage.two.alpha',
+        imported='testpackage.one.alpha',
+    )
+
+
+def test_get_import_details():
+    graph = build_graph('testpackage')
+    expected_import_details = {
+        'testpackage.utils': {
+            {
+                'imported': 'testpackage.two.alpha',
+                'line_number': 5,
+                'line_contents': 'from .two import alpha',
+            },
+        }
+    }
+    assert expected_import_details == graph.get_import_details(
+        importer='testpackage.utils',
+        imported='testpackage.two.alpha',
+    )
+
 
 # Indirect imports
 # ----------------
+
+def test_path_exists():
+    graph = build_graph('testpackage')
+
+    assert graph.path_exists(
+        upstream_module='testpackage.utils',
+        downstream_module='testpackage.one.alpha',
+    )
+
+    assert not graph.path_exists(
+        upstream_module='testpackage.one.alpha',
+        downstream_module='testpackage.utils',
+    )
+
+
+def test_find_shortest_path():
+    graph = build_graph('testpackage')
+
+    assert graph.find_shortest_path(
+        upstream_module='testpackage.utils',
+        downstream_module='testpackage.one.alpha'
+    ) == (
+        'testpackage.utils',
+        'testpackage.two.alpha',
+        'testpackage.one.alpha',
+    )
+
 
 def test_find_downstream_modules():
     graph = build_graph('testpackage')
@@ -132,20 +194,3 @@ def test_find_upstream_modules():
         'testpackage.two.alpha',
         'testpackage.one.alpha',
     }
-
-
-def test_find_shortest_path():
-    graph = build_graph('testpackage')
-
-    assert graph.find_shortest_path(
-        upstream_module='testpackage.utils',
-        downstream_module='testpackage.one.alpha'
-    ) == (
-        'testpackage.utils',
-        'testpackage.two.alpha',
-        'testpackage.one.alpha',
-    )
-
-
-def test_path_exists():
-    assert False
