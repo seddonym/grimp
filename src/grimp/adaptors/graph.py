@@ -50,6 +50,12 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
     # Direct imports
     # --------------
 
+    def direct_import_exists(self, importer: str, imported: str) -> bool:
+        """
+        Whether or not the importer module directly imports the imported module.
+        """
+        return imported in self.find_modules_directly_imported_by(importer)
+
     def find_modules_directly_imported_by(self, module: str) -> Set[str]:
         return set(self._networkx_graph.successors(module))
 

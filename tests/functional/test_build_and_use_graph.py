@@ -54,15 +54,15 @@ def test_add_and_remove_import():
     a = 'testpackage.one.delta.blue'
     b = 'testpackage.two.alpha'
 
-    assert not graph.does_direct_import_exist(importer=b, imported=a)
+    assert not graph.direct_import_exists(importer=b, imported=a)
 
     graph.add_import(importer=b, imported=a)
 
-    assert graph.does_direct_import_exist(importer=b, imported=a)
+    assert graph.direct_import_exists(importer=b, imported=a)
 
     graph.remove_import(importer=b, imported=a)
 
-    assert not graph.does_direct_import_exist(importer=b, imported=a)
+    assert not graph.direct_import_exists(importer=b, imported=a)
 
 
 # Descendants
@@ -111,14 +111,14 @@ def test_find_modules_that_directly_import():
         'testpackage.two.beta'
     }
 
-def test_does_direct_import_exist():
+def test_direct_import_exists():
     graph = build_graph('testpackage')
 
-    assert False is graph.does_direct_import_exist(
+    assert False is graph.direct_import_exists(
         importer='testpackage.one.alpha',
         imported='testpackage.two.alpha',
     )
-    assert True is graph.does_direct_import_exist(
+    assert True is graph.direct_import_exists(
         importer='testpackage.two.alpha',
         imported='testpackage.one.alpha',
     )
