@@ -1,6 +1,7 @@
 import pytest
 
 from grimp.adaptors.graph import NetworkXBackedImportGraph
+from tests.adaptors.filesystem import FakeFileSystem
 
 
 def test_modules_when_empty():
@@ -300,3 +301,33 @@ def test_remove_import():
 
     assert {a, b, c} == graph.modules
     assert {c} == graph.find_modules_directly_imported_by(a)
+
+
+class TestGetImportDetails:
+    def test_happy_path(self):
+        graph = NetworkXBackedImportGraph()
+
+        imports_info = [
+            dict(
+                importer='mypackage.foo',
+                imported='mypackage.bar',
+                line_number=1,
+                line_contents='from . import bar',
+            ),
+            dict(
+                importer='mypackage.foo',
+                imported='mypackage.bar',
+                line_number=10,
+                line_contents='from .bar import a_function',
+            )
+        ]
+        for import_info in imports_info:
+            graph.add_import(**import_info)
+
+        assert imports_info == graph.get_import_details(
+            importer='mypackage.foo', imported='mypackage.bar')
+
+    def test_returns_empty_list_when_no_import(self):
+        graph = NetworkXBackedImportGraph()
+
+        assert [] == graph.get_import_details(importer='foo', imported='bar')

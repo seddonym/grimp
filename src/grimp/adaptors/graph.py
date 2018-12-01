@@ -1,4 +1,4 @@
-from typing import Set, Tuple, Optional, Dict, Union
+from typing import Set, Tuple, Optional, Dict, Union, List
 
 import networkx  # type: ignore
 import networkx.algorithms  # type: ignore
@@ -13,6 +13,8 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
     """
     def __init__(self) -> None:
         self._networkx_graph = networkx.DiGraph()
+        # Instantiate a dict that stores the details for all direct imports.
+        self._import_details = {}
 
     # Mechanics
     # ---------
@@ -24,7 +26,24 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
     def add_module(self, module: str) -> None:
         self._networkx_graph.add_node(module)
 
-    def add_import(self, *, importer: str, imported: str) -> None:
+    def add_import(
+        self, *,
+        importer: str,
+        imported: str,
+        line_number: Optional[int] = None,
+        line_contents: Optional[str] = None
+    ) -> None:
+        if any((line_number, line_contents)):
+            if not all((line_number, line_contents)):
+                raise ValueError('Line number and contents must be provided together, or not at all.')
+            self._import_details.setdefault(importer, [])
+            self._import_details[importer].append({
+                'importer': importer,
+                'imported': imported,
+                'line_number': line_number,
+                'line_contents': line_contents,
+            })
+
         self._networkx_graph.add_edge(importer, imported)
 
     def remove_import(self, *, importer: str, imported: str) -> None:
@@ -50,7 +69,7 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
     # Direct imports
     # --------------
 
-    def direct_import_exists(self, importer: str, imported: str) -> bool:
+    def direct_import_exists(self, *, importer: str, imported: str) -> bool:
         """
         Whether or not the importer module directly imports the imported module.
         """
@@ -64,18 +83,11 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
 
     def get_import_details(
         self,
+        *,
         importer: str,
         imported: str
-    ) -> Dict[str, Dict[str, Union[str, int]]]:
-        return {
-            'testpackage.utils': [
-                {
-                    'imported': 'testpackage.two.alpha',
-                    'line_number': 5,
-                    'line_contents': 'from .two import alpha',
-                },
-            ],
-        }
+    ) -> List[Dict[str, Union[str, int]]]:
+        return self._import_details.get(importer, [])
 
     # Indirect imports
     # ----------------

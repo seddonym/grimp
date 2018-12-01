@@ -25,7 +25,13 @@ class AbstractImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def add_import(self, *, importer: str, imported: str) -> None:
+    def add_import(
+            self, *,
+            importer: str,
+            imported: str,
+            line_number: Optional[int] = None,
+            line_contents: Optional[str] = None
+    ) -> None:
         """
         Add a direct import between two modules to the graph. If the modules are not already
         present, they will be added to the graph.
@@ -62,7 +68,7 @@ class AbstractImportGraph(abc.ABC):
     # --------------
 
     @abc.abstractmethod
-    def direct_import_exists(self, importer: str, imported: str) -> bool:
+    def direct_import_exists(self, *, importer: str, imported: str) -> bool:
         """
         Whether or not the importer module directly imports the imported module.
         """
@@ -79,21 +85,21 @@ class AbstractImportGraph(abc.ABC):
     @abc.abstractmethod
     def get_import_details(
         self,
+        *,
         importer: str,
         imported: str
-    ) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+    ) -> List[Dict[str, Union[str, int]]]:
         """
-        Returns a dictionary of the details of the direct import between two modules, in the form:
-        {
-            'mypackage.importer': [
-                {
-                    'imported': 'mypackage.imported',
-                    'line_number': 5,
-                    'line_contents': 'from mypackage import imported',
-                },
-                (additional imports here),
-            ],
-        }
+        Returns a list of the details of every direct import between two modules, in the form:
+        [
+            {
+                'importer': 'mypackage.importer',
+                'imported': 'mypackage.imported',
+                'line_number': 5,
+                'line_contents': 'from mypackage import imported',
+            },
+            (additional imports here)
+        ]
         """
         raise NotImplementedError
 
