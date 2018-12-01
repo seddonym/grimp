@@ -39,8 +39,9 @@ def build_graph(package_name) -> AbstractImportGraph:
 
     # Scan each module for imports and add them to the graph.
     for module in modules:
-        graph.add_module(module)
+        graph.add_module(module.name)
         for direct_import in import_scanner.scan_for_imports(module):
-            graph.add_import(direct_import)
+            graph.add_import(importer=direct_import.importer.name,
+                             imported=direct_import.imported.name)
 
     return graph

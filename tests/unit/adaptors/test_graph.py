@@ -1,7 +1,6 @@
 import pytest
 
 from grimp.adaptors.graph import NetworkXBackedImportGraph
-from grimp.domain.valueobjects import Module, DirectImport, ImportPath
 
 
 def test_modules_when_empty():
@@ -11,54 +10,54 @@ def test_modules_when_empty():
 
 def test_find_modules_directly_imported_by():
     graph = NetworkXBackedImportGraph()
-    a, b, c = Module('foo'), Module('bar'), Module('baz')
-    d, e, f = Module('foo.one'), Module('bar.one'), Module('baz.one')
+    a, b, c = 'foo', 'bar', 'baz'
+    d, e, f = 'foo.one', 'bar.one', 'baz.one'
 
-    graph.add_import(DirectImport(importer=a, imported=b))
-    graph.add_import(DirectImport(importer=a, imported=c))
-    graph.add_import(DirectImport(importer=a, imported=d))
-    graph.add_import(DirectImport(importer=b, imported=e))
-    graph.add_import(DirectImport(importer=f, imported=a))
+    graph.add_import(importer=a, imported=b)
+    graph.add_import(importer=a, imported=c)
+    graph.add_import(importer=a, imported=d)
+    graph.add_import(importer=b, imported=e)
+    graph.add_import(importer=f, imported=a)
 
-    assert {b, c, d} == graph.find_modules_directly_imported_by(Module('foo'))
+    assert {b, c, d} == graph.find_modules_directly_imported_by('foo')
 
 
 def test_find_modules_that_directly_import():
     graph = NetworkXBackedImportGraph()
-    a, b, c = Module('foo'), Module('bar'), Module('baz')
-    d, e, f = Module('foo.one'), Module('bar.one'), Module('baz.one')
+    a, b, c = 'foo', 'bar', 'baz'
+    d, e, f = 'foo.one', 'bar.one', 'baz.one'
 
-    graph.add_import(DirectImport(importer=a, imported=b))
-    graph.add_import(DirectImport(importer=a, imported=c))
-    graph.add_import(DirectImport(importer=a, imported=d))
-    graph.add_import(DirectImport(importer=b, imported=e))
-    graph.add_import(DirectImport(importer=f, imported=b))
+    graph.add_import(importer=a, imported=b)
+    graph.add_import(importer=a, imported=c)
+    graph.add_import(importer=a, imported=d)
+    graph.add_import(importer=b, imported=e)
+    graph.add_import(importer=f, imported=b)
 
-    assert {a, f} == graph.find_modules_that_directly_import(Module('bar'))
+    assert {a, f} == graph.find_modules_that_directly_import('bar')
 
 
 @pytest.mark.parametrize(
     'module, as_subpackage, expected_result', (
-        (Module('foo.a'), False, {Module('foo.b'), Module('foo.c'), Module('foo.a.d'),
-                                  Module('foo.b.e')}),
-        (Module('foo.b.e'), False, set()),
-        (Module('foo.a'), True, {Module('foo.b'), Module('foo.c'), Module('foo.b.e'),
-                                 Module('foo.b.g')}),
-        (Module('foo.b.e'), True, set()),
+        ('foo.a', False, {'foo.b', 'foo.c', 'foo.a.d',
+                                  'foo.b.e'}),
+        ('foo.b.e', False, set()),
+        ('foo.a', True, {'foo.b', 'foo.c', 'foo.b.e',
+                                 'foo.b.g'}),
+        ('foo.b.e', True, set()),
     )
 )
 def test_find_downstream_modules(module, as_subpackage, expected_result):
     graph = NetworkXBackedImportGraph()
-    a, b, c = Module('foo.a'), Module('foo.b'), Module('foo.c')
-    d, e, f = Module('foo.a.d'), Module('foo.b.e'), Module('foo.a.f')
-    g = Module('foo.b.g')
+    a, b, c = 'foo.a', 'foo.b', 'foo.c'
+    d, e, f = 'foo.a.d', 'foo.b.e', 'foo.a.f'
+    g = 'foo.b.g'
 
-    graph.add_import(DirectImport(imported=a, importer=b))
-    graph.add_import(DirectImport(imported=a, importer=c))
-    graph.add_import(DirectImport(imported=c, importer=d))
-    graph.add_import(DirectImport(imported=d, importer=e))
-    graph.add_import(DirectImport(imported=f, importer=b))
-    graph.add_import(DirectImport(imported=f, importer=g))
+    graph.add_import(imported=a, importer=b)
+    graph.add_import(imported=a, importer=c)
+    graph.add_import(imported=c, importer=d)
+    graph.add_import(imported=d, importer=e)
+    graph.add_import(imported=f, importer=b)
+    graph.add_import(imported=f, importer=g)
 
     assert expected_result == graph.find_downstream_modules(
         module,
@@ -68,40 +67,39 @@ def test_find_downstream_modules(module, as_subpackage, expected_result):
 
 @pytest.mark.parametrize(
     'module, as_subpackage, expected_result', (
-        (Module('foo.d'), False, {Module('foo.d.c'), Module('foo.a')}),
-        (Module('foo.b.g'), False, set()),
-        (Module('foo.d'), True, {Module('foo.a'), Module('foo.a.f'), Module('foo.b.g')}),
-        (Module('foo.b.g'), True, set()),
+        ('foo.d', False, {'foo.d.c', 'foo.a'}),
+        ('foo.b.g', False, set()),
+        ('foo.d', True, {'foo.a', 'foo.a.f', 'foo.b.g'}),
+        ('foo.b.g', True, set()),
     )
 )
 def test_find_upstream_modules(module, as_subpackage, expected_result):
     graph = NetworkXBackedImportGraph()
-    a, b, c = Module('foo.a'), Module('foo.d.b'), Module('foo.d.c')
-    d, e, f = Module('foo.d'), Module('foo.c.e'), Module('foo.a.f')
-    g = Module('foo.b.g')
+    a, b, c = 'foo.a', 'foo.d.b', 'foo.d.c'
+    d, e, f = 'foo.d', 'foo.c.e', 'foo.a.f'
+    g = 'foo.b.g'
 
-    graph.add_import(DirectImport(imported=a, importer=b))
-    graph.add_import(DirectImport(imported=a, importer=c))
-    graph.add_import(DirectImport(imported=c, importer=d))
-    graph.add_import(DirectImport(imported=d, importer=e))
-    graph.add_import(DirectImport(imported=f, importer=b))
-    graph.add_import(DirectImport(imported=g, importer=f))
+    graph.add_import(imported=a, importer=b)
+    graph.add_import(imported=a, importer=c)
+    graph.add_import(imported=c, importer=d)
+    graph.add_import(imported=d, importer=e)
+    graph.add_import(imported=f, importer=b)
+    graph.add_import(imported=g, importer=f)
 
-    assert expected_result == graph.find_upstream_modules(module,
-                                                          as_subpackage=as_subpackage)
+    assert expected_result == graph.find_upstream_modules(module, as_subpackage=as_subpackage)
 
 
 @pytest.mark.parametrize(
     'module, expected_result', (
-        (Module('foo'), {Module('foo.a'), Module('foo.b'), Module('foo.c')}),
-        (Module('foo.a'), {Module('foo.a.one')}),
-        (Module('foo.c'), set()),
+        ('foo', {'foo.a', 'foo.b', 'foo.c'}),
+        ('foo.a', {'foo.a.one'}),
+        ('foo.c', set()),
     )
 )
 def test_find_children(module, expected_result):
     graph = NetworkXBackedImportGraph()
-    a, b, c = Module('foo.a'), Module('foo.b'), Module('foo.c')
-    d, e, f = Module('foo.a.one'), Module('foo.b.one'), Module('bar.g')
+    a, b, c = 'foo.a', 'foo.b', 'foo.c'
+    d, e, f = 'foo.a.one', 'foo.b.one', 'bar.g'
 
     for module_to_add in (a, b, c, d, e, f):
         graph.add_module(module_to_add)
@@ -111,16 +109,15 @@ def test_find_children(module, expected_result):
 
 @pytest.mark.parametrize(
     'module, expected_result', (
-        (Module('foo'), {Module('foo.a'), Module('foo.b'), Module('foo.c'),
-                         Module('foo.a.one'), Module('foo.b.one')}),
-        (Module('foo.a'), {Module('foo.a.one')}),
-        (Module('foo.c'), set()),
+        ('foo', {'foo.a', 'foo.b', 'foo.c', 'foo.a.one', 'foo.b.one'}),
+        ('foo.a', {'foo.a.one'}),
+        ('foo.c', set()),
     )
 )
 def test_find_descendants(module, expected_result):
     graph = NetworkXBackedImportGraph()
-    a, b, c = Module('foo.a'), Module('foo.b'), Module('foo.c')
-    d, e, f = Module('foo.a.one'), Module('foo.b.one'), Module('bar.g')
+    a, b, c = 'foo.a', 'foo.b', 'foo.c'
+    d, e, f = 'foo.a.one', 'foo.b.one', 'bar.g'
 
     for module_to_add in (a, b, c, d, e, f):
         graph.add_module(module_to_add)
@@ -130,20 +127,20 @@ def test_find_descendants(module, expected_result):
 
 def test_find_shortest_path_when_exists():
     graph = NetworkXBackedImportGraph()
-    a, b, c = Module('foo'), Module('bar'), Module('baz')
-    d, e, f = Module('long'), Module('way'), Module('around')
+    a, b, c = 'foo', 'bar', 'baz'
+    d, e, f = 'long', 'way', 'around'
 
     # Add short path.
-    graph.add_import(DirectImport(importer=a, imported=b))
-    graph.add_import(DirectImport(importer=b, imported=c))
+    graph.add_import(importer=a, imported=b)
+    graph.add_import(importer=b, imported=c)
 
     # Add longer path.
-    graph.add_import(DirectImport(importer=a, imported=d))
-    graph.add_import(DirectImport(importer=d, imported=e))
-    graph.add_import(DirectImport(importer=e, imported=f))
-    graph.add_import(DirectImport(importer=f, imported=c))
+    graph.add_import(importer=a, imported=d)
+    graph.add_import(importer=d, imported=e)
+    graph.add_import(importer=e, imported=f)
+    graph.add_import(importer=f, imported=c)
 
-    assert ImportPath(a, b, c) == graph.find_shortest_path(
+    assert (a, b, c) == graph.find_shortest_path(
         upstream_module=a,
         downstream_module=c,
     )
@@ -151,10 +148,10 @@ def test_find_shortest_path_when_exists():
 
 def test_find_shortest_path_returns_none_if_not_exists():
     graph = NetworkXBackedImportGraph()
-    a, b, c = Module('foo'), Module('bar'), Module('baz')
+    a, b, c = 'foo', 'bar', 'baz'
 
-    graph.add_import(DirectImport(importer=a, imported=b))
-    graph.add_import(DirectImport(importer=b, imported=c))
+    graph.add_import(importer=a, imported=b)
+    graph.add_import(importer=b, imported=c)
 
     assert None == graph.find_shortest_path(
         upstream_module=c,
@@ -166,76 +163,76 @@ def test_find_shortest_path_returns_none_if_not_exists():
     'upstream_module, downstream_module, as_subpackages, expected_result',
     (
         # as_subpackages not supplied.
-        (Module('a.one'), Module('a.two'), None, True),  # Direct import.
-        (Module('a.one'), Module('a.two.green'), None, False),  # No import.
-        (Module('a.one'), Module('a.three'), None, True),  # Indirect import.
-        (Module('c.one'), Module('b.two'), None, False),  # Downstream imports child of upstream.
-        (Module('b.one'), Module('b.two'), None, False),  # Downstream child imports upstream.
+        ('a.one', 'a.two', None, True),  # Direct import.
+        ('a.one', 'a.two.green', None, False),  # No import.
+        ('a.one', 'a.three', None, True),  # Indirect import.
+        ('c.one', 'b.two', None, False),  # Downstream imports child of upstream.
+        ('b.one', 'b.two', None, False),  # Downstream child imports upstream.
         # Downstream child imports upstream child.
-        (Module('a.one'), Module('b.two'), None, False),
+        ('a.one', 'b.two', None, False),
         # Downstream grandchild imports upstream grandchild.
-        (Module('a'), Module('b'), None, False),
+        ('a', 'b', None, False),
         # Downstream grandchild imports upstream grandchild (indirectly).
-        (Module('a'), Module('d'), True, True),
+        ('a', 'd', True, True),
         # 'Weak dependency': downstream child imports module that does not import the upstream
         # module (even directly). However another module in the intermediate subpackage *does*
         # import the upstream module.
-        (Module('e'), Module('a'), None, False),
+        ('e', 'a', None, False),
 
         # as_subpackages=False (this will be the same as the block of tests above).
-        (Module('a.one'), Module('a.two'), False, True),  # Direct import.
-        (Module('a.one'), Module('a.two.green'), False, False),  # No import.
-        (Module('a.one'), Module('a.three'), False, True),  # Indirect import.
-        (Module('c.one'), Module('b.two'), False, False),  # Downstream imports child of upstream.
-        (Module('b.one'), Module('b.two'), False, False),  # Downstream child imports upstream.
+        ('a.one', 'a.two', False, True),  # Direct import.
+        ('a.one', 'a.two.green', False, False),  # No import.
+        ('a.one', 'a.three', False, True),  # Indirect import.
+        ('c.one', 'b.two', False, False),  # Downstream imports child of upstream.
+        ('b.one', 'b.two', False, False),  # Downstream child imports upstream.
         # Downstream child imports upstream child.
-        (Module('a.one'), Module('b.two'), False, False),
+        ('a.one', 'b.two', False, False),
         # Downstream grandchild imports upstream grandchild.
-        (Module('a'), Module('b'), False, False),
+        ('a', 'b', False, False),
         # Downstream grandchild imports upstream grandchild (indirectly).
-        (Module('a'), Module('d'), True, True),
+        ('a', 'd', True, True),
         # 'Weak dependency': downstream child imports module that does not import the upstream
         # module (even directly). However another module in the intermediate subpackage *does*
         # import the upstream module.
-        (Module('e'), Module('a'), False, False),
+        ('e', 'a', False, False),
         #
         # # as_subpackages=True.
-        (Module('a.one'), Module('a.two'), True, True),  # Direct import.
-        (Module('a.one'), Module('a.two.green'), True, False),  # No import.
-        (Module('a.one'), Module('a.three'), True, True),  # Indirect import.
-        (Module('c.one'), Module('b.two'), True, True),  # Downstream imports child of upstream.
-        (Module('b.one'), Module('b.two'), True, True),  # Downstream child imports upstream.
+        ('a.one', 'a.two', True, True),  # Direct import.
+        ('a.one', 'a.two.green', True, False),  # No import.
+        ('a.one', 'a.three', True, True),  # Indirect import.
+        ('c.one', 'b.two', True, True),  # Downstream imports child of upstream.
+        ('b.one', 'b.two', True, True),  # Downstream child imports upstream.
         # Downstream child imports upstream child.
-        (Module('a.one'), Module('b.two'), True, True),
+        ('a.one', 'b.two', True, True),
         # Downstream grandchild imports upstream grandchild.
-        (Module('a'), Module('b'), True, True),
+        ('a', 'b', True, True),
         # Downstream grandchild imports upstream grandchild (indirectly).
-        (Module('a'), Module('d'), True, True),
+        ('a', 'd', True, True),
         # 'Weak dependency': downstream child imports module that does not import the upstream
         # module (even directly). However another module in the intermediate subpackage *does*
         # import the upstream module. We treat this as False as it's not really a dependency.
-        (Module('e'), Module('a'), True, False),
+        ('e', 'a', True, False),
     )
 )
 def test_path_exists(upstream_module, downstream_module, as_subpackages, expected_result):
     graph = NetworkXBackedImportGraph()
     a, a_one, a_one_green, a_two, a_two_green, a_three = (
-        Module('a'),
-        Module('a.one'),
-        Module('a.one.green'),
-        Module('a.two'),
-        Module('a.two.green'),
-        Module('a.three'),
+        'a',
+        'a.one',
+        'a.one.green',
+        'a.two',
+        'a.two.green',
+        'a.three',
     )
     b, b_one, b_two, b_two_green = (
-        Module('b'),
-        Module('b.one'),
-        Module('b.two'),
-        Module('b.two.green'),
+        'b',
+        'b.one',
+        'b.two',
+        'b.two.green',
     )
-    c, c_one, c_one_green = Module('c'), Module('c.one'), Module('c.one.green')
-    d, d_one, d_one_green = Module('d'), Module('d.one'), Module('d.one.green')
-    e, e_one = Module('e'), Module('e.one')
+    c, c_one, c_one_green = 'c', 'c.one', 'c.one.green'
+    d, d_one, d_one_green = 'd', 'd.one', 'd.one.green'
+    e, e_one = 'e', 'e.one'
 
     for module_to_add in (
         a, a_one, a_one_green, a_two, a_two_green, a_three,
@@ -246,17 +243,17 @@ def test_path_exists(upstream_module, downstream_module, as_subpackages, expecte
     ):
         graph.add_module(module_to_add)
 
-    for direct_import in (
-        DirectImport(importer=a_two, imported=a_one),
-        DirectImport(importer=c_one, imported=a_two),
-        DirectImport(importer=a_three, imported=c_one),
-        DirectImport(importer=b_two, imported=c_one_green),
-        DirectImport(importer=b_two_green, imported=b_one),
-        DirectImport(importer=b_two_green, imported=a_one_green),
-        DirectImport(importer=d_one_green, imported=b_two_green),
-        DirectImport(importer=e_one, imported=b_one),
+    for importer, imported in (
+        (a_two, a_one),
+        (c_one, a_two),
+        (a_three, c_one),
+        (b_two, c_one_green),
+        (b_two_green, b_one),
+        (b_two_green, a_one_green),
+        (d_one_green, b_two_green),
+        (e_one, b_one),
     ):
-        graph.add_import(direct_import)
+        graph.add_import(importer=importer, imported=imported)
 
     kwargs = dict(
         upstream_module=upstream_module,
@@ -270,7 +267,7 @@ def test_path_exists(upstream_module, downstream_module, as_subpackages, expecte
 
 def test_add_module():
     graph = NetworkXBackedImportGraph()
-    module = Module('foo')
+    module = 'foo'
 
     graph.add_module(module)
 
@@ -280,13 +277,13 @@ def test_add_module():
 @pytest.mark.parametrize('add_module', (True, False))
 def test_add_import(add_module):
     graph = NetworkXBackedImportGraph()
-    a, b = Module('foo'), Module('bar')
+    a, b = 'foo', 'bar'
 
     # Adding the module should make no difference to the result.
     if add_module:
         graph.add_module(a)
 
-    graph.add_import(DirectImport(importer=a, imported=b))
+    graph.add_import(importer=a, imported=b)
 
     assert {a, b} == graph.modules
     assert {b} == graph.find_modules_directly_imported_by(a)
@@ -295,11 +292,11 @@ def test_add_import(add_module):
 
 def test_remove_import():
     graph = NetworkXBackedImportGraph()
-    a, b, c = Module('foo'), Module('bar'), Module('baz')
-    graph.add_import(DirectImport(importer=a, imported=b))
-    graph.add_import(DirectImport(importer=a, imported=c))
+    a, b, c = 'foo', 'bar', 'baz'
+    graph.add_import(importer=a, imported=b)
+    graph.add_import(importer=a, imported=c)
 
-    graph.remove_import(DirectImport(importer=a, imported=b))
+    graph.remove_import(importer=a, imported=b)
 
     assert {a, b, c} == graph.modules
     assert {c} == graph.find_modules_directly_imported_by(a)
