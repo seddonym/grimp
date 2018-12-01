@@ -1,4 +1,4 @@
-from typing import Set, Tuple, Optional
+from typing import Set, Tuple, Optional, Dict, Union
 
 import networkx  # type: ignore
 import networkx.algorithms  # type: ignore
@@ -61,6 +61,21 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
 
     def find_modules_that_directly_import(self, module: str) -> Set[str]:
         return set(self._networkx_graph.predecessors(module))
+
+    def get_import_details(
+        self,
+        importer: str,
+        imported: str
+    ) -> Dict[str, Dict[str, Union[str, int]]]:
+        return {
+            'testpackage.utils': [
+                {
+                    'imported': 'testpackage.two.alpha',
+                    'line_number': 5,
+                    'line_contents': 'from .two import alpha',
+                },
+            ],
+        }
 
     # Indirect imports
     # ----------------

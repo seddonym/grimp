@@ -1,5 +1,5 @@
 import abc
-from typing import Set, Tuple, Optional
+from typing import Set, Tuple, Optional, Dict, Union, List
 
 
 class AbstractImportGraph(abc.ABC):
@@ -74,6 +74,27 @@ class AbstractImportGraph(abc.ABC):
 
     @abc.abstractmethod
     def find_modules_that_directly_import(self, module: str) -> Set[str]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_import_details(
+        self,
+        importer: str,
+        imported: str
+    ) -> Dict[str, List[Dict[str, Union[str, int]]]]:
+        """
+        Returns a dictionary of the details of the direct import between two modules, in the form:
+        {
+            'mypackage.importer': [
+                {
+                    'imported': 'mypackage.imported',
+                    'line_number': 5,
+                    'line_contents': 'from mypackage import imported',
+                },
+                (additional imports here),
+            ],
+        }
+        """
         raise NotImplementedError
 
     # Indirect imports
