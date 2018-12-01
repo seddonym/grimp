@@ -87,7 +87,9 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
         importer: str,
         imported: str
     ) -> List[Dict[str, Union[str, int]]]:
-        return self._import_details.get(importer, [])
+        import_details_for_importer = self._import_details.get(importer, [])
+        # Only include the details for the imported module.
+        return [i for i in import_details_for_importer if i['imported'] == imported]
 
     # Indirect imports
     # ----------------

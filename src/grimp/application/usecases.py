@@ -41,7 +41,11 @@ def build_graph(package_name) -> AbstractImportGraph:
     for module in modules:
         graph.add_module(module.name)
         for direct_import in import_scanner.scan_for_imports(module):
-            graph.add_import(importer=direct_import.importer.name,
-                             imported=direct_import.imported.name)
+            graph.add_import(
+                importer=direct_import.importer.name,
+                imported=direct_import.imported.name,
+                line_number=direct_import.line_number,
+                line_contents=direct_import.line_contents,
+            )
 
     return graph

@@ -126,15 +126,14 @@ def test_direct_import_exists():
 
 def test_get_import_details():
     graph = build_graph('testpackage')
-    expected_import_details = {
-        'testpackage.utils': [
-            {
-                'imported': 'testpackage.two.alpha',
-                'line_number': 5,
-                'line_contents': 'from .two import alpha',
-            },
-        ],
-    }
+    expected_import_details = [
+        {
+            'importer': 'testpackage.utils',
+            'imported': 'testpackage.two.alpha',
+            'line_number': 5,
+            'line_contents': 'from .two import alpha',
+        },
+    ]
     assert expected_import_details == graph.get_import_details(
         importer='testpackage.utils',
         imported='testpackage.two.alpha',

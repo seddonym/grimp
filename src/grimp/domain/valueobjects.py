@@ -7,7 +7,7 @@ class ValueObject:
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, self.__class__):
-            return str(self) == str(other)
+            return hash(self) == hash(other)
         else:
             return False
 
@@ -44,12 +44,21 @@ class DirectImport(ValueObject):
     """
     An import between one module and another.
     """
-    def __init__(self, importer: Module, imported: Module) -> None:
+    def __init__(
+        self, *,
+        importer: Module, imported: Module,
+        line_number: int, line_contents: str,
+    ) -> None:
         self.importer = importer
         self.imported = imported
+        self.line_number = line_number
+        self.line_contents = line_contents
 
     def __str__(self) -> str:
-        return "{} -> {}".format(self.importer, self.imported)
+        return "{} -> {} (l. {})".format(self.importer, self.imported, self.line_number)
+
+    def __hash__(self) -> int:
+        return hash((str(self), self.line_contents))
 
 
 class ImportPath(ValueObject):
