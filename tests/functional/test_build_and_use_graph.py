@@ -147,12 +147,12 @@ def test_get_import_details():
 def test_path_exists():
     graph = build_graph('testpackage')
 
-    assert graph.path_exists(
+    assert not graph.path_exists(
         upstream_module='testpackage.utils',
         downstream_module='testpackage.one.alpha',
     )
 
-    assert not graph.path_exists(
+    assert graph.path_exists(
         upstream_module='testpackage.one.alpha',
         downstream_module='testpackage.utils',
     )

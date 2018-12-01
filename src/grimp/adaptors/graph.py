@@ -1,7 +1,7 @@
 from typing import Set, Tuple, Optional
 
 import networkx  # type: ignore
-from networkx.algorithms import shortest_path, has_path  # type: ignore
+import networkx.algorithms  # type: ignore
 
 from grimp.application.ports import graph
 from grimp.domain.valueobjects import Module, ImportPath
@@ -75,7 +75,7 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
 
         for candidate in filter(lambda m: m not in source_modules, self.modules):
             for source_module in source_modules:
-                if has_path(self._networkx_graph, candidate, source_module):
+                if networkx.algorithms.has_path(self._networkx_graph, candidate, source_module):
                     downstream_modules.add(candidate)
                     break
 
@@ -93,7 +93,11 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
 
         for candidate in filter(lambda m: m not in destination_modules, self.modules):
             for destination_module in destination_modules:
-                if has_path(self._networkx_graph, destination_module, candidate):
+                if networkx.algorithms.has_path(
+                    self._networkx_graph,
+                    destination_module,
+                    candidate
+                ):
                     upstream_modules.add(candidate)
                     break
 
@@ -103,9 +107,9 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
         self, upstream_module: str, downstream_module: str,
     ) -> Optional[Tuple[str, ...]]:
         try:
-            return tuple(shortest_path(self._networkx_graph,
-                                       source=upstream_module,
-                                       target=downstream_module))
+            return tuple(networkx.algorithms.shortest_path(self._networkx_graph,
+                                                           source=upstream_module,
+                                                           target=downstream_module))
         except networkx.NetworkXNoPath:
             return None
 
@@ -113,9 +117,9 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
             self, upstream_module: str, downstream_module: str, as_subpackages=False,
     ) -> bool:
         if not as_subpackages:
-            return has_path(self._networkx_graph,
-                            source=downstream_module,
-                            target=upstream_module)
+            return networkx.algorithms.has_path(self._networkx_graph,
+                                                source=downstream_module,
+                                                target=upstream_module)
 
         upstream_modules = {upstream_module} | self.find_descendants(upstream_module)
         downstream_modules = {downstream_module} | self.find_descendants(downstream_module)
