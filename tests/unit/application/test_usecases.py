@@ -2,7 +2,6 @@ from grimp.application import usecases
 from grimp.domain.valueobjects import Module
 
 from tests.adaptors.filesystem import FakeFileSystem
-from tests.adaptors.importscanner import BaseFakeImportScanner
 from tests.adaptors.packagefinder import BaseFakePackageFinder
 from tests.config import override_settings
 
@@ -20,18 +19,12 @@ class TestBuildGraph:
                             __init__.py
                             green.py
                             blue.py        
-            """
-        )
-
-        class FakeImportScanner(BaseFakeImportScanner):
-            import_map = {
-                Module('mypackage'): set(),
-                Module('mypackage.foo'): set(),
-                Module('mypackage.foo.one'): {Module('mypackage.foo.two.green')},
-                Module('mypackage.foo.two'): set(),
-                Module('mypackage.foo.two.green'): {Module('mypackage.foo.two.blue')},
-                Module('mypackage.foo.two.blue'): set(),
+            """,
+            content_map={
+                '/path/to/mypackage/foo/one.py': 'import mypackage.foo.two.green',
+                '/path/to/mypackage/foo/two/green.py': 'import mypackage.foo.two.blue',
             }
+        )
 
         class FakePackageFinder(BaseFakePackageFinder):
             directory_map = {
@@ -40,12 +33,20 @@ class TestBuildGraph:
 
         with override_settings(
             FILE_SYSTEM=file_system,
-            IMPORT_SCANNER_CLASS=FakeImportScanner,
             PACKAGE_FINDER=FakePackageFinder(),
         ):
             graph = usecases.build_graph('mypackage')
 
-        assert set([m.name for m in FakeImportScanner.import_map.keys()]) == graph.modules
-        for module, imported_modules in FakeImportScanner.import_map.items():
-            imported_module_names = set(m.name for m in imported_modules)
-            assert graph.find_modules_directly_imported_by(module.name) == imported_module_names
+        expected_import_map = {
+            'mypackage': set(),
+            'mypackage.foo': set(),
+            'mypackage.foo.one': {'mypackage.foo.two.green'},
+            'mypackage.foo.two': set(),
+            'mypackage.foo.two.green': {'mypackage.foo.two.blue'},
+            'mypackage.foo.two.blue': set(),
+        }
+
+        assert set(expected_import_map.keys()) == graph.modules
+        for importer, imported_modules in expected_import_map.items():
+            result = graph.find_modules_directly_imported_by(importer)
+            assert graph.find_modules_directly_imported_by(importer) == imported_modules

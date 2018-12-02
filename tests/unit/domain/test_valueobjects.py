@@ -31,28 +31,101 @@ class TestModule:
 class TestDirectImport:
     def test_repr(self):
         import_path = DirectImport(
-            importer=Module('foo'), imported=Module('bar')
+            importer=Module('foo'), imported=Module('bar'),
+            line_number=10, line_contents='import bar',
         )
-        assert repr(import_path) == '<DirectImport: foo -> bar>'
+        assert repr(import_path) == '<DirectImport: foo -> bar (l. 10)>'
 
     def test_equals(self):
-        a = DirectImport(importer=Module('foo'), imported=Module('bar'))
-        b = DirectImport(importer=Module('foo'), imported=Module('bar'))
-        c = DirectImport(importer=Module('foo'), imported=Module('foo.baz'))
+        a = DirectImport(
+            importer=Module('foo'),
+            imported=Module('bar'),
+            line_number=10,
+            line_contents='import bar',
+        )
+        b = DirectImport(
+            importer=Module('foo'),
+            imported=Module('bar'),
+            line_number=10,
+            line_contents='import bar',
+        )
+        c = DirectImport(
+            importer=Module('foo'),
+            imported=Module('baz'),
+            line_number=10,
+            line_contents='import bar',
+        )
+        d = DirectImport(
+            importer=Module('foobar'),
+            imported=Module('bar'),
+            line_number=10,
+            line_contents='import bar',
+        )
+        e = DirectImport(
+            importer=Module('foo'),
+            imported=Module('bar'),
+            line_number=11,
+            line_contents='import bar',
+        )
+        f = DirectImport(
+            importer=Module('foo'),
+            imported=Module('bar'),
+            line_number=10,
+            line_contents='from . import bar',
+        )
 
         assert a == b
         assert a != c
+        assert a != d
+        assert a != e
+        assert a != f
         # Also non-DirectImport instances should not be treated as equal.
         assert a != 'foo'
 
 
     def test_hash(self):
-        a = DirectImport(importer=Module('foo'), imported=Module('bar'))
-        b = DirectImport(importer=Module('foo'), imported=Module('bar'))
-        c = DirectImport(importer=Module('bar'), imported=Module('foo'))
+        a = DirectImport(
+            importer=Module('foo'),
+            imported=Module('bar'),
+            line_number=10,
+            line_contents='import bar',
+        )
+        b = DirectImport(
+            importer=Module('foo'),
+            imported=Module('bar'),
+            line_number=10,
+            line_contents='import bar',
+        )
+        c = DirectImport(
+            importer=Module('foo'),
+            imported=Module('baz'),
+            line_number=10,
+            line_contents='import bar',
+        )
+        d = DirectImport(
+            importer=Module('foobar'),
+            imported=Module('bar'),
+            line_number=10,
+            line_contents='import bar',
+        )
+        e = DirectImport(
+            importer=Module('foo'),
+            imported=Module('bar'),
+            line_number=11,
+            line_contents='import bar',
+        )
+        f = DirectImport(
+            importer=Module('foo'),
+            imported=Module('bar'),
+            line_number=10,
+            line_contents='from . import bar',
+        )
 
         assert hash(a) == hash(b)
         assert hash(a) != hash(c)
+        assert hash(a) != hash(d)
+        assert hash(a) != hash(e)
+        assert hash(a) != hash(f)
 
 
 class TestImportPath:

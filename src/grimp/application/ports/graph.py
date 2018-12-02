@@ -1,5 +1,5 @@
 import abc
-from typing import Set, Tuple, Optional
+from typing import Set, Tuple, Optional, Dict, Union, List
 
 
 class AbstractImportGraph(abc.ABC):
@@ -8,6 +8,7 @@ class AbstractImportGraph(abc.ABC):
     """
     # Mechanics
     # ---------
+
     @property
     @abc.abstractmethod
     def modules(self) -> Set[str]:
@@ -24,7 +25,13 @@ class AbstractImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def add_import(self, *, importer: str, imported: str) -> None:
+    def add_import(
+            self, *,
+            importer: str,
+            imported: str,
+            line_number: Optional[int] = None,
+            line_contents: Optional[str] = None
+    ) -> None:
         """
         Add a direct import between two modules to the graph. If the modules are not already
         present, they will be added to the graph.
@@ -61,12 +68,43 @@ class AbstractImportGraph(abc.ABC):
     # --------------
 
     @abc.abstractmethod
+    def direct_import_exists(self, *, importer: str, imported: str) -> bool:
+        """
+        Whether or not the importer module directly imports the imported module.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def find_modules_directly_imported_by(self, module: str) -> Set[str]:
         raise NotImplementedError
 
     @abc.abstractmethod
     def find_modules_that_directly_import(self, module: str) -> Set[str]:
         raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_import_details(
+        self,
+        *,
+        importer: str,
+        imported: str
+    ) -> List[Dict[str, Union[str, int]]]:
+        """
+        Returns a list of the details of every direct import between two modules, in the form:
+        [
+            {
+                'importer': 'mypackage.importer',
+                'imported': 'mypackage.imported',
+                'line_number': 5,
+                'line_contents': 'from mypackage import imported',
+            },
+            (additional imports here)
+        ]
+        """
+        raise NotImplementedError
+
+    # Indirect imports
+    # ----------------
 
     @abc.abstractmethod
     def find_downstream_modules(
@@ -108,9 +146,6 @@ class AbstractImportGraph(abc.ABC):
                            the subpackage.
         """
         raise NotImplementedError
-
-    # Indirect imports
-    # ----------------
 
     @abc.abstractmethod
     def find_shortest_path(

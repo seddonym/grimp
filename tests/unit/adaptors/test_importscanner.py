@@ -29,7 +29,12 @@ def test_absolute_imports():
     result = import_scanner.scan_for_imports(Module('foo.one'))
 
     assert result == {
-        DirectImport(importer=Module('foo.one'), imported=Module('foo.two'))
+        DirectImport(
+            importer=Module('foo.one'),
+            imported=Module('foo.two'),
+            line_number=1,
+            line_contents='import foo.two',
+        )
     }
 
 
@@ -74,9 +79,24 @@ def test_absolute_from_imports():
     result = import_scanner.scan_for_imports(Module('foo.one.blue'))
 
     assert result == {
-        DirectImport(importer=Module('foo.one.blue'), imported=Module('foo.one.green')),
-        DirectImport(importer=Module('foo.one.blue'), imported=Module('foo.two.yellow')),
-        DirectImport(importer=Module('foo.one.blue'), imported=Module('foo.three')),
+        DirectImport(
+            importer=Module('foo.one.blue'),
+            imported=Module('foo.one.green'),
+            line_number=1,
+            line_contents='from foo.one import green',
+        ),
+        DirectImport(
+            importer=Module('foo.one.blue'),
+            imported=Module('foo.two.yellow'),
+            line_number=2,
+            line_contents='from foo.two import yellow',
+        ),
+        DirectImport(
+            importer=Module('foo.one.blue'),
+            imported=Module('foo.three'),
+            line_number=3,
+            line_contents='from foo import three',
+        ),
     }
 
 
@@ -121,7 +141,106 @@ def test_relative_from_imports():
     result = import_scanner.scan_for_imports(Module('foo.one.blue'))
 
     assert result == {
-        DirectImport(importer=Module('foo.one.blue'), imported=Module('foo.one.green')),
-        DirectImport(importer=Module('foo.one.blue'), imported=Module('foo.two.yellow')),
-        DirectImport(importer=Module('foo.one.blue'), imported=Module('foo.three')),
+        DirectImport(
+            importer=Module('foo.one.blue'),
+            imported=Module('foo.one.green'),
+            line_number=1,
+            line_contents='from . import green',
+        ),
+        DirectImport(
+            importer=Module('foo.one.blue'),
+            imported=Module('foo.two.yellow'),
+            line_number=2,
+            line_contents='from ..two import yellow',
+        ),
+        DirectImport(
+            importer=Module('foo.one.blue'),
+            imported=Module('foo.three'),
+            line_number=3,
+            line_contents='from .. import three',
+        ),
+    }
+
+
+@pytest.mark.parametrize(
+    'import_source', (
+        'from .two.yellow import my_function',
+        'from foo.two.yellow import my_function',
+    )
+)
+def test_trims_to_known_modules(import_source):
+    all_modules = {
+        Module('foo'),
+        Module('foo.one'),
+        Module('foo.two'),
+        Module('foo.two.yellow'),
+    }
+    file_system = FakeFileSystem(
+        contents="""
+                /path/to/foo/
+                    __init__.py
+                    one.py
+                    two/
+                        __init__.py
+                        yellow.py
+            """,
+        content_map={
+            '/path/to/foo/one.py': import_source,
+        }
+    )
+
+    import_scanner = ImportScanner(
+        modules=all_modules,
+        package_directory='/path/to/foo',
+        file_system=file_system,
+    )
+
+    result = import_scanner.scan_for_imports(Module('foo.one'))
+
+    assert result == {
+        DirectImport(
+            importer=Module('foo.one'),
+            imported=Module('foo.two.yellow'),
+            line_number=1,
+            line_contents=import_source,
+        ),
+    }
+
+
+def test_trims_whitespace_from_start_of_line_contents():
+    all_modules = {
+        Module('foo'),
+        Module('foo.one'),
+        Module('foo.two'),
+    }
+    file_system = FakeFileSystem(
+        contents="""
+                    /path/to/foo/
+                        __init__.py
+                        one.py
+                        two.py
+                """,
+        content_map={
+            '/path/to/foo/one.py': """
+            def my_function():
+                from . import two
+            """,
+        }
+    )
+
+    import_scanner = ImportScanner(
+        modules=all_modules,
+        package_directory='/path/to/foo',
+        file_system=file_system,
+    )
+
+    result = import_scanner.scan_for_imports(Module('foo.one'))
+
+    assert result == {
+        DirectImport(
+            importer=Module('foo.one'),
+            imported=Module('foo.two'),
+            line_number=2,
+            line_contents='from . import two',
+        ),
     }
