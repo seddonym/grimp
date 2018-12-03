@@ -1,7 +1,6 @@
 from typing import Set, List
 import ast
 
-from grimp.application.ports.filesystem import AbstractFileSystem
 from grimp.application.ports.importscanner import AbstractImportScanner
 from grimp.domain.valueobjects import Module, DirectImport
 

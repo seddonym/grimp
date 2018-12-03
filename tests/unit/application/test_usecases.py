@@ -1,5 +1,4 @@
 from grimp.application import usecases
-from grimp.domain.valueobjects import Module
 
 from tests.adaptors.filesystem import FakeFileSystem
 from tests.adaptors.packagefinder import BaseFakePackageFinder
@@ -18,7 +17,7 @@ class TestBuildGraph:
                         two/
                             __init__.py
                             green.py
-                            blue.py        
+                            blue.py
             """,
             content_map={
                 '/path/to/mypackage/foo/one.py': 'import mypackage.foo.two.green',
@@ -48,5 +47,4 @@ class TestBuildGraph:
 
         assert set(expected_import_map.keys()) == graph.modules
         for importer, imported_modules in expected_import_map.items():
-            result = graph.find_modules_directly_imported_by(importer)
             assert graph.find_modules_directly_imported_by(importer) == imported_modules

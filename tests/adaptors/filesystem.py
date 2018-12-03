@@ -61,7 +61,6 @@ class FakeFileSystem(AbstractFileSystem):
     def _walk_contents(
         self, directory_contents: Dict[str, Any], containing_directory: str
     ) -> Tuple[str, List[str], List[str]]:
-        tuples = []
 
         directories = []
         files = []
@@ -120,7 +119,7 @@ class FakeFileSystem(AbstractFileSystem):
             yamlified_lines.append(yamlified_line)
 
         yamlified_string = '\n'.join(yamlified_lines)
-        
+
         return yaml.load(yamlified_string)
 
     def _dedent(self, lines: List[str]) -> List[str]:

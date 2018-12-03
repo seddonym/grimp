@@ -82,7 +82,6 @@ class TestDirectImport:
         # Also non-DirectImport instances should not be treated as equal.
         assert a != 'foo'
 
-
     def test_hash(self):
         a = DirectImport(
             importer=Module('foo'),
