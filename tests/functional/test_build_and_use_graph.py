@@ -96,79 +96,55 @@ def test_find_descendants():
 # Direct imports
 # --------------
 
-@pytest.mark.parametrize(
-    'as_package, expected_result', (
-        (True, {'todo'}),
-        (False, {
-            'testpackage.one', 'testpackage.two.alpha',
-        }),
-    )
-)
-def test_find_modules_directly_imported_by(as_package, expected_result):
+def test_find_modules_directly_imported_by():
     graph = build_graph('testpackage')
 
-    result = graph.find_modules_directly_imported_by('testpackage.utils', as_package=as_package)
+    result = graph.find_modules_directly_imported_by('testpackage.utils')
     
-    assert expected_result == result
+    assert {
+        'testpackage.one', 'testpackage.two.alpha',
+    } == result
 
 
-@pytest.mark.parametrize(
-    'as_package, expected_result', (
-        (True, {'todo'}),
-        (False, {
-            'testpackage.one.beta',
-            'testpackage.two.alpha',
-            'testpackage.two.beta'
-        }),
-    )
-)
-def test_find_modules_that_directly_import(as_package, expected_result):
+def test_find_modules_that_directly_import():
     graph = build_graph('testpackage')
 
     result = graph.find_modules_that_directly_import(
-        'testpackage.one.alpha',
-        as_package=as_package)
+        'testpackage.one.alpha')
     
-    assert expected_result == result
+    assert {
+        'testpackage.one.beta',
+        'testpackage.two.alpha',
+        'testpackage.two.beta'
+    } == result
 
 
-class TestDirectImportExists:
-    def test_as_packages_false(self):
-        graph = build_graph('testpackage')
-    
-        assert False is graph.direct_import_exists(
-            importer='testpackage.one.alpha',
-            imported='testpackage.two.alpha',
-        )
-        assert True is graph.direct_import_exists(
-            importer='testpackage.two.alpha',
-            imported='testpackage.one.alpha',
-        )
+def test_direct_import_exists():
+    graph = build_graph('testpackage')
 
-    def test_as_packages_true(self):
-        assert False
-
-
-@pytest.mark.parametrize(
-    'as_packages, expected_result', (
-        (True, {'todo'}),
-        (False, [
-            {
-                'importer': 'testpackage.utils',
-                'imported': 'testpackage.two.alpha',
-                'line_number': 5,
-                'line_contents': 'from .two import alpha',
-            },
-        ]),
+    assert False is graph.direct_import_exists(
+        importer='testpackage.one.alpha',
+        imported='testpackage.two.alpha',
     )
-)
-def test_get_import_details(as_packages, expected_result):
+    assert True is graph.direct_import_exists(
+        importer='testpackage.two.alpha',
+        imported='testpackage.one.alpha',
+    )
+
+
+def test_get_import_details():
     graph = build_graph('testpackage')
     
-    assert expected_result == graph.get_import_details(
+    assert [
+        {
+            'importer': 'testpackage.utils',
+            'imported': 'testpackage.two.alpha',
+            'line_number': 5,
+            'line_contents': 'from .two import alpha',
+        }
+    ] == graph.get_import_details(
         importer='testpackage.utils',
         imported='testpackage.two.alpha',
-        as_packages=as_packages,
     )
 
 
