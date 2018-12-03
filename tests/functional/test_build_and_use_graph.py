@@ -205,26 +205,16 @@ class TestPathExists:
         )
 
 
-@pytest.mark.parametrize(
-    'as_packages, expected_result',
-    (
-        (True, {'TODO'}),
-        (False,
-            (
-                'testpackage.utils',
-                'testpackage.two.alpha',
-                'testpackage.one.alpha',
-            )
-        )
-    )
-)
-def test_find_shortest_path(as_packages, expected_result):
+def test_find_shortest_path():
     graph = build_graph('testpackage')
 
-    assert expected_result == graph.find_shortest_path(
+    assert (
+        'testpackage.utils',
+        'testpackage.two.alpha',
+        'testpackage.one.alpha',
+    ) == graph.find_shortest_path(
         upstream_module='testpackage.utils',
         downstream_module='testpackage.one.alpha',
-        as_packages=as_packages,
     )
 
 
