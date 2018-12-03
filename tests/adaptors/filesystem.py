@@ -1,4 +1,4 @@
-from typing import List, Tuple, Any, Dict
+from typing import List, Tuple, Any, Dict, Optional, Generator
 
 import yaml
 
@@ -60,7 +60,7 @@ class FakeFileSystem(AbstractFileSystem):
 
     def _walk_contents(
         self, directory_contents: Dict[str, Any], containing_directory: str
-    ) -> Tuple[str, List[str], List[str]]:
+    ) -> Generator[Tuple[str, List[str], List[str]], None, None]:
 
         directories = []
         files = []
@@ -79,14 +79,14 @@ class FakeFileSystem(AbstractFileSystem):
                     containing_directory=self.join(containing_directory, directory),
                 )
 
-    def join(self, *components: List[str]) -> str:
+    def join(self, *components: str) -> str:
         return '/'.join(components)
 
-    def split(self, file_name: str) -> List[str]:
+    def split(self, file_name: str) -> Tuple[str, str]:
         components = file_name.split('/')
         return ('/'.join(components[:-1]), components[-1])
 
-    def _parse_contents(self, raw_contents: str):
+    def _parse_contents(self, raw_contents: Optional[str]):
         """
         Returns the raw contents parsed in the form:
             {
@@ -129,7 +129,7 @@ class FakeFileSystem(AbstractFileSystem):
         first_line = lines[0]
         first_line_indent = len(first_line) - len(first_line.lstrip())
         dedented = lambda line: line[first_line_indent:]
-        return map(dedented, lines)
+        return list(map(dedented, lines))
 
     def read(self, file_name: str) -> str:
         if not self._file_exists(file_name):

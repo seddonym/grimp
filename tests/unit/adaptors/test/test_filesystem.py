@@ -1,6 +1,6 @@
 from copy import copy
 
-import pytest
+import pytest  # type: ignore
 
 from tests.adaptors.filesystem import FakeFileSystem
 

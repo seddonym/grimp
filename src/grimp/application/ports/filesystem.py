@@ -1,4 +1,4 @@
-from typing import List
+from typing import Tuple
 import abc
 
 
@@ -26,11 +26,11 @@ class AbstractFileSystem(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def join(self, *components: List[str]) -> str:
+    def join(self, *components: str) -> str:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def split(self, file_name: str) -> List[str]:
+    def split(self, file_name: str) -> Tuple[str, str]:
         """
         Split the pathname path into a pair, (head, tail) where tail is the last pathname component
         and head is everything leading up to that. The tail part will never contain a slash;

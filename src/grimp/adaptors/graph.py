@@ -1,4 +1,4 @@
-from typing import Set, Tuple, Optional, Dict, Union, List
+from typing import Set, Tuple, Optional, Dict, Union, List, Any
 
 import networkx  # type: ignore
 import networkx.algorithms  # type: ignore
@@ -14,7 +14,7 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
     def __init__(self) -> None:
         self._networkx_graph = networkx.DiGraph()
         # Instantiate a dict that stores the details for all direct imports.
-        self._import_details = {}
+        self._import_details: Dict[str, List[Dict[str, Any]]] = {}
 
     # Mechanics
     # ---------
