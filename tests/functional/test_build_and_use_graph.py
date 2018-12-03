@@ -217,28 +217,32 @@ def test_find_shortest_path(as_packages, expected_result):
     )
 
 
-@pytest.mark.parametrize(
-    'as_package, expected_result',
-    (
-        (True, {'TODO'}),
-        (False,
-            {
-                'testpackage.one.beta',
-                'testpackage.one.gamma',
-                'testpackage.two.alpha',
-                'testpackage.two.beta',
-                'testpackage.two.gamma',
-                'testpackage.utils',
-            }
-        )
-    )
-)
-def test_find_downstream_modules(as_package, expected_result):
-    graph = build_graph('testpackage')
+class TestFindDownstreamModules:
+    def test_as_package_false(self):
+        graph = build_graph('testpackage')
 
-    result = graph.find_downstream_modules('testpackage.one.alpha', as_package=as_package)
+        result = graph.find_downstream_modules('testpackage.one.alpha')
 
-    assert expected_result == result
+        assert {
+            'testpackage.one.beta',
+            'testpackage.one.gamma',
+            'testpackage.two.alpha',
+            'testpackage.two.beta',
+            'testpackage.two.gamma',
+            'testpackage.utils',
+        } == result
+
+    def test_as_package_true(self):
+        graph = build_graph('testpackage')
+
+        result = graph.find_downstream_modules('testpackage.one', as_package=True)
+
+        assert {
+           'testpackage.two.alpha',
+           'testpackage.two.beta',
+           'testpackage.two.gamma',
+           'testpackage.utils',
+        } == result
 
 
 class TestFindUpstreamModules:
@@ -254,4 +258,10 @@ class TestFindUpstreamModules:
         }
     
     def test_as_package_true(self):
-        assert False
+        graph = build_graph('testpackage')
+
+        assert graph.find_upstream_modules('testpackage.two', as_package=True) == {
+            'testpackage.one.alpha',
+            'testpackage.utils',
+            'testpackage.one',
+        }
