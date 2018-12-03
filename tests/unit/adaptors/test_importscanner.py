@@ -1,4 +1,4 @@
-import pytest
+import pytest  # type: ignore
 
 from grimp.adaptors.importscanner import ImportScanner
 from grimp.domain.valueobjects import DirectImport, Module

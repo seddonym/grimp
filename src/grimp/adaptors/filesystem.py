@@ -1,4 +1,4 @@
-from typing import List
+from typing import Tuple
 import os
 
 from grimp.application.ports.filesystem import AbstractFileSystem
@@ -14,10 +14,10 @@ class FileSystem(AbstractFileSystem):
     def walk(self, directory_name):
         yield from os.walk(directory_name)
 
-    def join(self, *components: List[str]) -> str:
+    def join(self, *components: str) -> str:
         return os.path.join(*components)
 
-    def split(self, file_name: str) -> List[str]:
+    def split(self, file_name: str) -> Tuple[str, str]:
         return os.path.split(file_name)
 
     def read(self, file_name: str) -> str:

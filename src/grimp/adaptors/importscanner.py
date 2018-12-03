@@ -13,7 +13,7 @@ class ImportScanner(AbstractImportScanner):
         because you can't know whether "from foo.bar import baz" is importing a module
         called  `baz`, or a function `baz` from the module `bar`.)
         """
-        direct_imports = set()
+        direct_imports: Set[DirectImport] = set()
 
         module_contents = self._read_module_contents(module)
         module_lines = module_contents.splitlines()
