@@ -94,10 +94,10 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
     # Indirect imports
     # ----------------
 
-    def find_downstream_modules(self, module: str, as_subpackage: bool = False) -> Set[str]:
-        # TODO optimise for as_subpackage.
+    def find_downstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
+        # TODO optimise for as_package.
         source_modules = {module}
-        if as_subpackage:
+        if as_package:
             source_modules.update(self.find_descendants(module))
 
         downstream_modules = set()
@@ -111,11 +111,11 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
         return downstream_modules
 
     def find_upstream_modules(
-        self, module: str, as_subpackage: bool = False
+        self, module: str, as_package: bool = False
     ) -> Set[str]:
-        # TODO optimise for as_subpackage.
+        # TODO optimise for as_package.
         destination_modules = {module}
-        if as_subpackage:
+        if as_package:
             destination_modules.update(self.find_descendants(module))
 
         upstream_modules = set()
@@ -143,9 +143,9 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
             return None
 
     def path_exists(
-            self, upstream_module: str, downstream_module: str, as_subpackages=False,
+            self, upstream_module: str, downstream_module: str, as_packages=False,
     ) -> bool:
-        if not as_subpackages:
+        if not as_packages:
             return networkx.algorithms.has_path(self._networkx_graph,
                                                 source=downstream_module,
                                                 target=upstream_module)

@@ -38,7 +38,7 @@ def test_find_modules_that_directly_import():
 
 
 @pytest.mark.parametrize(
-    'module, as_subpackage, expected_result', (
+    'module, as_package, expected_result', (
         ('foo.a', False, {'foo.b', 'foo.c', 'foo.a.d',
                                   'foo.b.e'}),
         ('foo.b.e', False, set()),
@@ -47,7 +47,7 @@ def test_find_modules_that_directly_import():
         ('foo.b.e', True, set()),
     )
 )
-def test_find_downstream_modules(module, as_subpackage, expected_result):
+def test_find_downstream_modules(module, as_package, expected_result):
     graph = NetworkXBackedImportGraph()
     a, b, c = 'foo.a', 'foo.b', 'foo.c'
     d, e, f = 'foo.a.d', 'foo.b.e', 'foo.a.f'
@@ -62,19 +62,19 @@ def test_find_downstream_modules(module, as_subpackage, expected_result):
 
     assert expected_result == graph.find_downstream_modules(
         module,
-        as_subpackage=as_subpackage,
+        as_package=as_package,
     )
 
 
 @pytest.mark.parametrize(
-    'module, as_subpackage, expected_result', (
+    'module, as_package, expected_result', (
         ('foo.d', False, {'foo.d.c', 'foo.a'}),
         ('foo.b.g', False, set()),
         ('foo.d', True, {'foo.a', 'foo.a.f', 'foo.b.g'}),
         ('foo.b.g', True, set()),
     )
 )
-def test_find_upstream_modules(module, as_subpackage, expected_result):
+def test_find_upstream_modules(module, as_package, expected_result):
     graph = NetworkXBackedImportGraph()
     a, b, c = 'foo.a', 'foo.d.b', 'foo.d.c'
     d, e, f = 'foo.d', 'foo.c.e', 'foo.a.f'
@@ -87,7 +87,7 @@ def test_find_upstream_modules(module, as_subpackage, expected_result):
     graph.add_import(imported=f, importer=b)
     graph.add_import(imported=g, importer=f)
 
-    assert expected_result == graph.find_upstream_modules(module, as_subpackage=as_subpackage)
+    assert expected_result == graph.find_upstream_modules(module, as_package=as_package)
 
 
 @pytest.mark.parametrize(
@@ -161,9 +161,9 @@ def test_find_shortest_path_returns_none_if_not_exists():
 
 
 @pytest.mark.parametrize(
-    'upstream_module, downstream_module, as_subpackages, expected_result',
+    'upstream_module, downstream_module, as_packages, expected_result',
     (
-        # as_subpackages not supplied.
+        # as_packages not supplied.
         ('a.one', 'a.two', None, True),  # Direct import.
         ('a.one', 'a.two.green', None, False),  # No import.
         ('a.one', 'a.three', None, True),  # Indirect import.
@@ -180,7 +180,7 @@ def test_find_shortest_path_returns_none_if_not_exists():
         # import the upstream module.
         ('e', 'a', None, False),
 
-        # as_subpackages=False (this will be the same as the block of tests above).
+        # as_packages=False (this will be the same as the block of tests above).
         ('a.one', 'a.two', False, True),  # Direct import.
         ('a.one', 'a.two.green', False, False),  # No import.
         ('a.one', 'a.three', False, True),  # Indirect import.
@@ -197,7 +197,7 @@ def test_find_shortest_path_returns_none_if_not_exists():
         # import the upstream module.
         ('e', 'a', False, False),
         #
-        # # as_subpackages=True.
+        # # as_packages=True.
         ('a.one', 'a.two', True, True),  # Direct import.
         ('a.one', 'a.two.green', True, False),  # No import.
         ('a.one', 'a.three', True, True),  # Indirect import.
@@ -215,7 +215,7 @@ def test_find_shortest_path_returns_none_if_not_exists():
         ('e', 'a', True, False),
     )
 )
-def test_path_exists(upstream_module, downstream_module, as_subpackages, expected_result):
+def test_path_exists(upstream_module, downstream_module, as_packages, expected_result):
     graph = NetworkXBackedImportGraph()
     a, a_one, a_one_green, a_two, a_two_green, a_three = (
         'a',
@@ -260,8 +260,8 @@ def test_path_exists(upstream_module, downstream_module, as_subpackages, expecte
         upstream_module=upstream_module,
         downstream_module=downstream_module,
     )
-    if as_subpackages is not None:
-        kwargs['as_subpackages'] = as_subpackages
+    if as_packages is not None:
+        kwargs['as_packages'] = as_packages
 
     assert expected_result == graph.path_exists(**kwargs)
 

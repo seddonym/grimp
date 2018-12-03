@@ -108,14 +108,14 @@ class AbstractImportGraph(abc.ABC):
 
     @abc.abstractmethod
     def find_downstream_modules(
-        self, module: str, as_subpackage: bool = False
+        self, module: str, as_package: bool = False
     ) -> Set[str]:
         """
         Return a set of the names of all the modules that import (even indirectly) the
         supplied module name.
         Args:
             module:        The absolute name of the upstream Module.
-            as_subpackage: Whether or not to treat the supplied module as an individual module,
+            as_package: Whether or not to treat the supplied module as an individual module,
                            or as an entire subpackage (including any descendants). If
                            treating it as a subpackage, the result will include downstream
                            modules *external* to the subpackage, and won't include modules within
@@ -127,20 +127,20 @@ class AbstractImportGraph(abc.ABC):
 
             # Returns the modules downstream of mypackage.foo, mypackage.foo.one and
             # mypackage.foo.two.
-            import_graph.find_downstream_modules('mypackage.foo', as_subpackage=True,)
+            import_graph.find_downstream_modules('mypackage.foo', as_package=True,)
         """
         raise NotImplementedError
 
     @abc.abstractmethod
-    def find_upstream_modules(self, module: str, as_subpackage: bool = False) -> Set[str]:
+    def find_upstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
         """
         Return a set of the names of all the modules that are imported (even indirectly) by the
         supplied module.
 
         Args:
             module:        The name of the downstream module.
-            as_subpackage: Whether or not to treat the supplied module as an individual module,
-                           or as an entire subpackage (including any descendants). If
+            as_package:    Whether or not to treat the supplied module as an individual module,
+                           or as a package (i.e. including any descendants, if there ary any). If
                            treating it as a subpackage, the result will include upstream
                            modules *external* to the subpackage, and won't include modules within
                            the subpackage.
@@ -161,16 +161,16 @@ class AbstractImportGraph(abc.ABC):
 
     @abc.abstractmethod
     def path_exists(
-            self, upstream_module: str, downstream_module: str, as_subpackages=False,
+            self, upstream_module: str, downstream_module: str, as_packages=False,
     ) -> bool:
         """
         Return whether any import path exists between the upstream and the downstream module,
         even indirectly; in other words, does the downstream module depend on the upstream module?
 
         Optional args:
-            as_subpackages: Whether to treat the supplied modules as individual modules,
-                            or as an entire subpackages (including any descendants). If
-                            treating them as subpackages, all descendants of the upstream and
-                            downstream modules will be checked too.
+            as_packages: Whether to treat the supplied modules as individual modules,
+                         or as packages (including any descendants, if there are any). If
+                         treating them as subpackages, all descendants of the upstream and
+                         downstream modules will be checked too.
         """
         raise NotImplementedError
