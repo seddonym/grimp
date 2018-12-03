@@ -355,3 +355,8 @@ class TestGetImportDetails:
 
         assert imports_info == graph.get_import_details(
             importer='mypackage.foo', imported='mypackage.bar')
+
+
+class TestFindShortestPaths:
+    def test_todo(self):
+        assert False

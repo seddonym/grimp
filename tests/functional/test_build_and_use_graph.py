@@ -242,3 +242,13 @@ class TestFindUpstreamModules:
             'testpackage.utils',
             'testpackage.one',
         }
+
+
+def test_find_shortest_paths():
+    graph = build_graph('testpackage')
+
+    assert {
+        ('testpackage.one.alpha', 'testpackage.two.alpha'),
+        ('testpackage.one', 'testpackage.utils', 'testpackage.two.gamma'),
+    } == graph.find_shortest_paths(upstream_package='testpackage.one',
+                                   downstream_package='testpackage.two')
