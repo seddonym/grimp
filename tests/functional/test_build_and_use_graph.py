@@ -1,5 +1,3 @@
-import pytest
-
 from grimp import build_graph
 
 """
@@ -22,6 +20,7 @@ testpackage.utils: testpackage.one, testpackage.two.alpha
 
 # Mechanics
 # ---------
+
 
 def test_modules():
     graph = build_graph('testpackage')
@@ -100,7 +99,7 @@ def test_find_modules_directly_imported_by():
     graph = build_graph('testpackage')
 
     result = graph.find_modules_directly_imported_by('testpackage.utils')
-    
+
     assert {
         'testpackage.one', 'testpackage.two.alpha',
     } == result
@@ -111,7 +110,7 @@ def test_find_modules_that_directly_import():
 
     result = graph.find_modules_that_directly_import(
         'testpackage.one.alpha')
-    
+
     assert {
         'testpackage.one.beta',
         'testpackage.two.alpha',
@@ -134,7 +133,7 @@ def test_direct_import_exists():
 
 def test_get_import_details():
     graph = build_graph('testpackage')
-    
+
     assert [
         {
             'importer': 'testpackage.utils',
@@ -154,17 +153,17 @@ def test_get_import_details():
 class TestPathExists:
     def test_as_packages_false(self):
         graph = build_graph('testpackage')
-    
+
         assert not graph.path_exists(
             upstream_module='testpackage.utils',
             downstream_module='testpackage.one.alpha',
         )
-    
+
         assert graph.path_exists(
             upstream_module='testpackage.one.alpha',
             downstream_module='testpackage.utils',
         )
-    
+
     def test_as_packages_true(self):
         graph = build_graph('testpackage')
 
@@ -215,25 +214,25 @@ class TestFindDownstreamModules:
         result = graph.find_downstream_modules('testpackage.one', as_package=True)
 
         assert {
-           'testpackage.two.alpha',
-           'testpackage.two.beta',
-           'testpackage.two.gamma',
-           'testpackage.utils',
+            'testpackage.two.alpha',
+            'testpackage.two.beta',
+            'testpackage.two.gamma',
+            'testpackage.utils',
         } == result
 
 
 class TestFindUpstreamModules:
     def test_as_package_false(self):
         graph = build_graph('testpackage')
-    
+
         assert graph.find_upstream_modules('testpackage.one.alpha') == set()
-    
+
         assert graph.find_upstream_modules('testpackage.utils') == {
             'testpackage.one',
             'testpackage.two.alpha',
             'testpackage.one.alpha',
         }
-    
+
     def test_as_package_true(self):
         graph = build_graph('testpackage')
 

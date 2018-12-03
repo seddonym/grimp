@@ -1,13 +1,12 @@
 import pytest
 
 from grimp.adaptors.graph import NetworkXBackedImportGraph
-from tests.adaptors.filesystem import FakeFileSystem
 
 
 def test_modules_when_empty():
     graph = NetworkXBackedImportGraph()
     assert graph.modules == set()
-    
+
 
 def test_find_modules_directly_imported_by():
     graph = NetworkXBackedImportGraph()
@@ -39,11 +38,9 @@ def test_find_modules_that_directly_import():
 
 @pytest.mark.parametrize(
     'module, as_package, expected_result', (
-        ('foo.a', False, {'foo.b', 'foo.c', 'foo.a.d',
-                                  'foo.b.e'}),
+        ('foo.a', False, {'foo.b', 'foo.c', 'foo.a.d', 'foo.b.e'}),
         ('foo.b.e', False, set()),
-        ('foo.a', True, {'foo.b', 'foo.c', 'foo.b.e',
-                                 'foo.b.g'}),
+        ('foo.a', True, {'foo.b', 'foo.c', 'foo.b.e', 'foo.b.g'}),
         ('foo.b.e', True, set()),
     )
 )
@@ -154,7 +151,7 @@ def test_find_shortest_path_returns_none_if_not_exists():
     graph.add_import(importer=a, imported=b)
     graph.add_import(importer=b, imported=c)
 
-    assert None == graph.find_shortest_path(
+    assert None is graph.find_shortest_path(
         upstream_module=c,
         downstream_module=a,
     )

@@ -18,7 +18,7 @@ class TestFakeFileSystem:
                         green.py
                         blue.py
             /anotherpackage/
-                another.txt                        
+                another.txt
         """)
         assert [
             ('/path/to/mypackage', ['foo'], ['__init__.py']),

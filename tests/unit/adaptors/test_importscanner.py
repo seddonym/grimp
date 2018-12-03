@@ -15,7 +15,7 @@ def test_absolute_imports():
         content_map={
             '/path/to/foo/one.py': """
                 import foo.two
-                arbitrary_expression = 1          
+                arbitrary_expression = 1
             """,
         },
     )
@@ -65,7 +65,7 @@ def test_absolute_from_imports():
                 from foo.one import green
                 from foo.two import yellow
                 from foo import three
-                arbitrary_expression = 1          
+                arbitrary_expression = 1
             """,
         }
     )
@@ -127,7 +127,7 @@ def test_relative_from_imports():
                 from . import green
                 from ..two import yellow
                 from .. import three
-                arbitrary_expression = 1          
+                arbitrary_expression = 1
             """,
         }
     )

@@ -4,7 +4,7 @@ import networkx  # type: ignore
 import networkx.algorithms  # type: ignore
 
 from grimp.application.ports import graph
-from grimp.domain.valueobjects import Module, ImportPath
+from grimp.domain.valueobjects import Module
 
 
 class NetworkXBackedImportGraph(graph.AbstractImportGraph):
@@ -35,7 +35,8 @@ class NetworkXBackedImportGraph(graph.AbstractImportGraph):
     ) -> None:
         if any((line_number, line_contents)):
             if not all((line_number, line_contents)):
-                raise ValueError('Line number and contents must be provided together, or not at all.')
+                raise ValueError(
+                    'Line number and contents must be provided together, or not at all.')
             self._import_details.setdefault(importer, [])
             self._import_details[importer].append({
                 'importer': importer,

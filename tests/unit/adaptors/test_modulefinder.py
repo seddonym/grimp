@@ -19,7 +19,7 @@ def test_happy_path():
                 two/
                     __init__.py
                     green.py
-                    blue.py   
+                    blue.py
         """)
 
     result = module_finder.find_modules(

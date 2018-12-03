@@ -1,7 +1,5 @@
 from typing import Iterable, List
-import importlib
 import logging
-import sys
 
 from grimp.domain.valueobjects import Module
 from grimp.application.ports import modulefinder
@@ -82,4 +80,3 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         if components[-1] == '__init__':
             components.pop()
         return '.'.join(components)
-
