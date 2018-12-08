@@ -17,5 +17,70 @@ Builds a graph of a Python project's internal dependencies.
 
 * Free software: BSD license
 
-**Warning:** This software is currently in alpha. It is undergoing active development,
-is likely to change and therefore not yet suitable for use in a production system.
+**Warning:** This software is currently in beta. It is undergoing active development, and breaking changes may be
+introduced between versions.
+
+Quick start
+-----------
+
+Install grimp::
+
+    pip install grimp
+
+Install the Python package you wish to analyse::
+
+    pip install somepackage
+
+In Python, build the import graph for the package::
+
+    >>> import grimp
+    >>> graph = grimp.build_graph('somepackage')
+
+You may now use the graph object to analyse the package. Some examples::
+
+    >>> graph.find_children('somepackage.foo')
+    {
+        'somepackage.foo.one',
+        'somepackage.foo.two',
+    }
+
+    >>> graph.find_descendants('somepackage.foo')
+    {
+        'somepackage.foo.one',
+        'somepackage.foo.two',
+        'somepackage.foo.two.blue',
+        'somepackage.foo.two.green',
+    }
+
+    >>> find_modules_directly_imported_by('somepackage.foo')
+    {
+        'somepackage.bar.one',
+    }
+
+    >>> find_upstream_modules('somepackage.foo')
+    {
+        'somepackage.bar.one',
+        'somepackage.baz',
+        'somepackage.foobar',
+    }
+
+    >>> find_shortest_path(upstream_module='somepackage.foobar',
+                           downstream_module='somepackage.foo')
+    (
+        'somepackage.foobar',
+        'somepackage.baz',
+        'somepackage.foo',
+    )
+
+    >>> graph.get_import_details(importer='somepackage.foobar',
+                                 imported='somepackage.baz'))
+    [
+        {
+            'importer': 'somepackage.foobar',
+            'imported': 'somepackage.baz',
+            'line_number': 5,
+            'line_contents': 'from . import baz',
+        },
+    ]
+
+For the full list of methods, see :doc:`usage`.
