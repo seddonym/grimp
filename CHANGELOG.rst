@@ -7,7 +7,7 @@ Changelog
 
 * Released blank project on PyPI.
 
-latest
-------
+1.0b1 (2018-12-08)
+------------------
 
-* Add ability to build a graph.
+* Implement core functionality.
