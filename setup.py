@@ -22,7 +22,7 @@ def read(*names, **kwargs):
 
 setup(
     name='grimp',
-    version='0.1.0',
+    version='version='0.1.0'',
     license='BSD 2-Clause License',
     description="Builds a graph of a Python project's internal dependencies.",
     long_description='%s' % (
