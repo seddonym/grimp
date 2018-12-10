@@ -43,7 +43,7 @@ Building the graph
 
    Build and return an ImportGraph for the supplied package.
 
-    :param str package_name: The root package name.
+    :param str package_name: The name of the top level package, for example ``'mypackage'``.
     :return: An import graph that you can use to analyse the package.
     :rtype: ImportGraph
 
@@ -54,7 +54,7 @@ Methods for analysing the module tree
 
    All the modules in the top level package.
 
-    :return: A set of module names.
+    :return: Set of module names.
     :rtype: A set of strings.
 
 .. py:function:: ImportGraph.find_children(module)
@@ -65,7 +65,7 @@ Methods for analysing the module tree
     :param str module: The importable name of the module, e.g. ``'mypackage'`` or ``'mypackage.foo.one'``. This may be
       any module within the package. It doesn't need to be a package itself, though if it isn't, it will have
       no children.
-    :return: A set of module names.
+    :return: Set of module names.
     :rtype: A set of strings.
 
 .. py:function:: ImportGraph.find_descendants(module)
@@ -73,9 +73,9 @@ Methods for analysing the module tree
    Return all the descendants of the module, i.e. the modules that have a dotted module name that is below
    the supplied module, to any depth.
 
-    :param str module: The importable name of the module, e.g. ``'mypackage'`` or ``'mypackage.foo.one'`. As with
+    :param str module: The importable name of the module, e.g. ``'mypackage'`` or ``'mypackage.foo.one'``. As with
       ``find_children``, this doesn't have to be a package, though if it isn't then the set will be empty.
-    :return: A set of module names.
+    :return: Set of module names.
     :rtype: A set of strings.
 
 Methods for analysing direct imports
@@ -104,7 +104,7 @@ Methods for analysing direct imports
 
     Provides a way of seeing the details of direct imports between two modules (usually
     there will be only one of these, but it is possible for a module to import another
-    module twice.
+    module twice).
 
     The details are in the following form::
 
@@ -138,18 +138,18 @@ Methods for analysing import paths
 
     Examples::
 
-        Returns the modules downstream of mypackage.foo:
+        # Returns the modules downstream of mypackage.foo.
         import_graph.find_downstream_modules('mypackage.foo')
 
         # Returns the modules downstream of mypackage.foo, mypackage.foo.one and
         # mypackage.foo.two.
-        import_graph.find_downstream_modules('mypackage.foo', as_package=True,)
+        import_graph.find_downstream_modules('mypackage.foo', as_package=True)
 
 .. py:function:: ImportGraph.find_upstream_modules(module, as_package=False)
 
     :param str module: A module name.
     :param bool as_package: Whether or not to treat the supplied module as an individual module,
-                           or as a package (i.e. including any descendants, if there ary any). If
+                           or as a package (i.e. including any descendants, if there are any). If
                            treating it as a subpackage, the result will include upstream
                            modules *external* to the package, and won't include modules within it.
     :return: All the modules that are imported (even indirectly) by the supplied module.
@@ -157,16 +157,20 @@ Methods for analysing import paths
 
 .. py:function:: ImportGraph.find_shortest_path(upstream_module, downstream_module)
 
-    :param str upstream_module: TODO
-    :param str downstream_module: TODO
+    :param str upstream_module: The module at the start of the potential import path (i.e. that the
+        downstream module will import).
+    :param str downstream_module: The module at the end of the potential import path (i.e. that will import
+        the upstream module).
     :return: The shortest import path from the upstream to the downstream module,
              if one exists, or an empty tuple if not.
     :rtype: A tuple of strings, ordered from upstream to downstream modules.
 
 .. py:function:: ImportGraph.path_exists(upstream_module, downstream_module, as_packages=False)
 
-    :param str upstream_module: TODO
-    :param str downstream_module: TODO
+    :param str upstream_module: The module at the start of the potential import path (i.e. that the
+        downstream module will import).
+    :param str downstream_module: The module at the end of the potential import path (i.e. that will import
+        the upstream module).
     :param bool as_packages: Whether to treat the supplied modules as individual modules,
          or as packages (including any descendants, if there are any). If
          treating them as packages, all descendants of the upstream and
@@ -182,7 +186,7 @@ Methods for manipulating the graph
 
     Add a module to the graph.
 
-    :param str module: TODO
+    :param str module: The name of a module, for example ``'mypackage.foo'``.
     :return: None
 
 .. py:function:: ImportGraph.add_import(importer, imported,
@@ -191,16 +195,16 @@ Methods for manipulating the graph
     Add a direct import between two modules to the graph. If the modules are not already
     present, they will be added to the graph.
 
-    :param str importer: TODO
-    :param str imported: TODO
-    :param int line_number: TODO
-    :param str line_contents: TODO
+    :param str importer: The name of the module that is importing the other module.
+    :param str imported: The name of the module being imported.
+    :param int line_number: The line number of the import statement in the module.
+    :param str line_contents: The line that contains the import statement.
     :return: None
 
 .. py:function:: ImportGraph.remove_import(importer, imported)
 
     Remove a direct import between two modules. Does not remove the modules themselves.
 
-    :param str importer: TODO
-    :param str imported: TODO
+    :param str importer: The name of the module that is importing the other module.
+    :param str imported: The name of the module being imported.
     :return: None

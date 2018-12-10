@@ -52,20 +52,20 @@ You may now use the graph object to analyse the package. Some examples::
         'somepackage.foo.two.green',
     }
 
-    >>> find_modules_directly_imported_by('somepackage.foo')
+    >>> graph.find_modules_directly_imported_by('somepackage.foo')
     {
         'somepackage.bar.one',
     }
 
-    >>> find_upstream_modules('somepackage.foo')
+    >>> graph.find_upstream_modules('somepackage.foo')
     {
         'somepackage.bar.one',
         'somepackage.baz',
         'somepackage.foobar',
     }
 
-    >>> find_shortest_path(upstream_module='somepackage.foobar',
-                           downstream_module='somepackage.foo')
+    >>> graph.find_shortest_path(upstream_module='somepackage.foobar',
+                                 downstream_module='somepackage.foo')
     (
         'somepackage.foobar',
         'somepackage.baz',
@@ -82,5 +82,3 @@ You may now use the graph object to analyse the package. Some examples::
             'line_contents': 'from . import baz',
         },
     ]
-
-For the full list of methods, see :doc:`usage`.
