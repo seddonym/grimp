@@ -7,7 +7,7 @@ Changelog
 
 * Released blank project on PyPI.
 
-1.0b1 (2018-12-08)
-------------------
+Latest
+------
 
 * Implement core functionality.
