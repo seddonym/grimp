@@ -29,7 +29,10 @@ setup(
     long_description_content_type='text/x-rst',
     author='David Seddon',
     author_email='david@seddonym.me',
-    url='https://github.com/seddonym/grimp',
+    project_urls={
+        'Documentation': 'https://grimp.readthedocs.io/',
+        'Source code': 'https://github.com/seddonym/grimp/',
+    },
     packages=find_packages('src'),
     package_dir={'': 'src'},
     py_modules=[splitext(basename(path))[0] for path in glob('src/*.py')],
