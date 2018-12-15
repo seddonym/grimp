@@ -51,8 +51,8 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
 
     def _should_ignore_dir(self, directory: str) -> bool:
         # TODO: make this configurable.
-        # Skip adding directories that are hidden, or look like Django migrations.
-        return directory.startswith('.') or directory == 'migrations'
+        # Skip adding directories that are hidden.
+        return directory.startswith('.')
 
     def _is_python_file(self, filename: str) -> bool:
         """

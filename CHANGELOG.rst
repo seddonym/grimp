@@ -16,3 +16,9 @@ Changelog
 ------------------
 
 * Fix PyPI readme rendering.
+
+Latest
+------
+
+* Fix bug with analysing relative imports from within __init__.py files.
+* Stop skipping analysing packages called ``migrations``.

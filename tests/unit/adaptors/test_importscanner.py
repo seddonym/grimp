@@ -207,6 +207,60 @@ def test_trims_to_known_modules(import_source):
     }
 
 
+def test_trims_to_known_modules_within_init_file():
+    all_modules = {
+        Module('foo'),
+        Module('foo.one'),
+        Module('foo.one.yellow'),
+        Module('foo.one.blue'),
+        Module('foo.one.blue.alpha'),
+    }
+    file_system = FakeFileSystem(
+        contents="""
+                /path/to/foo/
+                    __init__.py
+                    one/
+                        __init__.py
+                        yellow.py
+                        blue/
+                            __init__.py
+                            alpha.py
+            """,
+        content_map={
+            '/path/to/foo/one/__init__.py': 'from .yellow import my_function',
+            '/path/to/foo/one/blue/__init__.py': 'from .alpha import my_function',
+        }
+    )
+
+    import_scanner = ImportScanner(
+        modules=all_modules,
+        package_directory='/path/to/foo',
+        file_system=file_system,
+    )
+
+    result = import_scanner.scan_for_imports(Module('foo.one'))
+
+    assert result == {
+        DirectImport(
+            importer=Module('foo.one'),
+            imported=Module('foo.one.yellow'),
+            line_number=1,
+            line_contents='from .yellow import my_function',
+        ),
+    }
+
+    result = import_scanner.scan_for_imports(Module('foo.one.blue'))
+
+    assert result == {
+        DirectImport(
+            importer=Module('foo.one.blue'),
+            imported=Module('foo.one.blue.alpha'),
+            line_number=1,
+            line_contents='from .alpha import my_function',
+        ),
+    }
+
+
 def test_trims_whitespace_from_start_of_line_contents():
     all_modules = {
         Module('foo'),
