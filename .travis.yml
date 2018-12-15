@@ -9,7 +9,7 @@ matrix:
   include:
     - python: '3.6'
       env:
-        - TOXENV=py36,report
+        - TOXENV=py36,report,check,docs
     - python: '3.7'
       dist: xenial
       sudo: required
