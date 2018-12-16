@@ -21,7 +21,7 @@ def read(*names, **kwargs):
 
 setup(
     name='grimp',
-    version='1.0b2',
+    version='1.0b3',
     license='BSD 2-Clause License',
     description="Builds a graph of a Python project's internal dependencies.",
     long_description=read('README.rst'),

@@ -17,10 +17,10 @@ Changelog
 
 * Fix PyPI readme rendering.
 
-Latest
-------
+1.0b3 (2018-12-16)
+------------------
 
 * Fix bug with analysing relative imports from within __init__.py files.
 * Stop skipping analysing packages called ``migrations``.
 * Deal with invalid imports by warning instead of raising an exception.
-* Rename NetworkXBackedImportGraph -> ImportGraph.
+* Rename NetworkXBackedImportGraph to ImportGraph.
