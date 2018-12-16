@@ -1,15 +1,15 @@
 import pytest  # type: ignore
 
-from grimp.adaptors.graph import NetworkXBackedImportGraph
+from grimp.adaptors.graph import ImportGraph
 
 
 def test_modules_when_empty():
-    graph = NetworkXBackedImportGraph()
+    graph = ImportGraph()
     assert graph.modules == set()
 
 
 def test_find_modules_directly_imported_by():
-    graph = NetworkXBackedImportGraph()
+    graph = ImportGraph()
     a, b, c = 'foo', 'bar', 'baz'
     d, e, f = 'foo.one', 'bar.one', 'baz.one'
 
@@ -23,7 +23,7 @@ def test_find_modules_directly_imported_by():
 
 
 def test_find_modules_that_directly_import():
-    graph = NetworkXBackedImportGraph()
+    graph = ImportGraph()
     a, b, c = 'foo', 'bar', 'baz'
     d, e, f = 'foo.one', 'bar.one', 'baz.one'
 
@@ -45,7 +45,7 @@ def test_find_modules_that_directly_import():
     )
 )
 def test_find_downstream_modules(module, as_package, expected_result):
-    graph = NetworkXBackedImportGraph()
+    graph = ImportGraph()
     a, b, c = 'foo.a', 'foo.b', 'foo.c'
     d, e, f = 'foo.a.d', 'foo.b.e', 'foo.a.f'
     g = 'foo.b.g'
@@ -72,7 +72,7 @@ def test_find_downstream_modules(module, as_package, expected_result):
     )
 )
 def test_find_upstream_modules(module, as_package, expected_result):
-    graph = NetworkXBackedImportGraph()
+    graph = ImportGraph()
     a, b, c = 'foo.a', 'foo.d.b', 'foo.d.c'
     d, e, f = 'foo.d', 'foo.c.e', 'foo.a.f'
     g = 'foo.b.g'
@@ -95,7 +95,7 @@ def test_find_upstream_modules(module, as_package, expected_result):
     )
 )
 def test_find_children(module, expected_result):
-    graph = NetworkXBackedImportGraph()
+    graph = ImportGraph()
     a, b, c = 'foo.a', 'foo.b', 'foo.c'
     d, e, f = 'foo.a.one', 'foo.b.one', 'bar.g'
 
@@ -113,7 +113,7 @@ def test_find_children(module, expected_result):
     )
 )
 def test_find_descendants(module, expected_result):
-    graph = NetworkXBackedImportGraph()
+    graph = ImportGraph()
     a, b, c = 'foo.a', 'foo.b', 'foo.c'
     d, e, f = 'foo.a.one', 'foo.b.one', 'bar.g'
 
@@ -124,7 +124,7 @@ def test_find_descendants(module, expected_result):
 
 
 def test_find_shortest_path_when_exists():
-    graph = NetworkXBackedImportGraph()
+    graph = ImportGraph()
     a, b, c = 'foo', 'bar', 'baz'
     d, e, f = 'long', 'way', 'around'
 
@@ -145,7 +145,7 @@ def test_find_shortest_path_when_exists():
 
 
 def test_find_shortest_path_returns_none_if_not_exists():
-    graph = NetworkXBackedImportGraph()
+    graph = ImportGraph()
     a, b, c = 'foo', 'bar', 'baz'
 
     graph.add_import(importer=a, imported=b)
@@ -213,7 +213,7 @@ def test_find_shortest_path_returns_none_if_not_exists():
     )
 )
 def test_path_exists(upstream_module, downstream_module, as_packages, expected_result):
-    graph = NetworkXBackedImportGraph()
+    graph = ImportGraph()
     a, a_one, a_one_green, a_two, a_two_green, a_three = (
         'a',
         'a.one',
@@ -264,7 +264,7 @@ def test_path_exists(upstream_module, downstream_module, as_packages, expected_r
 
 
 def test_add_module():
-    graph = NetworkXBackedImportGraph()
+    graph = ImportGraph()
     module = 'foo'
 
     graph.add_module(module)
@@ -274,7 +274,7 @@ def test_add_module():
 
 @pytest.mark.parametrize('add_module', (True, False))
 def test_add_import(add_module):
-    graph = NetworkXBackedImportGraph()
+    graph = ImportGraph()
     a, b = 'foo', 'bar'
 
     # Adding the module should make no difference to the result.
@@ -289,7 +289,7 @@ def test_add_import(add_module):
 
 
 def test_remove_import():
-    graph = NetworkXBackedImportGraph()
+    graph = ImportGraph()
     a, b, c = 'foo', 'bar', 'baz'
     graph.add_import(importer=a, imported=b)
     graph.add_import(importer=a, imported=c)
@@ -302,7 +302,7 @@ def test_remove_import():
 
 class TestGetImportDetails:
     def test_happy_path(self):
-        graph = NetworkXBackedImportGraph()
+        graph = ImportGraph()
 
         imports_info = [
             dict(
@@ -325,12 +325,12 @@ class TestGetImportDetails:
             importer='mypackage.foo', imported='mypackage.bar')
 
     def test_returns_empty_list_when_no_import(self):
-        graph = NetworkXBackedImportGraph()
+        graph = ImportGraph()
 
         assert [] == graph.get_import_details(importer='foo', imported='bar')
 
     def test_returns_only_relevant_imports(self):
-        graph = NetworkXBackedImportGraph()
+        graph = ImportGraph()
 
         imports_info = [
             dict(

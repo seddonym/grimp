@@ -7,7 +7,7 @@ from grimp.application.ports import graph
 from grimp.domain.valueobjects import Module
 
 
-class NetworkXBackedImportGraph(graph.AbstractImportGraph):
+class ImportGraph(graph.AbstractImportGraph):
     """
     Implementation of the ImportGraph, backed by a networkx directional graph.
     """
