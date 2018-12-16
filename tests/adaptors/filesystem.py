@@ -132,7 +132,7 @@ class FakeFileSystem(AbstractFileSystem):
         return list(map(dedented, lines))
 
     def read(self, file_name: str) -> str:
-        if not self._file_exists(file_name):
+        if not self.exists(file_name):
             raise FileNotFoundError
         try:
             file_contents = self.content_map[file_name]
@@ -142,10 +142,7 @@ class FakeFileSystem(AbstractFileSystem):
         dedented_lines = self._dedent(raw_lines)
         return '\n'.join(dedented_lines)
 
-    def _file_exists(self, file_name: str) -> bool:
-        """
-        Return whether or not the file exists.
-        """
+    def exists(self, file_name: str) -> bool:
         # The file should exist if it's either declared in contents or in content_map.
         if file_name in self.content_map.keys():
             return True

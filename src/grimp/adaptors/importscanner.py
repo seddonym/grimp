@@ -140,11 +140,7 @@ class ImportScanner(AbstractImportScanner):
             self.file_system.join(filename_root, '__init__.py'),
         )
         for candidate_filename in candidate_filenames:
-            try:
-                self.file_system.read(candidate_filename)  # TODO change to exists.
-            except FileNotFoundError:
-                pass
-            else:
+            if self.file_system.exists(candidate_filename):
                 return candidate_filename
         raise FileNotFoundError(f'Could not find module {module}.')
 

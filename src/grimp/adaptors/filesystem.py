@@ -23,3 +23,6 @@ class FileSystem(AbstractFileSystem):
     def read(self, file_name: str) -> str:
         with open(file_name) as file:
             return file.read()
+
+    def exists(self, file_name: str) -> bool:
+        return os.path.isfile(file_name)

@@ -47,3 +47,10 @@ class AbstractFileSystem(abc.ABC):
         Given a file name, return the contents of the file.
         """
         raise NotImplementedError
+
+    @abc.abstractmethod
+    def exists(self, file_name: str) -> bool:
+        """
+        Return whether a file exists.
+        """
+        raise NotImplementedError
