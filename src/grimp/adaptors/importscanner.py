@@ -15,18 +15,20 @@ class ImportScanner(AbstractImportScanner):
         """
         direct_imports: Set[DirectImport] = set()
 
-        module_contents = self._read_module_contents(module)
+        module_filename = self._determine_module_filename(module)
+        is_package = self._module_is_package(module_filename)
+        module_contents = self._read_module_contents(module_filename)
         module_lines = module_contents.splitlines()
         ast_tree = ast.parse(module_contents)
         for node in ast.walk(ast_tree):
-            d = self._parse_direct_imports_from_node(node, module, module_lines)
+            d = self._parse_direct_imports_from_node(node, module, module_lines, is_package)
             direct_imports |= d
 
         # imported_modules = self._trim_each_to_known_modules(imported_modules)
         return direct_imports
 
     def _parse_direct_imports_from_node(
-            self, node: ast.AST, module: Module, module_lines: List[str],
+            self, node: ast.AST, module: Module, module_lines: List[str], is_package: bool,
     ) -> Set[DirectImport]:
         """
         Parse an ast node into a set of DirectImports.
@@ -50,7 +52,19 @@ class ImportScanner(AbstractImportScanner):
                 importing_module_components = module.name.split('.')
                 # TODO: handle level that is too high.
                 # Trim the base module by the number of levels.
-                module_base = '.'.join(importing_module_components[:-node.level])
+                if is_package:
+                    # If the scanned module an __init__.py file, we don't want
+                    # to go up an extra level.
+                    number_of_levels_to_trim_by = node.level - 1
+                else:
+                    number_of_levels_to_trim_by = node.level
+
+                if number_of_levels_to_trim_by:
+                    module_base = '.'.join(
+                        importing_module_components[:-number_of_levels_to_trim_by]
+                    )
+                else:
+                    module_base = '.'.join(importing_module_components)
                 if node.module:
                     module_base = '.'.join([module_base, node.module])
 
@@ -108,9 +122,9 @@ class ImportScanner(AbstractImportScanner):
                 # TODO - should we handle this more gracefully?
                 raise ValueError(f'Could not trim {untrimmed_module}.')
 
-    def _read_module_contents(self, module: Module) -> str:
+    def _determine_module_filename(self, module: Module) -> str:
         """
-        Read the file contents of the module.
+        Work out the full filename of the given module.
 
         Any given module can either be a straight Python file (foo.py) or else a package
         (in which case the file is an __init__.py within a directory).
@@ -126,8 +140,18 @@ class ImportScanner(AbstractImportScanner):
             self.file_system.join(filename_root, '__init__.py'),
         )
         for candidate_filename in candidate_filenames:
-            try:
-                return self.file_system.read(candidate_filename)
-            except FileNotFoundError:
-                pass
+            if self.file_system.exists(candidate_filename):
+                return candidate_filename
         raise FileNotFoundError(f'Could not find module {module}.')
+
+    def _read_module_contents(self, module_filename: str) -> str:
+        """
+        Read the file contents of the module.
+        """
+        return self.file_system.read(module_filename)
+
+    def _module_is_package(self, module_filename: str) -> bool:
+        """
+        Whether or not the supplied module filename is a package.
+        """
+        return self.file_system.split(module_filename)[-1] == '__init__.py'
