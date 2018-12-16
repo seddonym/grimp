@@ -1,8 +1,13 @@
 from typing import Set, List
 import ast
 
+import logging
+
 from grimp.application.ports.importscanner import AbstractImportScanner
 from grimp.domain.valueobjects import Module, DirectImport
+
+
+logger = logging.getLogger(__name__)
 
 
 class ImportScanner(AbstractImportScanner):
@@ -71,14 +76,20 @@ class ImportScanner(AbstractImportScanner):
             # node.names corresponds to 'a', 'b' and 'c' in 'from x import a, b, c'.
             for alias in node.names:
                 full_module_name = '.'.join([module_base, alias.name])
-                direct_imports.add(
-                    self._build_direct_import(
+                try:
+                    direct_import = self._build_direct_import(
                         importer=module,
                         untrimmed_imported=Module(full_module_name),
                         node=node,
                         module_lines=module_lines,
-                    ),
-                )
+                    )
+                except FileNotFoundError:
+                    logger.warning(
+                        f'Could not find {full_module_name} when scanning {module}. '
+                        'This may be due to a missing __init__.py file in the parent package.'
+                    )
+                else:
+                    direct_imports.add(direct_import)
 
         elif isinstance(node, ast.Import):
             # Parsing a line in the form 'import x'.
@@ -98,6 +109,9 @@ class ImportScanner(AbstractImportScanner):
 
     def _build_direct_import(self, importer: Module, untrimmed_imported: Module,
                              node: ast.AST, module_lines: List[str]) -> DirectImport:
+        """
+        Raises FileNotFoundError if it could not find a valid module.
+        """
         imported = self._trim_to_known_module(untrimmed_imported)
         return DirectImport(
             importer=importer,
@@ -107,6 +121,9 @@ class ImportScanner(AbstractImportScanner):
         )
 
     def _trim_to_known_module(self, untrimmed_module: Module) -> Module:
+        """
+        Raises FileNotFoundError if it could not find a valid module.
+        """
         if untrimmed_module in self.modules:
             return untrimmed_module
         else:
@@ -119,8 +136,7 @@ class ImportScanner(AbstractImportScanner):
             if trimmed_module in self.modules:
                 return trimmed_module
             else:
-                # TODO - should we handle this more gracefully?
-                raise ValueError(f'Could not trim {untrimmed_module}.')
+                raise FileNotFoundError()
 
     def _determine_module_filename(self, module: Module) -> str:
         """
