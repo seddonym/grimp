@@ -5,8 +5,46 @@ from grimp.domain.valueobjects import DirectImport, Module
 
 from tests.adaptors.filesystem import FakeFileSystem
 
-
-def test_absolute_imports():
+@pytest.mark.parametrize(
+    'include_external_packages, expected_result',
+    (
+        (
+            False,
+            {
+                DirectImport(
+                    importer=Module('foo.one'),
+                    imported=Module('foo.two'),
+                    line_number=1,
+                    line_contents='import foo.two',
+                ),
+            }
+        ),
+        (
+            True,
+            {
+                DirectImport(
+                    importer=Module('foo.one'),
+                    imported=Module('foo.two'),
+                    line_number=1,
+                    line_contents='import foo.two',
+                ),
+                DirectImport(
+                    importer=Module('foo.one'),
+                    imported=Module('externalone'),
+                    line_number=2,
+                    line_contents='import externalone',
+                ),
+                DirectImport(
+                    importer=Module('foo.one'),
+                    imported=Module('externaltwo'),
+                    line_number=3,
+                    line_contents='import externaltwo.subpackage',
+                ),
+            }
+        ),
+    )
+)
+def test_absolute_imports(include_external_packages, expected_result):
     all_modules = {
         Module('foo.one'),
         Module('foo.two'),
@@ -26,21 +64,77 @@ def test_absolute_imports():
         modules=all_modules,
         package_directory='/path/to/foo',
         file_system=file_system,
+        include_external_packages=include_external_packages,
     )
 
     result = import_scanner.scan_for_imports(Module('foo.one'))
 
-    assert result == {
-        DirectImport(
-            importer=Module('foo.one'),
-            imported=Module('foo.two'),
-            line_number=1,
-            line_contents='import foo.two',
+    assert expected_result == result
+
+@pytest.mark.parametrize(
+    'include_external_packages, expected_result',
+    (
+        (
+            False,
+            {
+                DirectImport(
+                    importer=Module('foo.one.blue'),
+                    imported=Module('foo.one.green'),
+                    line_number=1,
+                    line_contents='from foo.one import green',
+                ),
+                DirectImport(
+                    importer=Module('foo.one.blue'),
+                    imported=Module('foo.two.yellow'),
+                    line_number=2,
+                    line_contents='from foo.two import yellow',
+                ),
+                DirectImport(
+                    importer=Module('foo.one.blue'),
+                    imported=Module('foo.three'),
+                    line_number=3,
+                    line_contents='from foo import three',
+                ),
+            },
+        ),
+        (
+            True,
+            {
+                DirectImport(
+                    importer=Module('foo.one.blue'),
+                    imported=Module('foo.one.green'),
+                    line_number=1,
+                    line_contents='from foo.one import green',
+                ),
+                DirectImport(
+                    importer=Module('foo.one.blue'),
+                    imported=Module('foo.two.yellow'),
+                    line_number=2,
+                    line_contents='from foo.two import yellow',
+                ),
+                DirectImport(
+                    importer=Module('foo.one.blue'),
+                    imported=Module('foo.three'),
+                    line_number=3,
+                    line_contents='from foo import three',
+                ),
+                DirectImport(
+                    importer=Module('foo.one.blue'),
+                    imported=Module('external'),
+                    line_number=4,
+                    line_contents='from external import one',
+                ),
+                DirectImport(
+                    importer=Module('foo.one.blue'),
+                    imported=Module('external'),
+                    line_number=5,
+                    line_contents='from external.two import blue',
+                ),
+            },
         )
-    }
-
-
-def test_absolute_from_imports():
+    )
+)
+def test_absolute_from_imports(include_external_packages, expected_result):
     all_modules = {
         Module('foo.one.blue'),
         Module('foo.one.green'),
@@ -78,30 +172,12 @@ def test_absolute_from_imports():
         modules=all_modules,
         package_directory='/path/to/foo',
         file_system=file_system,
+        include_external_packages=include_external_packages,
     )
 
     result = import_scanner.scan_for_imports(Module('foo.one.blue'))
 
-    assert result == {
-        DirectImport(
-            importer=Module('foo.one.blue'),
-            imported=Module('foo.one.green'),
-            line_number=1,
-            line_contents='from foo.one import green',
-        ),
-        DirectImport(
-            importer=Module('foo.one.blue'),
-            imported=Module('foo.two.yellow'),
-            line_number=2,
-            line_contents='from foo.two import yellow',
-        ),
-        DirectImport(
-            importer=Module('foo.one.blue'),
-            imported=Module('foo.three'),
-            line_number=3,
-            line_contents='from foo import three',
-        ),
-    }
+    assert expected_result == result
 
 
 def test_relative_from_imports():
