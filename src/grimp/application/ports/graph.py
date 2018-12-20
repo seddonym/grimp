@@ -174,3 +174,22 @@ class AbstractImportGraph(abc.ABC):
                          downstream modules will be checked too.
         """
         raise NotImplementedError
+
+    def __repr__(self):
+        """
+        Display the instance in one of the following ways:
+
+            <ImportGraph: empty>
+            <ImportGraph: 'one', 'two', 'three', 'four', 'five'>
+            <ImportGraph: 'one', 'two', 'three', 'four', 'five', ...>
+        """
+        modules = self.modules
+        if modules:
+            repr_output_size = 5
+            module_list = list(modules)[:repr_output_size]
+            stringified_modules = ', '.join(repr(m) for m in module_list)
+            if len(modules) > repr_output_size:
+                stringified_modules += ", ..."
+        else:
+            stringified_modules = 'empty'
+        return f'<{self.__class__.__name__}: {stringified_modules}>'
