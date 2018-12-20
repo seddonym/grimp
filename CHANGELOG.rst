@@ -24,3 +24,8 @@ Changelog
 * Stop skipping analysing packages called ``migrations``.
 * Deal with invalid imports by warning instead of raising an exception.
 * Rename NetworkXBackedImportGraph to ImportGraph.
+
+latest
+------
+
+* Improve repr of ImportGraph.
