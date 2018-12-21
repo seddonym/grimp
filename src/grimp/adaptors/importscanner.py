@@ -125,10 +125,12 @@ class _ImportNodeParser(_BaseNodeParser):
     """
     Parser for statements in the form 'import x'.
     """
+    node_class = ast.Import
 
     def determine_imported_modules(self, include_external_packages: bool) -> Set[Module]:
         imported_modules: Set[Module] = set()
 
+        assert isinstance(self.node, self.node_class)  # For type checker.
         for alias in self.node.names:
             module_from_alias = Module(alias.name)
 
@@ -150,10 +152,13 @@ class _ImportFromNodeParser(_BaseNodeParser):
     """
     Parser for statements in the form 'from x import ...'.
     """
+    node_class = ast.ImportFrom
 
     def determine_imported_modules(self, include_external_packages: bool) -> Set[Module]:
         imported_modules: Set[Module] = set()
-        assert isinstance(self.node.level, int)
+        assert isinstance(self.node, self.node_class)  # For type checker.
+        assert isinstance(self.node.level, int)  # For type checker.
+
         if self.node.level == 0:
             # Absolute import.
             # Let the type checker know we expect node.module to be set here.
