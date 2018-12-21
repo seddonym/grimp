@@ -5,6 +5,7 @@ from grimp.domain.valueobjects import DirectImport, Module
 
 from tests.adaptors.filesystem import FakeFileSystem
 
+
 @pytest.mark.parametrize(
     'include_external_packages, expected_result',
     (
@@ -70,6 +71,7 @@ def test_absolute_imports(include_external_packages, expected_result):
     result = import_scanner.scan_for_imports(Module('foo.one'))
 
     assert expected_result == result
+
 
 @pytest.mark.parametrize(
     'include_external_packages, expected_result',
