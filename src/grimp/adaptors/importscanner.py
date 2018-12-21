@@ -53,7 +53,9 @@ class ImportScanner(AbstractImportScanner):
 
         direct_imports: Set[DirectImport] = set()
 
-        for imported in parser.determine_imported_modules():
+        for imported in parser.determine_imported_modules(
+            include_external_packages=self.include_external_packages
+        ):
             direct_imports.add(
                 DirectImport(
                     importer=module,
@@ -112,7 +114,7 @@ class _BaseNodeParser:
         self.known_modules = known_modules
         self.module_is_package = is_package
 
-    def determine_imported_modules(self) -> Set[Module]:
+    def determine_imported_modules(self, include_external_packages: bool) -> Set[Module]:
         """
         Return the imported modules in the statement.
         """
@@ -124,13 +126,23 @@ class _ImportNodeParser(_BaseNodeParser):
     Parser for statements in the form 'import x'.
     """
 
-    def determine_imported_modules(self) -> Set[Module]:
+    def determine_imported_modules(self, include_external_packages: bool) -> Set[Module]:
         imported_modules: Set[Module] = set()
 
         for alias in self.node.names:
-            if not alias.name.startswith(self.module.package_name):
-                continue
-            imported_modules.add(Module(alias.name))
+            module_from_alias = Module(alias.name)
+
+            if module_from_alias.package_name == self.module.package_name:
+                imported_module = module_from_alias
+            else:
+                # It's an external module.
+                if include_external_packages:
+                    imported_module = Module(module_from_alias.package_name)
+                else:
+                    continue
+
+            imported_modules.add(imported_module)
+
         return imported_modules
 
 
@@ -139,7 +151,7 @@ class _ImportFromNodeParser(_BaseNodeParser):
     Parser for statements in the form 'from x import ...'.
     """
 
-    def determine_imported_modules(self) -> Set[Module]:
+    def determine_imported_modules(self, include_external_packages: bool) -> Set[Module]:
         imported_modules: Set[Module] = set()
         assert isinstance(self.node.level, int)
         if self.node.level == 0:
