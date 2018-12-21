@@ -158,9 +158,16 @@ class _ImportFromNodeParser(_BaseNodeParser):
             # Absolute import.
             # Let the type checker know we expect node.module to be set here.
             assert isinstance(self.node.module, str)
-            if not self.node.module.startswith(self.module.package_name):
-                # Don't include imports of modules outside this package.
-                return set()
+            node_module = Module(self.node.module)
+            if node_module.package_name != self.module.package_name:
+                # It's an external module.
+                if include_external_packages:
+                    # Just return the top level package of the external module.
+                    return {Module(node_module.package_name)}
+                else:
+                    return set()
+            # Don't include imports of modules outside this package.
+
             module_base = self.node.module
         elif self.node.level >= 1:
             # Relative import. The level corresponds to how high up the tree it goes;
