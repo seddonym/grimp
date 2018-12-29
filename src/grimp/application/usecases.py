@@ -9,9 +9,13 @@ from ..application.ports.packagefinder import AbstractPackageFinder
 from .config import settings
 
 
-def build_graph(package_name) -> AbstractImportGraph:
+def build_graph(package_name, include_external_packages: bool = False) -> AbstractImportGraph:
     """
     Build and return an import graph for the supplied package name.
+
+    Args:
+        - package_name: the name of the top level package for which to build the graph.
+        - include_external_packages: whether to include any external packages in the graph.
     """
     module_finder: AbstractModuleFinder = settings.MODULE_FINDER
     file_system: AbstractFileSystem = settings.FILE_SYSTEM
@@ -33,6 +37,7 @@ def build_graph(package_name) -> AbstractImportGraph:
         modules=modules,
         package_directory=package_directory,
         file_system=file_system,
+        include_external_packages=include_external_packages,
     )
 
     graph: AbstractImportGraph = settings.IMPORT_GRAPH_CLASS()
@@ -41,6 +46,11 @@ def build_graph(package_name) -> AbstractImportGraph:
     for module in modules:
         graph.add_module(module.name)
         for direct_import in import_scanner.scan_for_imports(module):
+            # Before we add the import, check to see if the imported module is in fact an
+            # external module, and if so, tell the graph that it is a squashed module.
+            is_external = (direct_import.imported.package_name != package_name)
+            graph.add_module(direct_import.imported.name, is_squashed=is_external)
+
             graph.add_import(
                 importer=direct_import.importer.name,
                 imported=direct_import.imported.name,
