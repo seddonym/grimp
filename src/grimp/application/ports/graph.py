@@ -18,9 +18,15 @@ class AbstractImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def add_module(self, module: str) -> None:
+    def add_module(self, module: str, is_squashed: bool = False) -> None:
         """
         Add a module to the graph.
+
+        If is_squashed is True, the module should be treated as a 'squashed module'. This means
+        the module has a node in the graph that represents both itself and all its descendants.
+        Using squashed modules allows you to simplify some parts of the graph, for example if you
+        want to include an external package in the graph but don't care about all the dependencies
+        within that package.
         """
         raise NotImplementedError
 
@@ -53,6 +59,9 @@ class AbstractImportGraph(abc.ABC):
         """
         Find all modules one level below the module. For example, the children of
         foo.bar might be foo.bar.one and foo.bar.two, but not foo.bar.two.green.
+
+        Raises:
+            ValueError if attempted on a squashed module.
         """
         raise NotImplementedError
 
@@ -61,6 +70,9 @@ class AbstractImportGraph(abc.ABC):
         """
         Find all modules below the module. For example, the descendants of
         foo.bar might be foo.bar.one and foo.bar.two and foo.bar.two.green.
+
+        Raises:
+            ValueError if attempted on a squashed module.
         """
         raise NotImplementedError
 
@@ -127,7 +139,7 @@ class AbstractImportGraph(abc.ABC):
 
             # Returns the modules downstream of mypackage.foo, mypackage.foo.one and
             # mypackage.foo.two.
-            import_graph.find_downstream_modules('mypackage.foo', as_package=True,)
+            import_graph.find_downstream_modules('mypackage.foo', as_package=True)
         """
         raise NotImplementedError
 

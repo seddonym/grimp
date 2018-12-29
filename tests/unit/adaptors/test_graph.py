@@ -342,6 +342,35 @@ def test_add_module():
     assert graph.modules == {module}
 
 
+class TestAddSquashedModule:
+    def test_can_repeatedly_add_same_squashed_module(self):
+        graph = ImportGraph()
+        module = 'foo'
+
+        graph.add_module(module, is_squashed=True)
+        graph.add_module(module, is_squashed=True)
+
+        assert graph.modules == {module}
+
+    def test_cannot_add_squashed_module_if_already_same_unsquashed_module(self):
+        graph = ImportGraph()
+        module = 'foo'
+
+        graph.add_module(module)
+
+        with pytest.raises(ValueError):
+            graph.add_module(module, is_squashed=True)
+
+    @pytest.mark.parametrize('module_name', ('mypackage.foo.one', 'mypackage.foo.one.alpha'))
+    def test_cannot_add_descendant_of_squashed_module(self, module_name):
+        graph = ImportGraph()
+
+        graph.add_module('mypackage.foo', is_squashed=True)
+
+        with pytest.raises(ValueError):
+            graph.add_module(module_name)
+
+
 @pytest.mark.parametrize('add_module', (True, False))
 def test_add_import(add_module):
     graph = ImportGraph()
