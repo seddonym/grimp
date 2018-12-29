@@ -181,9 +181,13 @@ class ImportGraph(graph.AbstractImportGraph):
             return networkx.algorithms.has_path(self._networkx_graph,
                                                 source=importer,
                                                 target=imported)
+        upstream_modules = {imported}
+        if not self._is_existing_module_squashed(imported):
+            upstream_modules |= self.find_descendants(imported)
 
-        upstream_modules = {imported} | self.find_descendants(imported)
-        downstream_modules = {importer} | self.find_descendants(importer)
+        downstream_modules = {importer}
+        if not self._is_existing_module_squashed(importer):
+            downstream_modules |= self.find_descendants(importer)
 
         if upstream_modules & downstream_modules:
             # If there are shared modules between the two, one of the modules is a descendant
