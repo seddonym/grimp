@@ -79,6 +79,8 @@ def test_find_modules_that_directly_import():
         ('foo.b.e', False, set()),
         ('foo.a', True, {'foo.b', 'foo.c', 'foo.b.e', 'foo.b.g'}),
         ('foo.b.e', True, set()),
+        ('bar', True, {'foo.a.d', 'foo.b.e'}),
+        ('bar', False, {'foo.a.d', 'foo.b.e'}),
     )
 )
 def test_find_downstream_modules(module, as_package, expected_result):
@@ -86,6 +88,9 @@ def test_find_downstream_modules(module, as_package, expected_result):
     a, b, c = 'foo.a', 'foo.b', 'foo.c'
     d, e, f = 'foo.a.d', 'foo.b.e', 'foo.a.f'
     g = 'foo.b.g'
+    external = 'bar'
+
+    graph.add_module(external, is_squashed=True)
 
     graph.add_import(imported=a, importer=b)
     graph.add_import(imported=a, importer=c)
@@ -93,6 +98,7 @@ def test_find_downstream_modules(module, as_package, expected_result):
     graph.add_import(imported=d, importer=e)
     graph.add_import(imported=f, importer=b)
     graph.add_import(imported=f, importer=g)
+    graph.add_import(imported=external, importer=d)
 
     assert expected_result == graph.find_downstream_modules(
         module,
