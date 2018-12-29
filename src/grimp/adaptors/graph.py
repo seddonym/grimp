@@ -142,7 +142,10 @@ class ImportGraph(graph.AbstractImportGraph):
         # TODO optimise for as_package.
         destination_modules = {module}
         if as_package:
-            destination_modules.update(self.find_descendants(module))
+            # For squashed modules, the behaviour is the same regardless of whether or not
+            # we specify as_package, as the node itself represents the package.
+            if not self._is_existing_module_squashed(module):
+                destination_modules.update(self.find_descendants(module))
 
         upstream_modules = set()
 

@@ -106,6 +106,8 @@ def test_find_downstream_modules(module, as_package, expected_result):
         ('foo.b.g', False, set()),
         ('foo.d', True, {'foo.a', 'foo.a.f', 'foo.b.g'}),
         ('foo.b.g', True, set()),
+        ('bar', True, {'foo.a.f', 'foo.b.g'}),
+        ('bar', False, {'foo.a.f', 'foo.b.g'}),
     )
 )
 def test_find_upstream_modules(module, as_package, expected_result):
@@ -113,6 +115,9 @@ def test_find_upstream_modules(module, as_package, expected_result):
     a, b, c = 'foo.a', 'foo.d.b', 'foo.d.c'
     d, e, f = 'foo.d', 'foo.c.e', 'foo.a.f'
     g = 'foo.b.g'
+    external = 'bar'
+
+    graph.add_module(external, is_squashed=True)
 
     graph.add_import(imported=a, importer=b)
     graph.add_import(imported=a, importer=c)
@@ -120,6 +125,7 @@ def test_find_upstream_modules(module, as_package, expected_result):
     graph.add_import(imported=d, importer=e)
     graph.add_import(imported=f, importer=b)
     graph.add_import(imported=g, importer=f)
+    graph.add_import(imported=f, importer=external)
 
     assert expected_result == graph.find_upstream_modules(module, as_package=as_package)
 
