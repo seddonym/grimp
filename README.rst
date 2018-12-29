@@ -13,7 +13,7 @@ Grimp
     :target: https://travis-ci.com/seddonym/grimp
 
 
-Builds a graph of a Python project's internal dependencies.
+Builds a graph of a Python project's internal and external dependencies.
 
 * Free software: BSD license
 
@@ -80,3 +80,14 @@ You may now use the graph object to analyse the package. Some examples::
             'line_contents': 'from . import baz',
         },
     ]
+
+By default, external dependencies will not be included. This can be overridden like so:
+
+    >>> graph = grimp.build_graph('somepackage', include_external_packages=True)
+    >>> graph.find_modules_directly_imported_by('somepackage.foo')
+    {
+        'somepackage.bar.one',
+        'os',
+        'decimal',
+        'sqlalchemy',
+    }

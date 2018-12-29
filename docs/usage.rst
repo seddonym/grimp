@@ -2,7 +2,7 @@
 Usage
 =====
 
-Grimp provides an API in the form of an ``ImportGraph`` that represents all the internal imports within a
+Grimp provides an API in the form of an ``ImportGraph`` that represents all the imports within a
 top-level Python package. This object has various methods that make it easy to find out information about
 that package's structure and interdependencies.
 
@@ -25,6 +25,9 @@ taken in part from `the official Python docs`_:
 - **Import Chain**: A chain of imports between two modules, possibly via other modules. For example, if
   ``mypackage.foo`` imports ``mypackage.bar``, which in turn imports ``mypackage.baz``, then there is an import chain
   between ``mypackage.foo`` and ``mypackage.baz``.
+- **Squashed Module**: A module in the graph that represents both itself and all its descendants. Squashed
+  modules allow parts of the graph to be simplified. For example, if you include external packages when building
+  the graph, the external package will exist in the graph as a single squashed module.
 
 .. _the official Python docs: https://docs.python.org/3/tutorial/modules.html
 .. _in the mathematical sense: https://en.wikipedia.org/wiki/Graph_(discrete_mathematics)
@@ -39,11 +42,14 @@ Building the graph
 
     graph = grimp.build_graph('mypackage')
 
-.. py:function:: grimp.build_graph(package_name)
+.. py:function:: grimp.build_graph(package_name, include_external_packages=False)
 
    Build and return an ImportGraph for the supplied package.
 
     :param str package_name: The name of the top level package, for example ``'mypackage'``.
+    :param bool include_external_packages: Whether to include external packages in the import graph. If this is True,
+        any other top level packages that are imported by this top level package (including packages in the
+        standard library) will be included in the graph as squashed modules (see `Terminology`_ above).
     :return: An import graph that you can use to analyse the package.
     :rtype: ImportGraph
 
@@ -178,11 +184,12 @@ Methods for analysing import chains
 Methods for manipulating the graph
 ----------------------------------
 
-.. py:function:: ImportGraph.add_module(module)
+.. py:function:: ImportGraph.add_module(module, is_squashed=False)
 
     Add a module to the graph.
 
     :param str module: The name of a module, for example ``'mypackage.foo'``.
+    :param bool is_squashed: If True, the module should be treated as a 'squashed module' (see `Terminology`_ above).
     :return: None
 
 .. py:function:: ImportGraph.add_import(importer, imported, line_number=None, line_contents=None)
