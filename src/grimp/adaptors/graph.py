@@ -15,6 +15,7 @@ class ImportGraph(graph.AbstractImportGraph):
         self._networkx_graph = networkx.DiGraph()
         # Instantiate a dict that stores the details for all direct imports.
         self._import_details: Dict[str, List[Dict[str, Any]]] = {}
+        self._squashed_modules: Set[str] = set()
 
     # Mechanics
     # ---------
@@ -23,8 +24,22 @@ class ImportGraph(graph.AbstractImportGraph):
     def modules(self) -> Set[str]:
         return set(self._networkx_graph.nodes)
 
-    def add_module(self, module: str) -> None:
+    def add_module(self, module: str, is_squashed: bool = False) -> None:
+        ancestor_squashed_module = self._find_ancestor_squashed_module(module)
+        if ancestor_squashed_module:
+            raise ValueError(
+                f'Module is a descendant of squashed module {ancestor_squashed_module}.')
+
+        if module in self.modules:
+            if self._is_existing_module_squashed(module) != is_squashed:
+                raise ValueError(
+                    'Cannot add a squashed module when it is already present in the graph as '
+                    'an unsquashed module, or vice versa.')
+
         self._networkx_graph.add_node(module)
+
+        if is_squashed:
+            self._mark_module_as_squashed(module)
 
     def add_import(
         self, *,
@@ -168,3 +183,33 @@ class ImportGraph(graph.AbstractImportGraph):
                     return True
 
         return False
+
+    # Private methods
+
+    def _find_ancestor_squashed_module(self, module: str) -> Optional[str]:
+        """
+        Return the name of a squashed module that is an ancestor of the supplied module, or None
+        if no such module exists.
+        """
+        try:
+            parent = Module(module).parent.name
+        except ValueError:
+            # The module no more ancestors.
+            return None
+
+        if self._is_existing_module_squashed(parent):
+            return parent
+        else:
+            return self._find_ancestor_squashed_module(parent)
+
+    def _is_existing_module_squashed(self, module: str) -> bool:
+        """
+        Return whether a module that currently exists in the graph is squashed.
+        """
+        return module in self._squashed_modules
+
+    def _mark_module_as_squashed(self, module: str) -> bool:
+        """
+        Set a flag on a module in the graph that it is squashed.
+        """
+        self._squashed_modules.add(module)
