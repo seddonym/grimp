@@ -361,6 +361,15 @@ class TestAddSquashedModule:
         with pytest.raises(ValueError):
             graph.add_module(module, is_squashed=True)
 
+    def test_cannot_add_unsquashed_module_if_already_same_squashed_module(self):
+        graph = ImportGraph()
+        module = 'foo'
+
+        graph.add_module(module, is_squashed=True)
+
+        with pytest.raises(ValueError):
+            graph.add_module(module)
+
     @pytest.mark.parametrize('module_name', ('mypackage.foo.one', 'mypackage.foo.one.alpha'))
     def test_cannot_add_descendant_of_squashed_module(self, module_name):
         graph = ImportGraph()
