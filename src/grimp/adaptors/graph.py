@@ -69,6 +69,11 @@ class ImportGraph(graph.AbstractImportGraph):
     # -----------
 
     def find_children(self, module: str) -> Set[str]:
+        # It doesn't make sense to find the children of a squashed module, as we don't store
+        # the children in the graph.
+        if self._is_existing_module_squashed(module):
+            raise ValueError('Cannot find children of a squashed module.')
+
         children = set()
         for potential_child in self.modules:
             if Module(potential_child).is_child_of(Module(module)):
@@ -76,6 +81,11 @@ class ImportGraph(graph.AbstractImportGraph):
         return children
 
     def find_descendants(self, module: str) -> Set[str]:
+        # It doesn't make sense to find the descendants of a squashed module, as we don't store
+        # the descendants in the graph.
+        if self._is_existing_module_squashed(module):
+            raise ValueError('Cannot find descendants of a squashed module.')
+
         descendants = set()
         for potential_descendant in self.modules:
             if Module(potential_descendant).is_descendant_of(Module(module)):

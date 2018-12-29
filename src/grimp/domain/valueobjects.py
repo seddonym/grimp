@@ -41,7 +41,11 @@ class Module(ValueObject):
         return Module('.'.join(components[:-1]))
 
     def is_child_of(self, module: 'Module') -> bool:
-        return module == self.parent
+        try:
+            return module == self.parent
+        except ValueError:
+            # If this module has no parent, then it cannot be a child of the supplied module.
+            return False
 
     def is_descendant_of(self, module: 'Module') -> bool:
         return self.name.startswith(f'{module.name}.')

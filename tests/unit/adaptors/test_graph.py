@@ -142,6 +142,16 @@ def test_find_children(module, expected_result):
     assert expected_result == graph.find_children(module)
 
 
+def test_find_children_raises_exception_for_squashed_module():
+    graph = ImportGraph()
+    module = 'foo'
+
+    graph.add_module(module, is_squashed=True)
+
+    with pytest.raises(ValueError, match='Cannot find children of a squashed module.'):
+        graph.find_children(module)
+
+
 @pytest.mark.parametrize(
     'module, expected_result', (
         ('foo', {'foo.a', 'foo.b', 'foo.c', 'foo.a.one', 'foo.b.one'}),
@@ -158,6 +168,16 @@ def test_find_descendants(module, expected_result):
         graph.add_module(module_to_add)
 
     assert expected_result == graph.find_descendants(module)
+
+
+def test_find_descendants_raises_exception_for_squashed_module():
+    graph = ImportGraph()
+    module = 'foo'
+
+    graph.add_module(module, is_squashed=True)
+
+    with pytest.raises(ValueError, match='Cannot find descendants of a squashed module.'):
+        graph.find_descendants(module)
 
 
 def test_find_shortest_chain_when_exists():
@@ -358,7 +378,13 @@ class TestAddSquashedModule:
 
         graph.add_module(module)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(
+                ValueError,
+                match=(
+                    'Cannot add a squashed module when it is already present in the graph as an '
+                    'unsquashed module, or vice versa.'
+                )
+        ):
             graph.add_module(module, is_squashed=True)
 
     def test_cannot_add_unsquashed_module_if_already_same_squashed_module(self):
@@ -367,7 +393,13 @@ class TestAddSquashedModule:
 
         graph.add_module(module, is_squashed=True)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=(
+                'Cannot add a squashed module when it is already present in the graph as an '
+                'unsquashed module, or vice versa.'
+            )
+        ):
             graph.add_module(module)
 
     @pytest.mark.parametrize('module_name', ('mypackage.foo.one', 'mypackage.foo.one.alpha'))
@@ -376,7 +408,10 @@ class TestAddSquashedModule:
 
         graph.add_module('mypackage.foo', is_squashed=True)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match='Module is a descendant of squashed module mypackage.foo.'
+        ):
             graph.add_module(module_name)
 
 
