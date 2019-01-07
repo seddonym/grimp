@@ -138,8 +138,8 @@ class ImportGraph(graph.AbstractImportGraph):
     ) -> Optional[Tuple[str, ...]]:
         try:
             return tuple(networkx.algorithms.shortest_path(self._networkx_graph,
-                                                           source=upstream_module,
-                                                           target=downstream_module))
+                                                           source=downstream_module,
+                                                           target=upstream_module))
         except networkx.NetworkXNoPath:
             return None
 

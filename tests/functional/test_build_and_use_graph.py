@@ -188,8 +188,8 @@ def test_find_shortest_path():
         'testpackage.two.alpha',
         'testpackage.one.alpha',
     ) == graph.find_shortest_path(
-        upstream_module='testpackage.utils',
-        downstream_module='testpackage.one.alpha',
+        downstream_module='testpackage.utils',
+        upstream_module='testpackage.one.alpha',
     )
 
 
