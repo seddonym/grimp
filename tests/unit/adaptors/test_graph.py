@@ -176,8 +176,8 @@ def test_find_shortest_path_when_exists():
     graph.add_import(importer=f, imported=c)
 
     assert (a, b, c) == graph.find_shortest_path(
-        upstream_module=a,
-        downstream_module=c,
+        downstream_module=a,
+        upstream_module=c,
     )
 
 
@@ -189,8 +189,8 @@ def test_find_shortest_path_returns_none_if_not_exists():
     graph.add_import(importer=b, imported=c)
 
     assert None is graph.find_shortest_path(
-        upstream_module=c,
-        downstream_module=a,
+        downstream_module=c,
+        upstream_module=a,
     )
 
 
