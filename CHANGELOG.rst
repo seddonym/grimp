@@ -29,3 +29,4 @@ latest
 ------
 
 * Improve repr of ImportGraph.
+* Fix bug with find_shortest_path using upstream/downstream the wrong way around.
