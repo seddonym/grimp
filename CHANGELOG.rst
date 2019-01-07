@@ -25,8 +25,8 @@ Changelog
 * Deal with invalid imports by warning instead of raising an exception.
 * Rename NetworkXBackedImportGraph to ImportGraph.
 
-latest
-------
+1.0b4 (2019-1-7)
+----------------
 
 * Improve repr of ImportGraph.
 * Fix bug with find_shortest_path using upstream/downstream the wrong way around.
