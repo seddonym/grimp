@@ -143,7 +143,7 @@ class ImportGraph(graph.AbstractImportGraph):
         except networkx.NetworkXNoPath:
             return None
 
-    def path_exists(
+    def chain_exists(
             self, upstream_module: str, downstream_module: str, as_packages=False,
     ) -> bool:
         if not as_packages:
@@ -157,8 +157,8 @@ class ImportGraph(graph.AbstractImportGraph):
         # Return True as soon as we find a path between any of the modules in the subpackages.
         for upstream in upstream_modules:
             for downstream in downstream_modules:
-                if self.path_exists(upstream_module=upstream,
-                                    downstream_module=downstream):
+                if self.chain_exists(upstream_module=upstream,
+                                     downstream_module=downstream):
                     return True
 
         return False

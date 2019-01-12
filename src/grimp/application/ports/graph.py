@@ -160,7 +160,7 @@ class AbstractImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def path_exists(
+    def chain_exists(
         self, upstream_module: str, downstream_module: str, as_packages=False,
     ) -> bool:
         """

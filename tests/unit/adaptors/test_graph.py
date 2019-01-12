@@ -297,7 +297,7 @@ def test_path_exists(upstream_module, downstream_module, as_packages, expected_r
     if as_packages is not None:
         kwargs['as_packages'] = as_packages
 
-    assert expected_result == graph.path_exists(**kwargs)
+    assert expected_result == graph.chain_exists(**kwargs)
 
 
 def test_add_module():

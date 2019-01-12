@@ -34,3 +34,4 @@ Changelog
 latest
 ------
 * Rename get_shortest_path to get_shortest_chain.
+* Rename path_exists to chain_exists.

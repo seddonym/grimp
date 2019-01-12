@@ -165,7 +165,7 @@ Methods for analysing import paths
              if one exists, or an empty tuple if not.
     :rtype: A tuple of strings, ordered from upstream to downstream modules.
 
-.. py:function:: ImportGraph.path_exists(upstream_module, downstream_module, as_packages=False)
+.. py:function:: ImportGraph.chain_exists(upstream_module, downstream_module, as_packages=False)
 
     :param str upstream_module: The module at the start of the potential import path (i.e. that the
         downstream module will import).

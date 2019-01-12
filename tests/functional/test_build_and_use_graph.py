@@ -154,12 +154,12 @@ class TestPathExists:
     def test_as_packages_false(self):
         graph = build_graph('testpackage')
 
-        assert not graph.path_exists(
+        assert not graph.chain_exists(
             upstream_module='testpackage.utils',
             downstream_module='testpackage.one.alpha',
         )
 
-        assert graph.path_exists(
+        assert graph.chain_exists(
             upstream_module='testpackage.one.alpha',
             downstream_module='testpackage.utils',
         )
@@ -167,13 +167,13 @@ class TestPathExists:
     def test_as_packages_true(self):
         graph = build_graph('testpackage')
 
-        assert graph.path_exists(
+        assert graph.chain_exists(
             upstream_module='testpackage.one',
             downstream_module='testpackage.utils',
             as_packages=True,
         )
 
-        assert not graph.path_exists(
+        assert not graph.chain_exists(
             upstream_module='testpackage.utils',
             downstream_module='testpackage.one',
             as_packages=True,
