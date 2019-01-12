@@ -189,8 +189,7 @@ Methods for manipulating the graph
     :param str module: The name of a module, for example ``'mypackage.foo'``.
     :return: None
 
-.. py:function:: ImportGraph.add_import(importer, imported,
-                                        line_number=None, line_contents=None)
+.. py:function:: ImportGraph.add_import(importer, imported, line_number=None, line_contents=None)
 
     Add a direct import between two modules to the graph. If the modules are not already
     present, they will be added to the graph.
