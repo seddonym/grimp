@@ -144,7 +144,7 @@ class ImportGraph(graph.AbstractImportGraph):
             return None
 
     def chain_exists(
-            self, imported: str, importer: str, as_packages=False,
+        self, imported: str, importer: str, as_packages=False,
     ) -> bool:
         if not as_packages:
             return networkx.algorithms.has_path(self._networkx_graph,
