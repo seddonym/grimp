@@ -161,7 +161,7 @@ class AbstractImportGraph(abc.ABC):
 
     @abc.abstractmethod
     def chain_exists(
-        self, upstream_module: str, downstream_module: str, as_packages=False,
+        self, imported: str, importer: str, as_packages=False,
     ) -> bool:
         """
         Return whether any import path exists between the upstream and the downstream module,
