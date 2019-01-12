@@ -35,3 +35,5 @@ latest
 ------
 * Rename get_shortest_path to get_shortest_chain.
 * Rename path_exists to chain_exists.
+* Rename and reorder the kwargs for get_shortest_chain and chain_exists.
+* Raise ValueError if modules with shared descendants are passed to chain_exists if as_packages=True.

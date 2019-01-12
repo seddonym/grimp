@@ -156,7 +156,7 @@ class AbstractImportGraph(abc.ABC):
         of importer to imported.
 
         Returns:
-            Tuple of module names, from importer to imported, or None if no path exists.
+            Tuple of module names, from importer to imported, or None if no chain exists.
         """
         raise NotImplementedError
 

@@ -61,7 +61,7 @@ class DirectImport(ValueObject):
         return hash((str(self), self.line_contents))
 
 
-class ImportPath(ValueObject):
+class ImportChain(ValueObject):
     """
     A flow of imports between two modules, from upstream to downstream.
     """
