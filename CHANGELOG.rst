@@ -31,8 +31,8 @@ Changelog
 * Improve repr of ImportGraph.
 * Fix bug with find_shortest_path using upstream/downstream the wrong way around.
 
-latest
-------
+1.0b5 (2019-1-12)
+-----------------
 * Rename get_shortest_path to get_shortest_chain.
 * Rename path_exists to chain_exists.
 * Rename and reorder the kwargs for get_shortest_chain and chain_exists.
