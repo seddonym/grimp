@@ -188,8 +188,8 @@ def test_find_shortest_chain():
         'testpackage.two.alpha',
         'testpackage.one.alpha',
     ) == graph.find_shortest_chain(
-        downstream_module='testpackage.utils',
-        upstream_module='testpackage.one.alpha',
+        importer='testpackage.utils',
+        imported='testpackage.one.alpha',
     )
 
 

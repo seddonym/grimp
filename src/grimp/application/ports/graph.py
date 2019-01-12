@@ -149,7 +149,7 @@ class AbstractImportGraph(abc.ABC):
 
     @abc.abstractmethod
     def find_shortest_chain(
-        self, upstream_module: str, downstream_module: str,
+        self, imported: str, importer: str,
     ) -> Optional[Tuple[str, ...]]:
         """
         Attempt to find the shortest chain of imports between two modules.
@@ -161,7 +161,7 @@ class AbstractImportGraph(abc.ABC):
 
     @abc.abstractmethod
     def path_exists(
-            self, upstream_module: str, downstream_module: str, as_packages=False,
+        self, upstream_module: str, downstream_module: str, as_packages=False,
     ) -> bool:
         """
         Return whether any import path exists between the upstream and the downstream module,

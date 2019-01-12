@@ -134,12 +134,12 @@ class ImportGraph(graph.AbstractImportGraph):
         return upstream_modules
 
     def find_shortest_chain(
-        self, upstream_module: str, downstream_module: str,
+        self, imported: str, importer: str,
     ) -> Optional[Tuple[str, ...]]:
         try:
             return tuple(networkx.algorithms.shortest_path(self._networkx_graph,
-                                                           source=downstream_module,
-                                                           target=upstream_module))
+                                                           source=importer,
+                                                           target=imported))
         except networkx.NetworkXNoPath:
             return None
 
