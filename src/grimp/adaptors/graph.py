@@ -133,7 +133,7 @@ class ImportGraph(graph.AbstractImportGraph):
 
         return upstream_modules
 
-    def find_shortest_path(
+    def find_shortest_chain(
         self, upstream_module: str, downstream_module: str,
     ) -> Optional[Tuple[str, ...]]:
         try:

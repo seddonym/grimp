@@ -148,11 +148,11 @@ class AbstractImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def find_shortest_path(
+    def find_shortest_chain(
         self, upstream_module: str, downstream_module: str,
     ) -> Optional[Tuple[str, ...]]:
         """
-        Attempt to find the shortest ImportPath from the upstream to the downstream module.
+        Attempt to find the shortest chain of imports between two modules.
 
         Returns:
             Tuple of module names, from importer to imported, or None if no path exists.

@@ -160,7 +160,7 @@ def test_find_descendants(module, expected_result):
     assert expected_result == graph.find_descendants(module)
 
 
-def test_find_shortest_path_when_exists():
+def test_find_shortest_chain_when_exists():
     graph = ImportGraph()
     a, b, c = 'foo', 'bar', 'baz'
     d, e, f = 'long', 'way', 'around'
@@ -175,20 +175,20 @@ def test_find_shortest_path_when_exists():
     graph.add_import(importer=e, imported=f)
     graph.add_import(importer=f, imported=c)
 
-    assert (a, b, c) == graph.find_shortest_path(
+    assert (a, b, c) == graph.find_shortest_chain(
         downstream_module=a,
         upstream_module=c,
     )
 
 
-def test_find_shortest_path_returns_none_if_not_exists():
+def test_find_shortest_chain_returns_none_if_not_exists():
     graph = ImportGraph()
     a, b, c = 'foo', 'bar', 'baz'
 
     graph.add_import(importer=a, imported=b)
     graph.add_import(importer=b, imported=c)
 
-    assert None is graph.find_shortest_path(
+    assert None is graph.find_shortest_chain(
         downstream_module=c,
         upstream_module=a,
     )

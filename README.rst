@@ -64,7 +64,7 @@ You may now use the graph object to analyse the package. Some examples::
         'somepackage.foobar',
     }
 
-    >>> graph.find_shortest_path(upstream_module='somepackage.foobar',
+    >>> graph.find_shortest_chain(upstream_module='somepackage.foobar',
                                  downstream_module='somepackage.foo')
     (
         'somepackage.foobar',

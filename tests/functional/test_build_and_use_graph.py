@@ -180,14 +180,14 @@ class TestPathExists:
         )
 
 
-def test_find_shortest_path():
+def test_find_shortest_chain():
     graph = build_graph('testpackage')
 
     assert (
         'testpackage.utils',
         'testpackage.two.alpha',
         'testpackage.one.alpha',
-    ) == graph.find_shortest_path(
+    ) == graph.find_shortest_chain(
         downstream_module='testpackage.utils',
         upstream_module='testpackage.one.alpha',
     )

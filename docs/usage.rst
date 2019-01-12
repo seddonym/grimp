@@ -155,7 +155,7 @@ Methods for analysing import paths
     :return: All the modules that are imported (even indirectly) by the supplied module.
     :rtype: A set of strings.
 
-.. py:function:: ImportGraph.find_shortest_path(upstream_module, downstream_module)
+.. py:function:: ImportGraph.find_shortest_chain(upstream_module, downstream_module)
 
     :param str upstream_module: The module at the start of the potential import path (i.e. that the
         downstream module will import).

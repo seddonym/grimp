@@ -30,3 +30,7 @@ Changelog
 
 * Improve repr of ImportGraph.
 * Fix bug with find_shortest_path using upstream/downstream the wrong way around.
+
+latest
+------
+* Rename get_shortest_path to get_shortest_chain.
