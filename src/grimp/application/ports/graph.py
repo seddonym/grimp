@@ -148,30 +148,31 @@ class AbstractImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def find_shortest_path(
-        self, upstream_module: str, downstream_module: str,
+    def find_shortest_chain(
+        self, importer: str, imported: str,
     ) -> Optional[Tuple[str, ...]]:
         """
-        Attempt to find the shortest ImportPath from the upstream to the downstream module.
+        Attempt to find the shortest chain of imports between two modules, in the direction
+        of importer to imported.
 
         Returns:
-            Tuple of module names, from importer to imported, or None if no path exists.
+            Tuple of module names, from importer to imported, or None if no chain exists.
         """
         raise NotImplementedError
 
     @abc.abstractmethod
-    def path_exists(
-            self, upstream_module: str, downstream_module: str, as_packages=False,
+    def chain_exists(
+        self, importer: str, imported: str, as_packages=False,
     ) -> bool:
         """
-        Return whether any import path exists between the upstream and the downstream module,
-        even indirectly; in other words, does the downstream module depend on the upstream module?
+        Return whether any chain of imports exists between the two modules, in the direction
+        of importer to imported. In other words, does the importer depend on the imported?
 
         Optional args:
             as_packages: Whether to treat the supplied modules as individual modules,
                          or as packages (including any descendants, if there are any). If
-                         treating them as subpackages, all descendants of the upstream and
-                         downstream modules will be checked too.
+                         treating them as subpackages, all descendants of the supplied modules
+                         will be checked too.
         """
         raise NotImplementedError
 

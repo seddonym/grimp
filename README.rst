@@ -64,16 +64,14 @@ You may now use the graph object to analyse the package. Some examples::
         'somepackage.foobar',
     }
 
-    >>> graph.find_shortest_path(upstream_module='somepackage.foobar',
-                                 downstream_module='somepackage.foo')
+    >>> graph.find_shortest_chain(importer='somepackage.foobar', imported='somepackage.foo')
     (
         'somepackage.foobar',
         'somepackage.baz',
         'somepackage.foo',
     )
 
-    >>> graph.get_import_details(importer='somepackage.foobar',
-                                 imported='somepackage.baz'))
+    >>> graph.get_import_details(importer='somepackage.foobar', imported='somepackage.baz'))
     [
         {
             'importer': 'somepackage.foobar',

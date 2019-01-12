@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import Any
 
 
 class ValueObject:
@@ -59,16 +59,3 @@ class DirectImport(ValueObject):
 
     def __hash__(self) -> int:
         return hash((str(self), self.line_contents))
-
-
-class ImportPath(ValueObject):
-    """
-    A flow of imports between two modules, from upstream to downstream.
-    """
-    def __init__(self, *modules: List[Module]) -> None:
-        self.modules = modules
-
-    def __str__(self) -> str:
-        return ' -> '.join(
-            reversed([str(m) for m in self.modules])
-        )

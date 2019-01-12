@@ -133,32 +133,38 @@ class ImportGraph(graph.AbstractImportGraph):
 
         return upstream_modules
 
-    def find_shortest_path(
-        self, upstream_module: str, downstream_module: str,
+    def find_shortest_chain(
+        self, importer: str, imported: str,
     ) -> Optional[Tuple[str, ...]]:
         try:
             return tuple(networkx.algorithms.shortest_path(self._networkx_graph,
-                                                           source=downstream_module,
-                                                           target=upstream_module))
+                                                           source=importer,
+                                                           target=imported))
         except networkx.NetworkXNoPath:
             return None
 
-    def path_exists(
-            self, upstream_module: str, downstream_module: str, as_packages=False,
+    def chain_exists(
+        self, importer: str, imported: str, as_packages=False,
     ) -> bool:
         if not as_packages:
             return networkx.algorithms.has_path(self._networkx_graph,
-                                                source=downstream_module,
-                                                target=upstream_module)
+                                                source=importer,
+                                                target=imported)
 
-        upstream_modules = {upstream_module} | self.find_descendants(upstream_module)
-        downstream_modules = {downstream_module} | self.find_descendants(downstream_module)
+        upstream_modules = {imported} | self.find_descendants(imported)
+        downstream_modules = {importer} | self.find_descendants(importer)
+
+        if upstream_modules & downstream_modules:
+            # If there are shared modules between the two, one of the modules is a descendant
+            # of the other (or they're both the same module). This doesn't make sense in
+            # this context, so raise an exception.
+            raise ValueError('Modules have shared descendants.')
 
         # Return True as soon as we find a path between any of the modules in the subpackages.
         for upstream in upstream_modules:
             for downstream in downstream_modules:
-                if self.path_exists(upstream_module=upstream,
-                                    downstream_module=downstream):
+                if self.chain_exists(imported=upstream,
+                                     importer=downstream):
                     return True
 
         return False

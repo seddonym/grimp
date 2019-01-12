@@ -154,42 +154,42 @@ class TestPathExists:
     def test_as_packages_false(self):
         graph = build_graph('testpackage')
 
-        assert not graph.path_exists(
-            upstream_module='testpackage.utils',
-            downstream_module='testpackage.one.alpha',
+        assert not graph.chain_exists(
+            imported='testpackage.utils',
+            importer='testpackage.one.alpha',
         )
 
-        assert graph.path_exists(
-            upstream_module='testpackage.one.alpha',
-            downstream_module='testpackage.utils',
+        assert graph.chain_exists(
+            imported='testpackage.one.alpha',
+            importer='testpackage.utils',
         )
 
     def test_as_packages_true(self):
         graph = build_graph('testpackage')
 
-        assert graph.path_exists(
-            upstream_module='testpackage.one',
-            downstream_module='testpackage.utils',
+        assert graph.chain_exists(
+            imported='testpackage.one',
+            importer='testpackage.utils',
             as_packages=True,
         )
 
-        assert not graph.path_exists(
-            upstream_module='testpackage.utils',
-            downstream_module='testpackage.one',
+        assert not graph.chain_exists(
+            imported='testpackage.utils',
+            importer='testpackage.one',
             as_packages=True,
         )
 
 
-def test_find_shortest_path():
+def test_find_shortest_chain():
     graph = build_graph('testpackage')
 
     assert (
         'testpackage.utils',
         'testpackage.two.alpha',
         'testpackage.one.alpha',
-    ) == graph.find_shortest_path(
-        downstream_module='testpackage.utils',
-        upstream_module='testpackage.one.alpha',
+    ) == graph.find_shortest_chain(
+        importer='testpackage.utils',
+        imported='testpackage.one.alpha',
     )
 
 

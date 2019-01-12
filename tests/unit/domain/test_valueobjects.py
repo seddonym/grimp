@@ -1,4 +1,4 @@
-from grimp.domain.valueobjects import Module, DirectImport, ImportPath
+from grimp.domain.valueobjects import Module, DirectImport
 
 
 class TestModule:
@@ -125,55 +125,3 @@ class TestDirectImport:
         assert hash(a) != hash(d)
         assert hash(a) != hash(e)
         assert hash(a) != hash(f)
-
-
-class TestImportPath:
-    def test_repr(self):
-        import_path = ImportPath(
-            Module('one'),
-            Module('two'),
-            Module('three'),
-        )
-        assert repr(import_path) == '<ImportPath: three -> two -> one>'
-
-    def test_equals(self):
-        a = ImportPath(
-            Module('one'),
-            Module('two'),
-            Module('three'),
-        )
-        b = ImportPath(
-            Module('one'),
-            Module('two'),
-            Module('three'),
-        )
-        c = ImportPath(
-            Module('one'),
-            Module('three'),
-            Module('two'),
-        )
-
-        assert a == b
-        assert a != c
-        # Also non-ImportPath instances should not be treated as equal.
-        assert a != 'foo'
-
-    def test_hash(self):
-        a = ImportPath(
-            Module('one'),
-            Module('two'),
-            Module('three'),
-        )
-        b = ImportPath(
-            Module('one'),
-            Module('two'),
-            Module('three'),
-        )
-        c = ImportPath(
-            Module('one'),
-            Module('three'),
-            Module('two'),
-        )
-
-        assert hash(a) == hash(b)
-        assert hash(a) != hash(c)

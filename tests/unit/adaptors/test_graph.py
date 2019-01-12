@@ -160,7 +160,7 @@ def test_find_descendants(module, expected_result):
     assert expected_result == graph.find_descendants(module)
 
 
-def test_find_shortest_path_when_exists():
+def test_find_shortest_chain_when_exists():
     graph = ImportGraph()
     a, b, c = 'foo', 'bar', 'baz'
     d, e, f = 'long', 'way', 'around'
@@ -175,81 +175,110 @@ def test_find_shortest_path_when_exists():
     graph.add_import(importer=e, imported=f)
     graph.add_import(importer=f, imported=c)
 
-    assert (a, b, c) == graph.find_shortest_path(
-        downstream_module=a,
-        upstream_module=c,
+    assert (a, b, c) == graph.find_shortest_chain(
+        importer=a,
+        imported=c,
     )
 
 
-def test_find_shortest_path_returns_none_if_not_exists():
+def test_find_shortest_chain_returns_none_if_not_exists():
     graph = ImportGraph()
     a, b, c = 'foo', 'bar', 'baz'
 
     graph.add_import(importer=a, imported=b)
     graph.add_import(importer=b, imported=c)
 
-    assert None is graph.find_shortest_path(
-        downstream_module=c,
-        upstream_module=a,
+    assert None is graph.find_shortest_chain(
+        importer=c,
+        imported=a,
     )
 
 
 @pytest.mark.parametrize(
-    'upstream_module, downstream_module, as_packages, expected_result',
+    'importer, imported, as_packages, expected_result',
     (
-        # as_packages not supplied.
-        ('a.one', 'a.two', None, True),  # Direct import.
-        ('a.one', 'a.two.green', None, False),  # No import.
-        ('a.one', 'a.three', None, True),  # Indirect import.
-        ('c.one', 'b.two', None, False),  # Downstream imports child of upstream.
-        ('b.one', 'b.two', None, False),  # Downstream child imports upstream.
-        # Downstream child imports upstream child.
-        ('a.one', 'b.two', None, False),
-        # Downstream grandchild imports upstream grandchild.
-        ('a', 'b', None, False),
-        # Downstream grandchild imports upstream grandchild (indirectly).
-        ('a', 'd', True, True),
-        # 'Weak dependency': downstream child imports module that does not import the upstream
-        # module (even directly). However another module in the intermediate subpackage *does*
+        # This block: as_packages not supplied.
+        ('a.two', 'a.one', None, True),  # Importer directly imports imported.
+        ('a.three', 'a.one', None, True),  # Importer indirectly imports imported.
+        # Importer does not import the imported, even indirectly.
+        ('a.two.green', 'a.one', None, False),
+        ('b.two', 'c.one', None, False),  # Importer imports the child of the imported.
+        ('b.two', 'b', None, False),  # Importer is child of imported (but doesn't import).
+        # Importer's child imports imported's child.
+        ('b.two', 'a.one', None, False),
+        # Importer's grandchild directly imports imported's grandchild.
+        ('b', 'a', None, False),
+        # Importer's grandchild indirectly imports imported's grandchild.
+        ('d', 'a', None, False),
+        # 'Weak dependency': importer's child imports module that does not import imported
+        # (even directly). However another module in the intermediate subpackage *does*
         # import the upstream module.
+        # The chains are: e.one -> b.one; b.two -> c.one.green; c.one -> a.two.
         ('e', 'a', None, False),
 
-        # as_packages=False (this will be the same as the block of tests above).
-        ('a.one', 'a.two', False, True),  # Direct import.
-        ('a.one', 'a.two.green', False, False),  # No import.
-        ('a.one', 'a.three', False, True),  # Indirect import.
-        ('c.one', 'b.two', False, False),  # Downstream imports child of upstream.
-        ('b.one', 'b.two', False, False),  # Downstream child imports upstream.
-        # Downstream child imports upstream child.
-        ('a.one', 'b.two', False, False),
-        # Downstream grandchild imports upstream grandchild.
-        ('a', 'b', False, False),
-        # Downstream grandchild imports upstream grandchild (indirectly).
-        ('a', 'd', True, True),
-        # 'Weak dependency': downstream child imports module that does not import the upstream
-        # module (even directly). However another module in the intermediate subpackage *does*
-        # import the upstream module.
+        # This block: as_packages=False (should be identical to block above).
+        ('a.two', 'a.one', False, True),
+        ('a.three', 'a.one', False, True),
+        ('a.two.green', 'a.one', False, False),
+        ('b.two', 'c.one', False, False),
+        ('b.two', 'b', False, False),
+        ('b.two', 'a.one', False, False),
+        ('b', 'a', False, False),
+        ('d', 'a', False, False),
         ('e', 'a', False, False),
-        #
-        # # as_packages=True.
-        ('a.one', 'a.two', True, True),  # Direct import.
-        ('a.one', 'a.two.green', True, False),  # No import.
-        ('a.one', 'a.three', True, True),  # Indirect import.
-        ('c.one', 'b.two', True, True),  # Downstream imports child of upstream.
-        ('b.one', 'b.two', True, True),  # Downstream child imports upstream.
-        # Downstream child imports upstream child.
-        ('a.one', 'b.two', True, True),
-        # Downstream grandchild imports upstream grandchild.
-        ('a', 'b', True, True),
-        # Downstream grandchild imports upstream grandchild (indirectly).
-        ('a', 'd', True, True),
-        # 'Weak dependency': downstream child imports module that does not import the upstream
-        # module (even directly). However another module in the intermediate subpackage *does*
+
+        # This block: as_packages=True.
+        ('a.two', 'a.one', True, True),  # Importer directly imports imported.
+        ('a.three', 'a.one', True, True),  # Importer indirectly imports imported.
+        # Importer does not import the imported, even indirectly.
+        ('a.two.green', 'a.one', True, False),
+        # Importer imports the child of the imported (b.two -> c.one.green).
+        ('b.two', 'c.one', True, True),
+        # Importer is child of imported (but doesn't import). This doesn't
+        # make sense if as_packages is True, so it should raise an exception.
+        ('b.two', 'b', True, ValueError()),
+        # Importer's child imports imported's child (b.two.green -> a.one.green).
+        ('b.two', 'a.one', True, True),
+        # Importer's grandchild directly imports imported's grandchild
+        # (b.two.green -> a.one.green).
+        ('b', 'a', True, True),
+        # Importer's grandchild indirectly imports imported's grandchild.
+        # (d.one.green -> b.two.green -> a.one.green).
+        ('d', 'a', True, True),
+        # 'Weak dependency': importer's child imports module that does not import imported
+        # (even directly). However another module in the intermediate subpackage *does*
         # import the upstream module. We treat this as False as it's not really a dependency.
+        # The chains are: e.one -> b.one; b.two -> c.one.green; c.one -> a.two.
         ('e', 'a', True, False),
     )
 )
-def test_path_exists(upstream_module, downstream_module, as_packages, expected_result):
+def test_chain_exists(importer, imported, as_packages, expected_result):
+    """
+    Build a graph to analyse for chains. This is much easier to debug visually,
+    so here is the dot syntax for the graph, which can be viewed using a dot file viewer.
+
+        digraph {
+            a;
+            a_one;
+            a_one_green;
+            a_two -> a_one;
+            a_two_green;
+            a_three -> c_one;
+            b;
+            b_one;
+            b_two -> c_one_green;
+            b_two_green -> b_one;
+            b_two_green -> a_one_green;
+            c;
+            c_one -> a_two;
+            c_one_green;
+            d;
+            d_one;
+            d_one_green -> b_two_green;
+            e;
+            e_one -> b_one;
+        }
+    """
     graph = ImportGraph()
     a, a_one, a_one_green, a_two, a_two_green, a_three = (
         'a',
@@ -278,7 +307,7 @@ def test_path_exists(upstream_module, downstream_module, as_packages, expected_r
     ):
         graph.add_module(module_to_add)
 
-    for importer, imported in (
+    for _importer, _imported in (
         (a_two, a_one),
         (c_one, a_two),
         (a_three, c_one),
@@ -288,16 +317,20 @@ def test_path_exists(upstream_module, downstream_module, as_packages, expected_r
         (d_one_green, b_two_green),
         (e_one, b_one),
     ):
-        graph.add_import(importer=importer, imported=imported)
+        graph.add_import(importer=_importer, imported=_imported)
 
     kwargs = dict(
-        upstream_module=upstream_module,
-        downstream_module=downstream_module,
+        imported=imported,
+        importer=importer,
     )
     if as_packages is not None:
         kwargs['as_packages'] = as_packages
 
-    assert expected_result == graph.path_exists(**kwargs)
+    if isinstance(expected_result, Exception):
+        with pytest.raises(expected_result.__class__):
+            graph.chain_exists(**kwargs)
+    else:
+        assert expected_result == graph.chain_exists(**kwargs)
 
 
 def test_add_module():

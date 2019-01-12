@@ -22,8 +22,8 @@ taken in part from `the official Python docs`_:
 - **Graph**: A graph `in the mathematical sense`_ of a collection of items with relationships between them. Grimp's
   ``ImportGraph`` is a directed graph of all the internal imports contained in a particular top level package.
 - **Direct Import**: An import from one module to another.
-- **Import Path**: A chain of imports between two modules, possibly via other modules. For example, if
-  ``mypackage.foo`` imports ``mypackage.bar``, which in turn imports ``mypackage.baz``, then there is an import path
+- **Import Chain**: A chain of imports between two modules, possibly via other modules. For example, if
+  ``mypackage.foo`` imports ``mypackage.bar``, which in turn imports ``mypackage.baz``, then there is an import chain
   between ``mypackage.foo`` and ``mypackage.baz``.
 
 .. _the official Python docs: https://docs.python.org/3/tutorial/modules.html
@@ -123,8 +123,8 @@ Methods for analysing direct imports
     :return: A list of the details of every direct import between two modules.
     :rtype: List of dictionaries.
 
-Methods for analysing import paths
-----------------------------------
+Methods for analysing import chains
+-----------------------------------
 
 .. py:function:: ImportGraph.find_downstream_modules(module, as_package=False)
 
@@ -155,28 +155,24 @@ Methods for analysing import paths
     :return: All the modules that are imported (even indirectly) by the supplied module.
     :rtype: A set of strings.
 
-.. py:function:: ImportGraph.find_shortest_path(upstream_module, downstream_module)
+.. py:function:: ImportGraph.find_shortest_chain(importer, imported)
 
-    :param str upstream_module: The module at the start of the potential import path (i.e. that the
-        downstream module will import).
-    :param str downstream_module: The module at the end of the potential import path (i.e. that will import
-        the upstream module).
-    :return: The shortest import path from the upstream to the downstream module,
-             if one exists, or an empty tuple if not.
-    :rtype: A tuple of strings, ordered from upstream to downstream modules.
+    :param str importer: The module at the start of a potential chain of imports between ``importer`` and ``imported``
+        (i.e. the module that potentially imports ``imported``, even indirectly).
+    :param str imported: The module at the end of the potential chain of imports.
+    :return: The shortest chain of imports between the supplied modules, or None if no chain exists.
+    :rtype: A tuple of strings, ordered from importer to imported modules, or None.
 
-.. py:function:: ImportGraph.path_exists(upstream_module, downstream_module, as_packages=False)
+.. py:function:: ImportGraph.chain_exists(importer, imported, as_packages=False)
 
-    :param str upstream_module: The module at the start of the potential import path (i.e. that the
-        downstream module will import).
-    :param str downstream_module: The module at the end of the potential import path (i.e. that will import
-        the upstream module).
+    :param str importer: The module at the start of the potential chain of imports (as in ``find_shortest_chain``).
+    :param str imported: The module at the end of the potential chain of imports (as in ``find_shortest_chain``).
     :param bool as_packages: Whether to treat the supplied modules as individual modules,
          or as packages (including any descendants, if there are any). If
-         treating them as packages, all descendants of the upstream and
-         downstream modules will be checked too.
-    :return:  Return whether any import path exists between the upstream and the downstream module,
-        even indirectly; in other words, does the downstream module depend on the upstream module?
+         treating them as packages, all descendants of ``importer`` and
+         ``imported`` will be checked too.
+    :return:  Return whether any chain of imports exists between ``importer`` and ``imported``,
+        even indirectly; in other words, does ``importer`` depend on ``imported``?
     :rtype: bool
 
 Methods for manipulating the graph
@@ -189,8 +185,7 @@ Methods for manipulating the graph
     :param str module: The name of a module, for example ``'mypackage.foo'``.
     :return: None
 
-.. py:function:: ImportGraph.add_import(importer, imported,
-                                        line_number=None, line_contents=None)
+.. py:function:: ImportGraph.add_import(importer, imported, line_number=None, line_contents=None)
 
     Add a direct import between two modules to the graph. If the modules are not already
     present, they will be added to the graph.
