@@ -282,11 +282,15 @@ def test_find_shortest_chain_returns_none_if_not_exists():
         # import the upstream module. We treat this as False as it's not really a dependency.
         # The chains are: e.one -> b.one; b.two -> c.one.green; c.one -> a.two.
         ('e', 'a', True, False),
-        # External paths.
-        ('a.one', 'external', False, True),
-        ('a.one', 'external', True, True),
-        ('external', 'a.three', False, True),
-        ('external', 'a.three', True, True),
+        # Squashed modules.
+        ('a.three', 'squashed', False, True),  # Direct import of squashed module.
+        ('a.three', 'squashed', True, True),
+        ('squashed', 'a.two', False, True),  # Direct import by squashed module.
+        ('squashed', 'a.two', True, True),
+        ('squashed', 'a.one', False, True),  # Indirect import by squashed module.
+        ('squashed', 'a.one', True, True),
+        ('a', 'squashed', False, False),  # Package involving squashed module.
+        ('a', 'squashed', True, True),  # Package involving squashed module.
     )
 )
 def test_chain_exists(importer, imported, as_packages, expected_result):
@@ -314,6 +318,8 @@ def test_chain_exists(importer, imported, as_packages, expected_result):
             d_one_green -> b_two_green;
             e;
             e_one -> b_one;
+            squashed -> a_two;
+            a_three -> squashed;
         }
     """
     graph = ImportGraph()
@@ -334,7 +340,7 @@ def test_chain_exists(importer, imported, as_packages, expected_result):
     c, c_one, c_one_green = 'c', 'c.one', 'c.one.green'
     d, d_one, d_one_green = 'd', 'd.one', 'd.one.green'
     e, e_one = 'e', 'e.one'
-    external = 'external'
+    squashed = 'squashed'
 
     for module_to_add in (
         a, a_one, a_one_green, a_two, a_two_green, a_three,
@@ -344,7 +350,7 @@ def test_chain_exists(importer, imported, as_packages, expected_result):
         e, e_one,
     ):
         graph.add_module(module_to_add)
-    graph.add_module(external, is_squashed=True)
+    graph.add_module(squashed, is_squashed=True)
 
     for _importer, _imported in (
         (a_two, a_one),
@@ -355,8 +361,8 @@ def test_chain_exists(importer, imported, as_packages, expected_result):
         (b_two_green, a_one_green),
         (d_one_green, b_two_green),
         (e_one, b_one),
-        (external, a_two),
-        (a_three, external),
+        (squashed, a_two),
+        (a_three, squashed),
     ):
         graph.add_import(importer=_importer, imported=_imported)
 
