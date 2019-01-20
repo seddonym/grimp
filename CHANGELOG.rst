@@ -37,3 +37,7 @@ Changelog
 * Rename path_exists to chain_exists.
 * Rename and reorder the kwargs for get_shortest_chain and chain_exists.
 * Raise ValueError if modules with shared descendants are passed to chain_exists if as_packages=True.
+
+1.0b6 (2019-1-20)
+-----------------
+* Support building the graph with external packages.
