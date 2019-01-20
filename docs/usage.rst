@@ -37,7 +37,7 @@ Building the graph
 
     import grimp
 
-    graph = grimp.build_graph('name_)
+    graph = grimp.build_graph('mypackage')
 
 .. py:function:: grimp.build_graph(package_name)
 
