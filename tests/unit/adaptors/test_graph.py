@@ -79,6 +79,8 @@ def test_find_modules_that_directly_import():
         ('foo.b.e', False, set()),
         ('foo.a', True, {'foo.b', 'foo.c', 'foo.b.e', 'foo.b.g'}),
         ('foo.b.e', True, set()),
+        ('bar', True, {'foo.a.d', 'foo.b.e'}),
+        ('bar', False, {'foo.a.d', 'foo.b.e'}),
     )
 )
 def test_find_downstream_modules(module, as_package, expected_result):
@@ -86,6 +88,9 @@ def test_find_downstream_modules(module, as_package, expected_result):
     a, b, c = 'foo.a', 'foo.b', 'foo.c'
     d, e, f = 'foo.a.d', 'foo.b.e', 'foo.a.f'
     g = 'foo.b.g'
+    external = 'bar'
+
+    graph.add_module(external, is_squashed=True)
 
     graph.add_import(imported=a, importer=b)
     graph.add_import(imported=a, importer=c)
@@ -93,6 +98,7 @@ def test_find_downstream_modules(module, as_package, expected_result):
     graph.add_import(imported=d, importer=e)
     graph.add_import(imported=f, importer=b)
     graph.add_import(imported=f, importer=g)
+    graph.add_import(imported=external, importer=d)
 
     assert expected_result == graph.find_downstream_modules(
         module,
@@ -106,6 +112,8 @@ def test_find_downstream_modules(module, as_package, expected_result):
         ('foo.b.g', False, set()),
         ('foo.d', True, {'foo.a', 'foo.a.f', 'foo.b.g'}),
         ('foo.b.g', True, set()),
+        ('bar', True, {'foo.a.f', 'foo.b.g'}),
+        ('bar', False, {'foo.a.f', 'foo.b.g'}),
     )
 )
 def test_find_upstream_modules(module, as_package, expected_result):
@@ -113,6 +121,9 @@ def test_find_upstream_modules(module, as_package, expected_result):
     a, b, c = 'foo.a', 'foo.d.b', 'foo.d.c'
     d, e, f = 'foo.d', 'foo.c.e', 'foo.a.f'
     g = 'foo.b.g'
+    external = 'bar'
+
+    graph.add_module(external, is_squashed=True)
 
     graph.add_import(imported=a, importer=b)
     graph.add_import(imported=a, importer=c)
@@ -120,6 +131,7 @@ def test_find_upstream_modules(module, as_package, expected_result):
     graph.add_import(imported=d, importer=e)
     graph.add_import(imported=f, importer=b)
     graph.add_import(imported=g, importer=f)
+    graph.add_import(imported=f, importer=external)
 
     assert expected_result == graph.find_upstream_modules(module, as_package=as_package)
 
@@ -142,6 +154,16 @@ def test_find_children(module, expected_result):
     assert expected_result == graph.find_children(module)
 
 
+def test_find_children_raises_exception_for_squashed_module():
+    graph = ImportGraph()
+    module = 'foo'
+
+    graph.add_module(module, is_squashed=True)
+
+    with pytest.raises(ValueError, match='Cannot find children of a squashed module.'):
+        graph.find_children(module)
+
+
 @pytest.mark.parametrize(
     'module, expected_result', (
         ('foo', {'foo.a', 'foo.b', 'foo.c', 'foo.a.one', 'foo.b.one'}),
@@ -158,6 +180,16 @@ def test_find_descendants(module, expected_result):
         graph.add_module(module_to_add)
 
     assert expected_result == graph.find_descendants(module)
+
+
+def test_find_descendants_raises_exception_for_squashed_module():
+    graph = ImportGraph()
+    module = 'foo'
+
+    graph.add_module(module, is_squashed=True)
+
+    with pytest.raises(ValueError, match='Cannot find descendants of a squashed module.'):
+        graph.find_descendants(module)
 
 
 def test_find_shortest_chain_when_exists():
@@ -250,6 +282,15 @@ def test_find_shortest_chain_returns_none_if_not_exists():
         # import the upstream module. We treat this as False as it's not really a dependency.
         # The chains are: e.one -> b.one; b.two -> c.one.green; c.one -> a.two.
         ('e', 'a', True, False),
+        # Squashed modules.
+        ('a.three', 'squashed', False, True),  # Direct import of squashed module.
+        ('a.three', 'squashed', True, True),
+        ('squashed', 'a.two', False, True),  # Direct import by squashed module.
+        ('squashed', 'a.two', True, True),
+        ('squashed', 'a.one', False, True),  # Indirect import by squashed module.
+        ('squashed', 'a.one', True, True),
+        ('a', 'squashed', False, False),  # Package involving squashed module.
+        ('a', 'squashed', True, True),  # Package involving squashed module.
     )
 )
 def test_chain_exists(importer, imported, as_packages, expected_result):
@@ -277,6 +318,8 @@ def test_chain_exists(importer, imported, as_packages, expected_result):
             d_one_green -> b_two_green;
             e;
             e_one -> b_one;
+            squashed -> a_two;
+            a_three -> squashed;
         }
     """
     graph = ImportGraph()
@@ -297,6 +340,7 @@ def test_chain_exists(importer, imported, as_packages, expected_result):
     c, c_one, c_one_green = 'c', 'c.one', 'c.one.green'
     d, d_one, d_one_green = 'd', 'd.one', 'd.one.green'
     e, e_one = 'e', 'e.one'
+    squashed = 'squashed'
 
     for module_to_add in (
         a, a_one, a_one_green, a_two, a_two_green, a_three,
@@ -306,6 +350,7 @@ def test_chain_exists(importer, imported, as_packages, expected_result):
         e, e_one,
     ):
         graph.add_module(module_to_add)
+    graph.add_module(squashed, is_squashed=True)
 
     for _importer, _imported in (
         (a_two, a_one),
@@ -316,6 +361,8 @@ def test_chain_exists(importer, imported, as_packages, expected_result):
         (b_two_green, a_one_green),
         (d_one_green, b_two_green),
         (e_one, b_one),
+        (squashed, a_two),
+        (a_three, squashed),
     ):
         graph.add_import(importer=_importer, imported=_imported)
 
@@ -340,6 +387,59 @@ def test_add_module():
     graph.add_module(module)
 
     assert graph.modules == {module}
+
+
+class TestAddSquashedModule:
+    def test_can_repeatedly_add_same_squashed_module(self):
+        graph = ImportGraph()
+        module = 'foo'
+
+        graph.add_module(module, is_squashed=True)
+        graph.add_module(module, is_squashed=True)
+
+        assert graph.modules == {module}
+
+    def test_cannot_add_squashed_module_if_already_same_unsquashed_module(self):
+        graph = ImportGraph()
+        module = 'foo'
+
+        graph.add_module(module)
+
+        with pytest.raises(
+                ValueError,
+                match=(
+                    'Cannot add a squashed module when it is already present in the graph as an '
+                    'unsquashed module, or vice versa.'
+                )
+        ):
+            graph.add_module(module, is_squashed=True)
+
+    def test_cannot_add_unsquashed_module_if_already_same_squashed_module(self):
+        graph = ImportGraph()
+        module = 'foo'
+
+        graph.add_module(module, is_squashed=True)
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                'Cannot add a squashed module when it is already present in the graph as an '
+                'unsquashed module, or vice versa.'
+            )
+        ):
+            graph.add_module(module)
+
+    @pytest.mark.parametrize('module_name', ('mypackage.foo.one', 'mypackage.foo.one.alpha'))
+    def test_cannot_add_descendant_of_squashed_module(self, module_name):
+        graph = ImportGraph()
+
+        graph.add_module('mypackage.foo', is_squashed=True)
+
+        with pytest.raises(
+            ValueError,
+            match='Module is a descendant of squashed module mypackage.foo.'
+        ):
+            graph.add_module(module_name)
 
 
 @pytest.mark.parametrize('add_module', (True, False))

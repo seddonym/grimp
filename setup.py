@@ -23,7 +23,7 @@ setup(
     name='grimp',
     version='1.0b5',
     license='BSD 2-Clause License',
-    description="Builds a graph of a Python project's internal dependencies.",
+    description="Builds a graph of a Python project's internal and external dependencies.",
     long_description=read('README.rst'),
     long_description_content_type='text/x-rst',
     author='David Seddon',

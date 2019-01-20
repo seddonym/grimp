@@ -15,6 +15,7 @@ class ImportGraph(graph.AbstractImportGraph):
         self._networkx_graph = networkx.DiGraph()
         # Instantiate a dict that stores the details for all direct imports.
         self._import_details: Dict[str, List[Dict[str, Any]]] = {}
+        self._squashed_modules: Set[str] = set()
 
     # Mechanics
     # ---------
@@ -23,8 +24,22 @@ class ImportGraph(graph.AbstractImportGraph):
     def modules(self) -> Set[str]:
         return set(self._networkx_graph.nodes)
 
-    def add_module(self, module: str) -> None:
+    def add_module(self, module: str, is_squashed: bool = False) -> None:
+        ancestor_squashed_module = self._find_ancestor_squashed_module(module)
+        if ancestor_squashed_module:
+            raise ValueError(
+                f'Module is a descendant of squashed module {ancestor_squashed_module}.')
+
+        if module in self.modules:
+            if self._is_existing_module_squashed(module) != is_squashed:
+                raise ValueError(
+                    'Cannot add a squashed module when it is already present in the graph as '
+                    'an unsquashed module, or vice versa.')
+
         self._networkx_graph.add_node(module)
+
+        if is_squashed:
+            self._mark_module_as_squashed(module)
 
     def add_import(
         self, *,
@@ -54,6 +69,11 @@ class ImportGraph(graph.AbstractImportGraph):
     # -----------
 
     def find_children(self, module: str) -> Set[str]:
+        # It doesn't make sense to find the children of a squashed module, as we don't store
+        # the children in the graph.
+        if self._is_existing_module_squashed(module):
+            raise ValueError('Cannot find children of a squashed module.')
+
         children = set()
         for potential_child in self.modules:
             if Module(potential_child).is_child_of(Module(module)):
@@ -61,6 +81,11 @@ class ImportGraph(graph.AbstractImportGraph):
         return children
 
     def find_descendants(self, module: str) -> Set[str]:
+        # It doesn't make sense to find the descendants of a squashed module, as we don't store
+        # the descendants in the graph.
+        if self._is_existing_module_squashed(module):
+            raise ValueError('Cannot find descendants of a squashed module.')
+
         descendants = set()
         for potential_descendant in self.modules:
             if Module(potential_descendant).is_descendant_of(Module(module)):
@@ -99,7 +124,10 @@ class ImportGraph(graph.AbstractImportGraph):
         # TODO optimise for as_package.
         source_modules = {module}
         if as_package:
-            source_modules.update(self.find_descendants(module))
+            # For squashed modules, the behaviour is the same regardless of whether or not
+            # we specify as_package, as the node itself represents the package.
+            if not self._is_existing_module_squashed(module):
+                source_modules.update(self.find_descendants(module))
 
         downstream_modules = set()
 
@@ -117,7 +145,10 @@ class ImportGraph(graph.AbstractImportGraph):
         # TODO optimise for as_package.
         destination_modules = {module}
         if as_package:
-            destination_modules.update(self.find_descendants(module))
+            # For squashed modules, the behaviour is the same regardless of whether or not
+            # we specify as_package, as the node itself represents the package.
+            if not self._is_existing_module_squashed(module):
+                destination_modules.update(self.find_descendants(module))
 
         upstream_modules = set()
 
@@ -150,9 +181,13 @@ class ImportGraph(graph.AbstractImportGraph):
             return networkx.algorithms.has_path(self._networkx_graph,
                                                 source=importer,
                                                 target=imported)
+        upstream_modules = {imported}
+        if not self._is_existing_module_squashed(imported):
+            upstream_modules |= self.find_descendants(imported)
 
-        upstream_modules = {imported} | self.find_descendants(imported)
-        downstream_modules = {importer} | self.find_descendants(importer)
+        downstream_modules = {importer}
+        if not self._is_existing_module_squashed(importer):
+            downstream_modules |= self.find_descendants(importer)
 
         if upstream_modules & downstream_modules:
             # If there are shared modules between the two, one of the modules is a descendant
@@ -168,3 +203,33 @@ class ImportGraph(graph.AbstractImportGraph):
                     return True
 
         return False
+
+    # Private methods
+
+    def _find_ancestor_squashed_module(self, module: str) -> Optional[str]:
+        """
+        Return the name of a squashed module that is an ancestor of the supplied module, or None
+        if no such module exists.
+        """
+        try:
+            parent = Module(module).parent.name
+        except ValueError:
+            # The module no more ancestors.
+            return None
+
+        if self._is_existing_module_squashed(parent):
+            return parent
+        else:
+            return self._find_ancestor_squashed_module(parent)
+
+    def _is_existing_module_squashed(self, module: str) -> bool:
+        """
+        Return whether a module that currently exists in the graph is squashed.
+        """
+        return module in self._squashed_modules
+
+    def _mark_module_as_squashed(self, module: str) -> None:
+        """
+        Set a flag on a module in the graph that it is squashed.
+        """
+        self._squashed_modules.add(module)

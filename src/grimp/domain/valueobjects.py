@@ -33,8 +33,19 @@ class Module(ValueObject):
     def package_name(self) -> str:
         return self.name.split('.')[0]
 
+    @property
+    def parent(self) -> 'Module':
+        components = self.name.split('.')
+        if len(components) == 1:
+            raise ValueError('Module has no parent.')
+        return Module('.'.join(components[:-1]))
+
     def is_child_of(self, module: 'Module') -> bool:
-        return self.name.split('.')[:-1] == module.name.split('.')
+        try:
+            return module == self.parent
+        except ValueError:
+            # If this module has no parent, then it cannot be a child of the supplied module.
+            return False
 
     def is_descendant_of(self, module: 'Module') -> bool:
         return self.name.startswith(f'{module.name}.')
