@@ -81,7 +81,7 @@ You may now use the graph object to analyse the package. Some examples::
         },
     ]
 
-By default, external dependencies will not be included. This can be overridden like so:
+By default, external dependencies will not be included. This can be overridden like so::
 
     >>> graph = grimp.build_graph('somepackage', include_external_packages=True)
     >>> graph.find_modules_directly_imported_by('somepackage.foo')
