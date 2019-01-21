@@ -41,3 +41,7 @@ Changelog
 1.0b6 (2019-1-20)
 -----------------
 * Support building the graph with external packages.
+
+1.0b7 (2019-1-21)
+-----------------
+* Add count_imports method.
