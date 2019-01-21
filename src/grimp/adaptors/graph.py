@@ -67,7 +67,7 @@ class ImportGraph(graph.AbstractImportGraph):
 
     def count_imports(self) -> int:
         return len(self._networkx_graph.edges)
-    
+
     # Descendants
     # -----------
 

@@ -132,6 +132,11 @@ Methods for analysing direct imports
     :return: A list of the details of every direct import between two modules.
     :rtype: List of dictionaries.
 
+.. py:function:: ImportGraph.count_imports()
+
+    :return: The number of direct imports in the graph.
+    :rtype: Integer.
+
 Methods for analysing import chains
 -----------------------------------
 

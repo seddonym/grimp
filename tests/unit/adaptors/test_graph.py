@@ -73,7 +73,8 @@ def test_find_modules_that_directly_import():
     assert {a, f} == graph.find_modules_that_directly_import('bar')
 
 
-@pytest.mark.parametrize('imports, expected_count', (
+@pytest.mark.parametrize(
+    'imports, expected_count', (
         (
             (),
             0,
