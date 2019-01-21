@@ -65,6 +65,9 @@ class ImportGraph(graph.AbstractImportGraph):
     def remove_import(self, *, importer: str, imported: str) -> None:
         self._networkx_graph.remove_edge(importer, imported)
 
+    def count_imports(self) -> int:
+        return len(self._networkx_graph.edges)
+
     # Descendants
     # -----------
 
