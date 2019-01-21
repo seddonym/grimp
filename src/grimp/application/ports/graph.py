@@ -32,11 +32,11 @@ class AbstractImportGraph(abc.ABC):
 
     @abc.abstractmethod
     def add_import(
-            self, *,
-            importer: str,
-            imported: str,
-            line_number: Optional[int] = None,
-            line_contents: Optional[str] = None
+        self, *,
+        importer: str,
+        imported: str,
+        line_number: Optional[int] = None,
+        line_contents: Optional[str] = None
     ) -> None:
         """
         Add a direct import between two modules to the graph. If the modules are not already
@@ -48,6 +48,13 @@ class AbstractImportGraph(abc.ABC):
     def remove_import(self, *, importer: str, imported: str) -> None:
         """
         Remove a direct import between two modules. Does not remove the modules themselves.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def count_imports(self) -> int:
+        """
+        Return the number of imports in the graph.
         """
         raise NotImplementedError
 

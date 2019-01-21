@@ -73,6 +73,43 @@ def test_find_modules_that_directly_import():
     assert {a, f} == graph.find_modules_that_directly_import('bar')
 
 
+@pytest.mark.parametrize('imports, expected_count', (
+        (
+            (),
+            0,
+        ),
+        (
+            (
+                ('foo.one', 'foo.two'),
+            ),
+            1,
+        ),
+        (
+            (
+                ('foo.one', 'foo.two'),
+                ('foo.three', 'foo.two'),
+            ),
+            2,
+        ),
+        (
+            (
+                ('foo.one', 'foo.two'),
+                ('foo.three', 'foo.two'),
+                ('foo.three', 'foo.two'),  # Duplicate should not increase the number.
+            ),
+            2,
+        ),
+    )
+)
+def test_count_imports(imports, expected_count):
+    graph = ImportGraph()
+
+    for importer, imported in imports:
+        graph.add_import(importer=importer, imported=imported)
+
+    assert expected_count == graph.count_imports()
+
+
 @pytest.mark.parametrize(
     'module, as_package, expected_result', (
         ('foo.a', False, {'foo.b', 'foo.c', 'foo.a.d', 'foo.b.e'}),
