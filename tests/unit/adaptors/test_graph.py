@@ -74,6 +74,62 @@ def test_find_modules_that_directly_import():
 
 
 @pytest.mark.parametrize(
+    'importer, imported, expected_result',
+    (
+        ('a.one.green', 'a.two.green', True),  # Direct import.
+        ('a.two.green', 'a.three.blue', True),  # Direct import.
+        ('a.one.green', 'a.three.blue', False),  # Indirect import.
+        ('a.two.green', 'a.one.green', False),  # Reverse direct import.
+        ('a.one', 'a.two', False),  # Direct import - parents.
+    )
+)
+def test_direct_import_exists(importer, imported, expected_result):
+    """
+    Build a graph to analyse for chains. This is much easier to debug visually,
+    so here is the dot syntax for the graph, which can be viewed using a dot file viewer.
+
+        digraph {
+            a;
+            a_one;
+            a_one_green;
+            a_one_blue;
+            a_two;
+            a_two_green;
+            a_two_blue;
+            a_three;
+            a_three_green;
+            a_three_blue;
+            a_one_green -> a_two_green;
+            a_two_green -> a_three_blue;
+        }
+    """
+    graph = ImportGraph()
+    all_modules = (
+        a,
+        a_one, a_one_green, a_one_blue,
+        a_two, a_two_green, a_two_blue,
+        a_three, a_three_green, a_three_blue
+    ) = (
+        'a',
+        'a.one', 'a.one.green', 'a.one.blue',
+        'a.two', 'a.two.green', 'a.two.blue',
+        'a.three', 'a.three.green', 'a.three.blue',
+    )
+
+    for module_to_add in all_modules:
+        graph.add_module(module_to_add)
+
+    for _importer, _imported in (
+        (a_one_green, a_two_green),
+        (a_two_green, a_three_blue),
+    ):
+        graph.add_import(importer=_importer, imported=_imported)
+
+    assert expected_result == graph.direct_import_exists(
+        importer=importer, imported=imported)
+
+
+@pytest.mark.parametrize(
     'imports, expected_count', (
         (
             (),
@@ -358,7 +414,7 @@ def test_chain_exists(importer, imported, as_packages, expected_result):
             e_one -> b_one;
             squashed -> a_two;
             a_three -> squashed;
-        }
+
     """
     graph = ImportGraph()
     a, a_one, a_one_green, a_two, a_two_green, a_three = (
