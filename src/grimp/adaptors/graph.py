@@ -104,7 +104,30 @@ class ImportGraph(graph.AbstractImportGraph):
         """
         Whether or not the importer module directly imports the imported module.
         """
-        return imported in self.find_modules_directly_imported_by(importer)
+        if not as_packages:
+            return imported in self.find_modules_directly_imported_by(importer)
+
+        importer_modules = {importer}
+        if not self._is_existing_module_squashed(importer):
+            importer_modules |= self.find_descendants(importer)
+
+        imported_modules = {imported}
+        if not self._is_existing_module_squashed(imported):
+            imported_modules |= self.find_descendants(imported)
+
+        if importer_modules & imported_modules:
+            # If there are shared modules between the two, one of the modules is a descendant
+            # of the other (or they're both the same module). This doesn't make sense in
+            # this context, so raise an exception.
+            raise ValueError('Modules have shared descendants.')
+
+        # Return True as soon as we find a path between any of the modules in the subpackages.
+        for candidate_importer in importer_modules:
+            imported_by_importer = self.find_modules_directly_imported_by(candidate_importer)
+            for candidate_imported in imported_modules:
+                if candidate_imported in imported_by_importer:
+                    return True
+        return False
 
     def find_modules_directly_imported_by(self, module: str) -> Set[str]:
         return set(self._networkx_graph.successors(module))

@@ -98,8 +98,8 @@ def test_find_modules_that_directly_import():
 
         # Exceptions - doesn't make sense to ask about direct imports within package
         # when as_packages=True.
-        ('a.two', 'a.two.green', True, ValueError),
-        ('a.two.green', 'a.two', True, ValueError),
+        ('a.two', 'a.two.green', True, ValueError()),
+        ('a.two.green', 'a.two', True, ValueError()),
     )
 )
 def test_direct_import_exists(importer, imported, as_packages, expected_result):
@@ -159,8 +159,13 @@ def test_direct_import_exists(importer, imported, as_packages, expected_result):
     ):
         graph.add_import(importer=_importer, imported=_imported)
 
-    assert expected_result == graph.direct_import_exists(
-        importer=importer, imported=imported, as_packages=as_packages)
+    if isinstance(expected_result, Exception):
+        with pytest.raises(expected_result.__class__):
+            graph.direct_import_exists(
+                importer=importer, imported=imported, as_packages=as_packages)
+    else:
+        assert expected_result == graph.direct_import_exists(
+            importer=importer, imported=imported, as_packages=as_packages)
 
 
 @pytest.mark.parametrize(
