@@ -87,9 +87,17 @@ class AbstractImportGraph(abc.ABC):
     # --------------
 
     @abc.abstractmethod
-    def direct_import_exists(self, *, importer: str, imported: str) -> bool:
+    def direct_import_exists(
+        self, *, importer: str, imported: str, as_packages: bool = False
+    ) -> bool:
         """
         Whether or not the importer module directly imports the imported module.
+
+        Args:
+            importer:     Name of the importer module.
+            imported:     Name of the imported module.
+            as_packages:  Whether or not to treat the supplied modules as individual modules,
+                          or as entire packages (including any descendants).
         """
         raise NotImplementedError
 

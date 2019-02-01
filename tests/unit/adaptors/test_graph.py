@@ -74,16 +74,21 @@ def test_find_modules_that_directly_import():
 
 
 @pytest.mark.parametrize(
-    'importer, imported, expected_result',
+    'importer, imported, as_packages, expected_result',
     (
-        ('a.one.green', 'a.two.green', True),  # Direct import.
-        ('a.two.green', 'a.three.blue', True),  # Direct import.
-        ('a.one.green', 'a.three.blue', False),  # Indirect import.
-        ('a.two.green', 'a.one.green', False),  # Reverse direct import.
-        ('a.one', 'a.two', False),  # Direct import - parents.
+        ('a.one.green', 'a.two.green', False, True),  # Direct import.
+        ('a.two.green', 'a.three.blue', False, True),  # Direct import.
+        ('a.one.green', 'a.three.blue', False, False),  # Indirect import.
+        ('a.two.green', 'a.one.green', False, False),  # Reverse direct import.
+        ('a.one', 'a.two', False, False),  # Direct import - parents.
     )
+    # Should test:
+    # - direct import (one way but not reverse)
+    # - no import
+    # - Should include indirect import (check doesn't affect it).
+    # - Children and grandchildren of different levels.
 )
-def test_direct_import_exists(importer, imported, expected_result):
+def test_direct_import_exists(importer, imported, as_packages, expected_result):
     """
     Build a graph to analyse for chains. This is much easier to debug visually,
     so here is the dot syntax for the graph, which can be viewed using a dot file viewer.
@@ -126,7 +131,7 @@ def test_direct_import_exists(importer, imported, expected_result):
         graph.add_import(importer=_importer, imported=_imported)
 
     assert expected_result == graph.direct_import_exists(
-        importer=importer, imported=imported)
+        importer=importer, imported=imported, as_packages=as_packages)
 
 
 @pytest.mark.parametrize(

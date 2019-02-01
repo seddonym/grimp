@@ -98,7 +98,9 @@ class ImportGraph(graph.AbstractImportGraph):
     # Direct imports
     # --------------
 
-    def direct_import_exists(self, *, importer: str, imported: str) -> bool:
+    def direct_import_exists(
+        self, *, importer: str, imported: str, as_packages: bool = False
+    ) -> bool:
         """
         Whether or not the importer module directly imports the imported module.
         """
