@@ -74,6 +74,101 @@ def test_find_modules_that_directly_import():
 
 
 @pytest.mark.parametrize(
+    'importer, imported, as_packages, expected_result',
+    (
+        # as_packages=False:
+        ('a.one.green', 'a.two.green', False, True),  # Direct import.
+        ('a.two.green', 'a.three.blue', False, True),  # Direct import.
+        ('a.one.green', 'a.three.blue', False, False),  # Indirect import.
+        ('a.two.green', 'a.one.green', False, False),  # Reverse direct import.
+        ('a.one', 'a.two', False, False),  # Direct import - parents.
+        ('a.two', 'a.two.green', False, True),  # Direct import - parent to child.
+
+        # as_packages=True:
+        ('a.one.green', 'a.two.green', True, True),  # Direct import.
+        ('a.one.green', 'a.three.blue', True, False),  # Indirect import.
+        ('a.one', 'a.two', True, True),  # Direct import - parents.
+        ('a.one', 'a.three', True, False),  # Indirect import - parents.
+        # Direct import - importer child, imported actual.
+        ('a.four.green', 'a.two.green', True, True),
+        # Direct import - importer actual, imported child.
+        ('a.five', 'a.four', True, True),
+        # Direct import - importer grandchild, imported child.
+        ('a.four', 'a.two', True, True),
+
+        # Exceptions - doesn't make sense to ask about direct imports within package
+        # when as_packages=True.
+        ('a.two', 'a.two.green', True, ValueError()),
+        ('a.two.green', 'a.two', True, ValueError()),
+    )
+)
+def test_direct_import_exists(importer, imported, as_packages, expected_result):
+    """
+    Build a graph to analyse for chains. This is much easier to debug visually,
+    so here is the dot syntax for the graph, which can be viewed using a dot file viewer.
+
+        digraph {
+            a;
+            a_one;
+            a_one_green;
+            a_one_blue;
+            a_two;
+            a_two_green;
+            a_two_blue;
+            a_three;
+            a_three_green;
+            a_three_blue;
+            a_four;
+            a_four_green;
+            a_four_green_alpha;
+            a_five;
+
+            a_one_green -> a_two_green;
+            a_two -> a_two_green;
+            a_two_green -> a_three_blue;
+            a_five -> a_four_green_alpha;
+            a_four_green_alpha -> a_two_green;
+        }
+    """
+    graph = ImportGraph()
+    all_modules = (
+        a,
+        a_one, a_one_green, a_one_blue,
+        a_two, a_two_green, a_two_blue,
+        a_three, a_three_green, a_three_blue,
+        a_four, a_four_green, a_four_green_alpha,
+        a_five,
+    ) = (
+        'a',
+        'a.one', 'a.one.green', 'a.one.blue',
+        'a.two', 'a.two.green', 'a.two.blue',
+        'a.three', 'a.three.green', 'a.three.blue',
+        'a.four', 'a.four.green', 'a.four.green.alpha',
+        'a.five',
+    )
+
+    for module_to_add in all_modules:
+        graph.add_module(module_to_add)
+
+    for _importer, _imported in (
+        (a_one_green, a_two_green),
+        (a_two, a_two_green),
+        (a_two_green, a_three_blue),
+        (a_five, a_four_green_alpha),
+        (a_four_green_alpha, a_two_green),
+    ):
+        graph.add_import(importer=_importer, imported=_imported)
+
+    if isinstance(expected_result, Exception):
+        with pytest.raises(expected_result.__class__):
+            graph.direct_import_exists(
+                importer=importer, imported=imported, as_packages=as_packages)
+    else:
+        assert expected_result == graph.direct_import_exists(
+            importer=importer, imported=imported, as_packages=as_packages)
+
+
+@pytest.mark.parametrize(
     'imports, expected_count', (
         (
             (),
@@ -358,7 +453,7 @@ def test_chain_exists(importer, imported, as_packages, expected_result):
             e_one -> b_one;
             squashed -> a_two;
             a_three -> squashed;
-        }
+
     """
     graph = ImportGraph()
     a, a_one, a_one_green, a_two, a_two_green, a_three = (

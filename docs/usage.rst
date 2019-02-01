@@ -90,10 +90,12 @@ Methods for analysing the module tree
 Methods for analysing direct imports
 ------------------------------------
 
-.. py:function:: ImportGraph.direct_import_exists(importer, imported)
+.. py:function:: ImportGraph.direct_import_exists(importer, imported, as_packages=False)
 
     :param str importer: A module name.
     :param str imported: A module name.
+    :param bool as_packages: Whether or not to treat the supplied modules as individual modules, or as entire
+        packages (including any descendants).
     :return: Whether or not the importer directly imports the imported module.
     :rtype: ``True`` or ``False``.
 
