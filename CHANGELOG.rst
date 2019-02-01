@@ -46,7 +46,6 @@ Changelog
 -----------------
 * Add count_imports method.
 
-latest
-------
-
+1.0b8 (2019-2-1)
+----------------
 * Add as_packages parameter to direct_import_exists.
