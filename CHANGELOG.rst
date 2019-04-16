@@ -49,3 +49,7 @@ Changelog
 1.0b8 (2019-2-1)
 ----------------
 * Add as_packages parameter to direct_import_exists.
+
+1.0b9 (2019-4-16)
+-----------------
+* Fix bug with calling importlib.util.find_spec.
