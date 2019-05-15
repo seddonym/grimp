@@ -54,6 +54,6 @@ Changelog
 -----------------
 * Fix bug with calling importlib.util.find_spec.
 
-latest
-------
+1.0b10 (2019-5-15)
+------------------
 * Fix Windows incompatibility.
