@@ -1,5 +1,6 @@
 from typing import Iterable, List
 import logging
+import os
 
 from grimp.domain.valueobjects import Module
 from grimp.application.ports import modulefinder
@@ -76,7 +77,7 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         container_directory, package_name = self.file_system.split(package_directory)
         internal_filename_and_path = filename_and_path[len(package_directory):]
         internal_filename_and_path_without_extension = internal_filename_and_path[1:-3]
-        components = [package_name] + internal_filename_and_path_without_extension.split('/')
+        components = [package_name] + internal_filename_and_path_without_extension.split(os.sep)
         if components[-1] == '__init__':
             components.pop()
         return '.'.join(components)
