@@ -58,6 +58,6 @@ Changelog
 ------------------
 * Fix Windows incompatibility.
 
-latest
-------
+1.0b11 (2019-5-18)
+------------------
 * Add remove_module method.
