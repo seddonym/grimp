@@ -522,6 +522,21 @@ def test_add_module():
     assert graph.modules == {module}
 
 
+def test_remove_module():
+    graph = ImportGraph()
+    a, b = {'mypackage.blue', 'mypackage.green'}
+
+    graph.add_module(a)
+    graph.add_module(b)
+    graph.add_import(importer=a, imported=b)
+
+    graph.remove_module(b)
+    assert {a} == graph.modules
+
+    # Removing a non-existent module doesn't cause an error.
+    graph.remove_module('mypackage.yellow')
+
+
 class TestAddSquashedModule:
     def test_can_repeatedly_add_same_squashed_module(self):
         graph = ImportGraph()

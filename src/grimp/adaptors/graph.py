@@ -41,6 +41,10 @@ class ImportGraph(graph.AbstractImportGraph):
         if is_squashed:
             self._mark_module_as_squashed(module)
 
+    def remove_module(self, module: str) -> None:
+        if module in self.modules:
+            self._networkx_graph.remove_node(module)
+
     def add_import(
         self, *,
         importer: str,

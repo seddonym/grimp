@@ -202,6 +202,15 @@ Methods for manipulating the graph
     :param bool is_squashed: If True, the module should be treated as a 'squashed module' (see `Terminology`_ above).
     :return: None
 
+.. py:function:: ImportGraph.remove_module(module)
+
+    Remove a module from the graph.
+
+    If the module is not present in the graph, no exception will be raised.
+
+    :param str module: The name of a module, for example ``'mypackage.foo'``.
+    :return: None
+
 .. py:function:: ImportGraph.add_import(importer, imported, line_number=None, line_contents=None)
 
     Add a direct import between two modules to the graph. If the modules are not already

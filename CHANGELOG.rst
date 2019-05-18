@@ -57,3 +57,7 @@ Changelog
 1.0b10 (2019-5-15)
 ------------------
 * Fix Windows incompatibility.
+
+latest
+------
+* Add remove_module method.
