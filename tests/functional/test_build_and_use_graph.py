@@ -50,6 +50,15 @@ def test_add_module():
     assert number_of_modules + 1 == len(graph.modules)
 
 
+def test_remove_module():
+    graph = build_graph('testpackage')
+    number_of_modules = len(graph.modules)
+
+    graph.remove_module('testpackage.two.alpha')
+    assert 'testpackage.two.alpha' not in graph.modules
+    assert number_of_modules - 1 == len(graph.modules)
+
+
 def test_add_and_remove_import():
     graph = build_graph('testpackage')
     a = 'testpackage.one.delta.blue'
