@@ -31,6 +31,15 @@ class AbstractImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def remove_module(self, module: str) -> None:
+        """
+        Remove a module from the graph, if it exists.
+
+        If the module is not present in the graph, no exception will be raised.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def add_import(
         self, *,
         importer: str,
