@@ -369,6 +369,7 @@ def test_find_shortest_chain_returns_none_if_not_exists():
             ('green.bar', 'blue'),
             ('green', 'blue.bar'),
             ('green.indirect', 'purple', 'blue.foo'),
+            ('green.baz', 'yellow.three', 'yellow.two', 'yellow.one', 'blue.foo'),
         }),
         ('blue', 'green', set()),
     )
@@ -391,10 +392,20 @@ def test_find_shortest_chains(importer, imported, expected_result):
     # Indirect import.
     graph.add_import(importer='green.indirect', imported='purple')
     graph.add_import(importer='purple', imported='blue.foo')
+    # Long indirect import.
+    graph.add_import(importer='green.baz', imported='yellow.three')
+    graph.add_import(importer='yellow.three', imported='yellow.two')
+    graph.add_import(importer='yellow.two', imported='yellow.one')
+    graph.add_import(importer='yellow.one', imported='blue.foo')
 
     # Imports between modules in the subpackages (these are not included in the results).
     graph.add_import(importer='green.bar', imported='green.foo')
     graph.add_import(importer='blue.bar', imported='blue.foo')
+
+    # Import from the downstream of the long indirect import to another in the same package.
+    # (We need to make sure we get longer chains instead of them being missed
+    # because they collide with shorter chains that are subsequently discarded).
+    graph.add_import(importer='green.baz', imported='green.bar')
 
     # Some other, irrelevant imports.
     graph.add_import(importer='green.foo', imported='yellow')

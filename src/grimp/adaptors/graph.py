@@ -111,13 +111,8 @@ class ImportGraph(graph.AbstractImportGraph):
         if not as_packages:
             return imported in self.find_modules_directly_imported_by(importer)
 
-        importer_modules = {importer}
-        if not self._is_existing_module_squashed(importer):
-            importer_modules |= self.find_descendants(importer)
-
-        imported_modules = {imported}
-        if not self._is_existing_module_squashed(imported):
-            imported_modules |= self.find_descendants(imported)
+        importer_modules = self._all_modules_in_package(importer)
+        imported_modules = self._all_modules_in_package(imported)
 
         if importer_modules & imported_modules:
             # If there are shared modules between the two, one of the modules is a descendant
@@ -154,12 +149,10 @@ class ImportGraph(graph.AbstractImportGraph):
 
     def find_downstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
         # TODO optimise for as_package.
-        source_modules = {module}
         if as_package:
-            # For squashed modules, the behaviour is the same regardless of whether or not
-            # we specify as_package, as the node itself represents the package.
-            if not self._is_existing_module_squashed(module):
-                source_modules.update(self.find_descendants(module))
+            source_modules = self._all_modules_in_package(module)
+        else:
+            source_modules = {module}
 
         downstream_modules = set()
 
@@ -175,12 +168,10 @@ class ImportGraph(graph.AbstractImportGraph):
         self, module: str, as_package: bool = False
     ) -> Set[str]:
         # TODO optimise for as_package.
-        destination_modules = {module}
         if as_package:
-            # For squashed modules, the behaviour is the same regardless of whether or not
-            # we specify as_package, as the node itself represents the package.
-            if not self._is_existing_module_squashed(module):
-                destination_modules.update(self.find_descendants(module))
+            destination_modules = self._all_modules_in_package(module)
+        else:
+            destination_modules = {module}
 
         upstream_modules = set()
 
@@ -206,6 +197,44 @@ class ImportGraph(graph.AbstractImportGraph):
         except networkx.NetworkXNoPath:
             return None
 
+    def find_shortest_chains(
+        self, importer: str, imported: str,
+    ) -> Set[Tuple[str, ...]]:
+        """
+        Find the shortest import chains that exist between the importer and imported, and
+        between any modules contained within them. Only one chain per upstream/downstream pair
+        will be included. Any chains that are contained within other chains in the result set
+        will be excluded.
+
+        Returns:
+            A set of tuples of strings. Each tuple is ordered from importer to imported modules.
+        """
+        shortest_chains = set()
+
+        upstream_modules = self._all_modules_in_package(imported)
+        downstream_modules = self._all_modules_in_package(importer)
+
+        if upstream_modules & downstream_modules:
+            # If there are shared modules between the two, one of the modules is a descendant
+            # of the other (or they're both the same module). This doesn't make sense in
+            # this context, so raise an exception.
+            raise ValueError('Modules have shared descendants.')
+
+        upstream_internal_imports = self._pop_all_imports_between_modules(upstream_modules)
+        downstream_internal_imports = self._pop_all_imports_between_modules(downstream_modules)
+
+        for upstream in upstream_modules:
+            for downstream in downstream_modules:
+                shortest_chain = self.find_shortest_chain(
+                    imported=upstream, importer=downstream)
+                if shortest_chain:
+                    shortest_chains.add(shortest_chain)
+
+        self._unpop_imports(upstream_internal_imports)
+        self._unpop_imports(downstream_internal_imports)
+
+        return shortest_chains
+
     def chain_exists(
         self, importer: str, imported: str, as_packages=False,
     ) -> bool:
@@ -213,13 +242,8 @@ class ImportGraph(graph.AbstractImportGraph):
             return networkx.algorithms.has_path(self._networkx_graph,
                                                 source=importer,
                                                 target=imported)
-        upstream_modules = {imported}
-        if not self._is_existing_module_squashed(imported):
-            upstream_modules |= self.find_descendants(imported)
-
-        downstream_modules = {importer}
-        if not self._is_existing_module_squashed(importer):
-            downstream_modules |= self.find_descendants(importer)
+        upstream_modules = self._all_modules_in_package(imported)
+        downstream_modules = self._all_modules_in_package(importer)
 
         if upstream_modules & downstream_modules:
             # If there are shared modules between the two, one of the modules is a descendant
@@ -265,3 +289,40 @@ class ImportGraph(graph.AbstractImportGraph):
         Set a flag on a module in the graph that it is squashed.
         """
         self._squashed_modules.add(module)
+
+    def _all_modules_in_package(self, module: str) -> Set[str]:
+        """
+        Return all the modules in the supplied module, including itself.
+
+        If the module is squashed, it will be treated as a single module.
+        """
+        importer_modules = {module}
+        if not self._is_existing_module_squashed(module):
+            importer_modules |= self.find_descendants(module)
+        return importer_modules
+
+    def _pop_all_imports_between_modules(self, modules: Set[str]) -> Set[Tuple[str, str]]:
+        """
+        Remove all the imports between the supplied set of modules.
+
+        Return:
+            Set of removed imports, in the form (importer, imported).
+        """
+        imports_to_pop = set()
+        for importer in modules:
+            for imported in self.find_modules_directly_imported_by(importer):
+                if imported in modules:
+                    imports_to_pop.add((importer, imported))
+
+        for importer, imported in tuple(imports_to_pop):
+            self.remove_import(importer=importer, imported=imported)
+
+        return imports_to_pop
+
+    def _unpop_imports(self, imports: Set[Tuple[str, str]]) -> None:
+        """
+        Given a set of imports that were popped, add them back.
+
+        """
+        for importer, imported in tuple(imports):
+            self._networkx_graph.add_edge(importer, imported)
