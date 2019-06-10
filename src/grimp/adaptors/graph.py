@@ -220,18 +220,38 @@ class ImportGraph(graph.AbstractImportGraph):
             # this context, so raise an exception.
             raise ValueError('Modules have shared descendants.')
 
-        upstream_internal_imports = self._pop_all_imports_between_modules(upstream_modules)
-        downstream_internal_imports = self._pop_all_imports_between_modules(downstream_modules)
+        imports_between_modules = (
+            self._pop_all_imports_between_modules(upstream_modules) |
+            self._pop_all_imports_between_modules(downstream_modules)
+        )
+
+        map_of_imports = {}
+        for module in (upstream_modules | downstream_modules):
+            map_of_imports[module] = (
+                set((m, module) for m in self.find_modules_that_directly_import(module))
+                |
+                set((module, m) for m in self.find_modules_directly_imported_by(module))
+            )
+        for imports in map_of_imports.values():
+            self._hide_any_existing_imports(imports)
 
         for upstream in upstream_modules:
+            imports_of_upstream_module = map_of_imports[upstream]
+            self._reveal_imports(imports_of_upstream_module)
             for downstream in downstream_modules:
+                imports_by_downstream_module = map_of_imports[downstream]
+                self._reveal_imports(imports_by_downstream_module)
                 shortest_chain = self.find_shortest_chain(
                     imported=upstream, importer=downstream)
                 if shortest_chain:
                     shortest_chains.add(shortest_chain)
+                self._hide_any_existing_imports(imports_by_downstream_module)
+            self._hide_any_existing_imports(imports_of_upstream_module)
 
-        self._unpop_imports(upstream_internal_imports)
-        self._unpop_imports(downstream_internal_imports)
+        # Reveal all the hidden imports.
+        for imports in map_of_imports.values():
+            self._reveal_imports(imports)
+        self._reveal_imports(imports_between_modules)
 
         return shortest_chains
 
@@ -319,10 +339,59 @@ class ImportGraph(graph.AbstractImportGraph):
 
         return imports_to_pop
 
-    def _unpop_imports(self, imports: Set[Tuple[str, str]]) -> None:
+    def _pop_all_imports_by_module(self, importer: str) -> Set[Tuple[str, str]]:
         """
-        Given a set of imports that were popped, add them back.
+        Remove all the direct imports with this module as the importer.
 
+        Return:
+            Set of removed imports, in the form (importer, imported).
+        """
+        imports_to_pop = set()
+
+        for imported in self.find_modules_directly_imported_by(importer):
+            imports_to_pop.add((importer, imported))
+
+        for importer, imported in tuple(imports_to_pop):
+            self.remove_import(importer=importer, imported=imported)
+
+        return imports_to_pop
+
+    def _pop_all_imports_of_module(self, imported: str) -> Set[Tuple[str, str]]:
+        """
+        Remove all the direct imports with this module as the imported.
+
+        Return:
+            Set of removed imports, in the form (importer, imported).
+        """
+        imports_to_pop = set()
+
+        for importer in self.find_modules_that_directly_import(imported):
+            imports_to_pop.add((importer, imported))
+
+        for importer, imported in tuple(imports_to_pop):
+            self.remove_import(importer=importer, imported=imported)
+
+        return imports_to_pop
+
+    def _hide_any_existing_imports(self, imports: Set[Tuple[str, str]]) -> None:
+        """
+        Temporarily remove the supplied direct imports from the graph.
+
+        If an import is not in the graph, or already hidden, this will have no effect.
+
+        Args:
+            imports: Set of direct imports, in the form (importer, imported).
+        """
+        for importer, imported in tuple(imports):
+            if self._networkx_graph.has_edge(importer, imported):
+                self._networkx_graph.remove_edge(importer, imported)
+
+    def _reveal_imports(self, imports: Set[Tuple[str, str]]) -> None:
+        """
+        Given a set of direct imports that were hidden by _hide_any_existing_imports, add them back.
+
+        Args:
+            imports: Set of direct imports, in the form (importer, imported).
         """
         for importer, imported in tuple(imports):
             self._networkx_graph.add_edge(importer, imported)

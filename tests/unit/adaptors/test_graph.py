@@ -359,62 +359,202 @@ def test_find_shortest_chain_returns_none_if_not_exists():
     )
 
 
-@pytest.mark.parametrize(
-    'importer, imported, expected_result',
-    (
-        ('green', 'blue', {
+class TestFindShortestChains:
+    def test_top_level_import(self):
+        graph = ImportGraph()
+        graph.add_import(importer='green', imported='blue')
+
+        result = graph.find_shortest_chains(
+            importer='green',
+            imported='blue',
+        )
+
+        assert result == {
             ('green', 'blue'),
-            ('green.foo', 'blue.foo'),
-            ('green.foo.alpha', 'blue.foo.alpha'),
-            ('green.bar', 'blue'),
-            ('green', 'blue.bar'),
+        }
+
+    def test_first_level_child_import(self):
+        graph = ImportGraph()
+        graph.add_module('green')
+        graph.add_module('blue')
+        graph.add_import(importer='green.foo', imported='blue.bar')
+
+        result = graph.find_shortest_chains(
+            importer='green',
+            imported='blue',
+        )
+
+        assert result == {
+            ('green.foo', 'blue.bar'),
+        }
+
+    def test_no_results_in_reverse_direction(self):
+        graph = ImportGraph()
+        graph.add_module('green')
+        graph.add_module('blue')
+        graph.add_import(importer='green.foo', imported='blue.bar')
+
+        result = graph.find_shortest_chains(
+            importer='blue',
+            imported='green',
+        )
+
+        assert result == set()
+
+    def test_grandchildren_import(self):
+        graph = ImportGraph()
+        graph.add_module('green')
+        graph.add_module('blue')
+        graph.add_import(importer='green.foo.one', imported='blue.bar.two')
+
+        result = graph.find_shortest_chains(
+            importer='green',
+            imported='blue',
+        )
+
+        assert result == {
+            ('green.foo.one', 'blue.bar.two'),
+        }
+
+    def test_import_between_child_and_top_level(self):
+        graph = ImportGraph()
+        graph.add_module('green')
+        graph.add_import(importer='green.foo', imported='blue')
+
+        result = graph.find_shortest_chains(
+            importer='green',
+            imported='blue',
+        )
+
+        assert result == {
+            ('green.foo', 'blue'),
+        }
+
+    def test_import_between_top_level_and_child(self):
+        graph = ImportGraph()
+        graph.add_module('blue')
+        graph.add_import(importer='green', imported='blue.foo')
+
+        result = graph.find_shortest_chains(
+            importer='green',
+            imported='blue',
+        )
+
+        assert result == {
+            ('green', 'blue.foo'),
+        }
+
+    def test_short_indirect_import(self):
+        graph = ImportGraph()
+        graph.add_module('green')
+        graph.add_module('blue')
+        graph.add_import(importer='green.indirect', imported='purple')
+        graph.add_import(importer='purple', imported='blue.foo')
+
+        result = graph.find_shortest_chains(
+            importer='green',
+            imported='blue',
+        )
+
+        assert result == {
             ('green.indirect', 'purple', 'blue.foo'),
+        }
+
+    def test_long_indirect_import(self):
+        graph = ImportGraph()
+        graph.add_module('green')
+        graph.add_module('blue')
+        graph.add_import(importer='green.baz', imported='yellow.three')
+        graph.add_import(importer='yellow.three', imported='yellow.two')
+        graph.add_import(importer='yellow.two', imported='yellow.one')
+        graph.add_import(importer='yellow.one', imported='blue.foo')
+
+        result = graph.find_shortest_chains(
+            importer='green',
+            imported='blue',
+        )
+
+        assert result == {
             ('green.baz', 'yellow.three', 'yellow.two', 'yellow.one', 'blue.foo'),
-        }),
-        ('blue', 'green', set()),
-    )
-)
-def test_find_shortest_chains(importer, imported, expected_result):
-    # Build a graph with two main subpackages, blue and green.
-    # Green will import blue in various ways, but not the other way around.
-    graph = ImportGraph()
+        }
 
-    # Top level import.
-    graph.add_import(importer='green', imported='blue')
-    # First level child import.
-    graph.add_import(importer='green.foo', imported='blue.foo')
-    # Grandchildren import.
-    graph.add_import(importer='green.foo.alpha', imported='blue.foo.alpha')
-    # Import between child and top level.
-    graph.add_import(importer='green.bar', imported='blue')
-    # Import between top level and child.
-    graph.add_import(importer='green', imported='blue.bar')
-    # Indirect import.
-    graph.add_import(importer='green.indirect', imported='purple')
-    graph.add_import(importer='purple', imported='blue.foo')
-    # Long indirect import.
-    graph.add_import(importer='green.baz', imported='yellow.three')
-    graph.add_import(importer='yellow.three', imported='yellow.two')
-    graph.add_import(importer='yellow.two', imported='yellow.one')
-    graph.add_import(importer='yellow.one', imported='blue.foo')
+    def test_chains_via_importer_package_dont_stop_longer_chains_being_included(self):
+        graph = ImportGraph()
 
-    # Imports between modules in the subpackages (these are not included in the results).
-    graph.add_import(importer='green.bar', imported='green.foo')
-    graph.add_import(importer='blue.bar', imported='blue.foo')
+        graph.add_module('green')
+        graph.add_module('blue')
 
-    # Import from the downstream of the long indirect import to another in the same package.
-    # (We need to make sure we get longer chains instead of them being missed
-    # because they collide with shorter chains that are subsequently discarded).
-    graph.add_import(importer='green.baz', imported='green.bar')
+        # Chain via importer package.
+        graph.add_import(importer='green.foo', imported='blue.foo')
+        graph.add_import(importer='green.baz', imported='green.foo')
 
-    # Some other, irrelevant imports.
-    graph.add_import(importer='green.foo', imported='yellow')
-    graph.add_import(importer='blue.foo', imported='yellow')
+        # Long indirect import.
+        graph.add_import(importer='green.baz', imported='yellow.three')
+        graph.add_import(importer='yellow.three', imported='yellow.two')
+        graph.add_import(importer='yellow.two', imported='yellow.one')
+        graph.add_import(importer='yellow.one', imported='blue.bar')
 
-    assert expected_result == graph.find_shortest_chains(
-        importer=importer,
-        imported=imported,
-    )
+        result = graph.find_shortest_chains(
+            importer='green',
+            imported='blue',
+        )
+        assert result == {
+            ('green.foo', 'blue.foo'),
+            ('green.baz', 'yellow.three', 'yellow.two', 'yellow.one', 'blue.bar'),
+        }
+
+    def test_chains_that_reenter_importer_package_dont_stop_longer_chains_being_included(self):
+        graph = ImportGraph()
+
+        graph.add_module('green')
+        graph.add_module('blue')
+
+        # Chain that reenters importer package.
+        graph.add_import(importer='green.baz', imported='brown')
+        graph.add_import(importer='brown', imported='green.foo')
+        graph.add_import(importer='green.foo', imported='blue.foo')
+
+        # Long indirect import.
+        graph.add_import(importer='green.baz', imported='yellow.three')
+        graph.add_import(importer='yellow.three', imported='yellow.two')
+        graph.add_import(importer='yellow.two', imported='yellow.one')
+        graph.add_import(importer='yellow.one', imported='blue.foo')
+
+        result = graph.find_shortest_chains(
+            importer='green',
+            imported='blue',
+        )
+        assert result == {
+            ('green.foo', 'blue.foo'),
+            ('green.baz', 'yellow.three', 'yellow.two', 'yellow.one', 'blue.foo'),
+        }
+
+    def test_chains_that_reenter_imported_package_dont_stop_longer_chains_being_included(self):
+        graph = ImportGraph()
+
+        graph.add_module('green')
+        graph.add_module('blue')
+
+        # Chain that reenters imported package.
+        graph.add_import(importer='green.foo', imported='blue.foo')
+        graph.add_import(importer='blue.foo', imported='brown')
+        graph.add_import(importer='brown', imported='blue.bar')
+
+        # Long indirect import.
+        graph.add_import(importer='green.foo', imported='yellow.four')
+        graph.add_import(importer='yellow.four', imported='yellow.three')
+        graph.add_import(importer='yellow.three', imported='yellow.two')
+        graph.add_import(importer='yellow.two', imported='yellow.one')
+        graph.add_import(importer='yellow.one', imported='blue.bar')
+
+        result = graph.find_shortest_chains(
+            importer='green',
+            imported='blue',
+        )
+        assert result == {
+            ('green.foo', 'blue.foo'),
+            ('green.foo', 'yellow.four', 'yellow.three', 'yellow.two', 'yellow.one', 'blue.bar'),
+        }
 
 
 @pytest.mark.parametrize(
