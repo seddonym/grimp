@@ -202,6 +202,18 @@ def test_find_shortest_chain():
     )
 
 
+def test_find_shortest_chains():
+    graph = build_graph('testpackage')
+
+    assert {
+        ('testpackage.two.alpha', 'testpackage.one.alpha'),
+        ('testpackage.two.beta', 'testpackage.one.alpha'),
+        ('testpackage.two.gamma', 'testpackage.utils', 'testpackage.one'),
+    } == graph.find_shortest_chains(
+        importer='testpackage.two',
+        imported='testpackage.one',
+    )
+
 class TestFindDownstreamModules:
     def test_as_package_false(self):
         graph = build_graph('testpackage')
