@@ -179,6 +179,15 @@ Methods for analysing import chains
     :return: The shortest chain of imports between the supplied modules, or None if no chain exists.
     :rtype: A tuple of strings, ordered from importer to imported modules, or None.
 
+.. py:function:: ImportGraph.find_shortest_chains(importer, imported)
+
+    :param str importer: A module or subpackage within the graph.
+    :param str imported: Another module or subpackage within the graph.
+    :return: The shortest import chains that exist between the ``importer`` and ``imported``, and between any modules
+             contained within them. Only one chain per upstream/downstream pair will be included. Any chains that are
+             contained within other chains in the result set will be excluded.
+    :rtype: A set of tuples of strings. Each tuple is ordered from importer to imported modules.
+
 .. py:function:: ImportGraph.chain_exists(importer, imported, as_packages=False)
 
     :param str importer: The module at the start of the potential chain of imports (as in ``find_shortest_chain``).
