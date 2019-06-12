@@ -227,9 +227,10 @@ class ImportGraph(graph.AbstractImportGraph):
             # this context, so raise an exception.
             raise ValueError("Modules have shared descendants.")
 
-        imports_between_modules = self._pop_all_imports_between_modules(
+        imports_between_modules = self._find_all_imports_between_modules(
             upstream_modules
-        ) | self._pop_all_imports_between_modules(downstream_modules)
+        ) | self._find_all_imports_between_modules(downstream_modules)
+        self._hide_any_existing_imports(imports_between_modules)
 
         map_of_imports = {}
         for module in upstream_modules | downstream_modules:
@@ -323,59 +324,21 @@ class ImportGraph(graph.AbstractImportGraph):
             importer_modules |= self.find_descendants(module)
         return importer_modules
 
-    def _pop_all_imports_between_modules(
+    def _find_all_imports_between_modules(
         self, modules: Set[str]
     ) -> Set[Tuple[str, str]]:
         """
-        Remove all the imports between the supplied set of modules.
+        Return all the imports between the supplied set of modules.
 
         Return:
-            Set of removed imports, in the form (importer, imported).
+            Set of imports, in the form (importer, imported).
         """
-        imports_to_pop = set()
+        imports = set()
         for importer in modules:
             for imported in self.find_modules_directly_imported_by(importer):
                 if imported in modules:
-                    imports_to_pop.add((importer, imported))
-
-        for importer, imported in tuple(imports_to_pop):
-            self.remove_import(importer=importer, imported=imported)
-
-        return imports_to_pop
-
-    def _pop_all_imports_by_module(self, importer: str) -> Set[Tuple[str, str]]:
-        """
-        Remove all the direct imports with this module as the importer.
-
-        Return:
-            Set of removed imports, in the form (importer, imported).
-        """
-        imports_to_pop = set()
-
-        for imported in self.find_modules_directly_imported_by(importer):
-            imports_to_pop.add((importer, imported))
-
-        for importer, imported in tuple(imports_to_pop):
-            self.remove_import(importer=importer, imported=imported)
-
-        return imports_to_pop
-
-    def _pop_all_imports_of_module(self, imported: str) -> Set[Tuple[str, str]]:
-        """
-        Remove all the direct imports with this module as the imported.
-
-        Return:
-            Set of removed imports, in the form (importer, imported).
-        """
-        imports_to_pop = set()
-
-        for importer in self.find_modules_that_directly_import(imported):
-            imports_to_pop.add((importer, imported))
-
-        for importer, imported in tuple(imports_to_pop):
-            self.remove_import(importer=importer, imported=imported)
-
-        return imports_to_pop
+                    imports.add((importer, imported))
+        return imports
 
     def _hide_any_existing_imports(self, imports: Set[Tuple[str, str]]) -> None:
         """
