@@ -61,3 +61,7 @@ Changelog
 1.0b11 (2019-5-18)
 ------------------
 * Add remove_module method.
+
+1.0b12 (2019-6-12)
+------------------
+* Add find_shortest_chains method.
