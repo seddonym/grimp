@@ -137,6 +137,9 @@ class _BaseNodeParser:
         """
         raise NotImplementedError
 
+    def _is_internal_module(self, module: Module):
+        return module.package_name == self.module.package_name
+
 
 class _ImportNodeParser(_BaseNodeParser):
     """
@@ -154,10 +157,9 @@ class _ImportNodeParser(_BaseNodeParser):
         for alias in self.node.names:
             module_from_alias = Module(alias.name)
 
-            if module_from_alias.package_name == self.module.package_name:
+            if self._is_internal_module(module_from_alias):
                 imported_module = module_from_alias
             else:
-                # It's an external module.
                 if include_external_packages:
                     imported_module = Module(module_from_alias.package_name)
                 else:
@@ -187,8 +189,7 @@ class _ImportFromNodeParser(_BaseNodeParser):
             # Let the type checker know we expect node.module to be set here.
             assert isinstance(self.node.module, str)
             node_module = Module(self.node.module)
-            if node_module.package_name != self.module.package_name:
-                # It's an external module.
+            if not self._is_internal_module(node_module):
                 if include_external_packages:
                     # Just return the top level package of the external module.
                     return {Module(node_module.package_name)}
