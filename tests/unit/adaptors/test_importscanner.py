@@ -1,5 +1,4 @@
 import pytest  # type: ignore
-
 from grimp.adaptors.importscanner import ImportScanner
 from grimp.domain.valueobjects import DirectImport, Module
 
@@ -59,8 +58,7 @@ def test_absolute_imports(include_external_packages, expected_result):
     )
 
     import_scanner = ImportScanner(
-        modules=all_modules,
-        package_directory="/path/to/foo",
+        modules_by_package_directory={"/path/to/foo": all_modules},
         file_system=file_system,
         include_external_packages=include_external_packages,
     )
@@ -168,8 +166,7 @@ def test_absolute_from_imports(include_external_packages, expected_result):
     )
 
     import_scanner = ImportScanner(
-        modules=all_modules,
-        package_directory="/path/to/foo",
+        modules_by_package_directory={"/path/to/foo": all_modules},
         file_system=file_system,
         include_external_packages=include_external_packages,
     )
@@ -212,7 +209,8 @@ def test_relative_from_imports():
     )
 
     import_scanner = ImportScanner(
-        modules=all_modules, package_directory="/path/to/foo", file_system=file_system
+        modules_by_package_directory={"/path/to/foo": all_modules},
+        file_system=file_system,
     )
 
     result = import_scanner.scan_for_imports(Module("foo.one.blue"))
@@ -263,7 +261,8 @@ def test_trims_to_known_modules(import_source):
     )
 
     import_scanner = ImportScanner(
-        modules=all_modules, package_directory="/path/to/foo", file_system=file_system
+        modules_by_package_directory={"/path/to/foo": all_modules},
+        file_system=file_system,
     )
 
     result = import_scanner.scan_for_imports(Module("foo.one"))
@@ -304,7 +303,8 @@ def test_trims_to_known_modules_within_init_file():
     )
 
     import_scanner = ImportScanner(
-        modules=all_modules, package_directory="/path/to/foo", file_system=file_system
+        modules_by_package_directory={"/path/to/foo": all_modules},
+        file_system=file_system,
     )
 
     result = import_scanner.scan_for_imports(Module("foo.one"))
@@ -348,7 +348,8 @@ def test_trims_whitespace_from_start_of_line_contents():
     )
 
     import_scanner = ImportScanner(
-        modules=all_modules, package_directory="/path/to/foo", file_system=file_system
+        modules_by_package_directory={"/path/to/foo": all_modules},
+        file_system=file_system,
     )
 
     result = import_scanner.scan_for_imports(Module("foo.one"))
