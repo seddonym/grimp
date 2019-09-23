@@ -1,10 +1,9 @@
-from typing import Set, List
 import ast
 import logging
+from typing import List, Set
 
 from grimp.application.ports.importscanner import AbstractImportScanner
-from grimp.domain.valueobjects import Module, DirectImport
-
+from grimp.domain.valueobjects import DirectImport, Module
 
 logger = logging.getLogger(__name__)
 
@@ -81,9 +80,7 @@ class ImportScanner(AbstractImportScanner):
             module_components[0] == package_directory_parts[-1]
         ), "The package directory should be the same as the first part of the module name."
 
-        filename_root = self.file_system.join(
-            package_directory, *module_components[1:]
-        )
+        filename_root = self.file_system.join(package_directory, *module_components[1:])
         candidate_filenames = (
             f"{filename_root}.py",
             self.file_system.join(filename_root, "__init__.py"),
@@ -128,6 +125,7 @@ class _BaseNodeParser:
         self.module = module
         self.internal_modules = internal_modules
         self.module_is_package = is_package
+        self.root_modules = self._determine_root_modules()
 
     def determine_imported_modules(
         self, include_external_packages: bool
@@ -137,8 +135,11 @@ class _BaseNodeParser:
         """
         raise NotImplementedError
 
-    def _is_internal_module(self, module: Module):
-        return module.package_name == self.module.package_name
+    def _determine_root_modules(self) -> Set[Module]:
+        return {module.root for module in self.internal_modules}
+
+    def _is_internal_module(self, module: Module) -> bool:
+        return module.root in self.root_modules
 
 
 class _ImportNodeParser(_BaseNodeParser):
