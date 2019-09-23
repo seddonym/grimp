@@ -45,7 +45,7 @@ class ImportScanner(AbstractImportScanner):
             parser = _get_node_parser(
                 node=node,
                 module=module,
-                known_modules=self.modules,
+                internal_modules=self.modules,
                 is_package=is_package,
             )
         except NotAnImport:
@@ -121,12 +121,12 @@ class _BaseNodeParser:
         self,
         node: ast.AST,
         module: Module,
-        known_modules: Set[Module],
+        internal_modules: Set[Module],
         is_package: bool,
     ) -> None:
         self.node = node
         self.module = module
-        self.known_modules = known_modules
+        self.internal_modules = internal_modules
         self.module_is_package = is_package
 
     def determine_imported_modules(
@@ -223,7 +223,7 @@ class _ImportFromNodeParser(_BaseNodeParser):
         for alias in self.node.names:
             full_module_name = ".".join([module_base, alias.name])
             try:
-                imported_module = self._trim_to_known_module(
+                imported_module = self._trim_to_internal_module(
                     untrimmed_module=Module(full_module_name)
                 )
             except FileNotFoundError:
@@ -235,27 +235,27 @@ class _ImportFromNodeParser(_BaseNodeParser):
                 imported_modules.add(imported_module)
         return imported_modules
 
-    def _trim_to_known_module(self, untrimmed_module: Module) -> Module:
+    def _trim_to_internal_module(self, untrimmed_module: Module) -> Module:
         """
         Raises FileNotFoundError if it could not find a valid module.
         """
-        if untrimmed_module in self.known_modules:
+        if untrimmed_module in self.internal_modules:
             return untrimmed_module
         else:
-            # The module isn't in the known modules. This is because it's something *within*
+            # The module isn't in the internal modules. This is because it's something *within*
             # a module (e.g. a function): the result of something like 'from .subpackage
             # import my_function'. So we trim the components back to the module.
             components = untrimmed_module.name.split(".")[:-1]
             trimmed_module = Module(".".join(components))
 
-            if trimmed_module in self.known_modules:
+            if trimmed_module in self.internal_modules:
                 return trimmed_module
             else:
                 raise FileNotFoundError()
 
 
 def _get_node_parser(
-    node: ast.AST, module: Module, known_modules: Set[Module], is_package: bool
+    node: ast.AST, module: Module, internal_modules: Set[Module], is_package: bool
 ) -> _BaseNodeParser:
     """
     Return a NodeParser instance for the supplied node.
@@ -271,7 +271,7 @@ def _get_node_parser(
             return parser_class(
                 node=node,
                 module=module,
-                known_modules=known_modules,
+                internal_modules=internal_modules,
                 is_package=is_package,
             )
     raise NotAnImport
