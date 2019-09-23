@@ -362,3 +362,45 @@ def test_trims_whitespace_from_start_of_line_contents():
             line_contents="from . import two",
         )
     }
+
+
+@pytest.mark.parametrize("statement", ("import bar.blue", "from bar import blue"))
+def test_scans_multiple_packages(statement):
+    foo_modules = {Module("foo"), Module("foo.one"), Module("foo.two")}
+    bar_modules = {Module("bar"), Module("bar.green"), Module("bar.blue")}
+    file_system = FakeFileSystem(
+        content_map={
+            "/path/to/foo/one.py": f"""
+                import foo.two
+                {statement}
+                import externalone
+                
+                arbitrary_expression = 1
+            """
+        }
+    )
+
+    import_scanner = ImportScanner(
+        modules_by_package_directory={
+            "/path/to/foo": foo_modules,
+            "/path/to/bar": bar_modules,
+        },
+        file_system=file_system,
+    )
+
+    result = import_scanner.scan_for_imports(Module("foo.one"))
+
+    assert {
+        DirectImport(
+            importer=Module("foo.one"),
+            imported=Module("foo.two"),
+            line_number=1,
+            line_contents="import foo.two",
+        ),
+        DirectImport(
+            importer=Module("foo.one"),
+            imported=Module("bar.blue"),
+            line_number=2,
+            line_contents=statement,
+        ),
+    } == result
