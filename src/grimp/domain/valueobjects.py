@@ -35,6 +35,13 @@ class Module(ValueObject):
         return self.name.split(".")[0]
 
     @property
+    def root(self) -> "Module":
+        """
+        The root package.
+        """
+        return Module(self.package_name)
+
+    @property
     def parent(self) -> "Module":
         components = self.name.split(".")
         if len(components) == 1:
