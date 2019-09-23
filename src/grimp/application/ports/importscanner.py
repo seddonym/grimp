@@ -9,11 +9,14 @@ class AbstractImportScanner(abc.ABC):
     """
     Statically analyses some Python modules for import statements within their shared package.
     """
-    def __init__(self,
-                 modules: Set[Module],
-                 package_directory: str,
-                 file_system: AbstractFileSystem,
-                 include_external_packages: bool = False) -> None:
+
+    def __init__(
+        self,
+        modules: Set[Module],
+        package_directory: str,
+        file_system: AbstractFileSystem,
+        include_external_packages: bool = False,
+    ) -> None:
         """
         Args:
             - modules:           All the modules in the package we are scanning.

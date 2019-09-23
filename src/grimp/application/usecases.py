@@ -9,7 +9,9 @@ from ..application.ports.packagefinder import AbstractPackageFinder
 from .config import settings
 
 
-def build_graph(package_name, include_external_packages: bool = False) -> AbstractImportGraph:
+def build_graph(
+    package_name, include_external_packages: bool = False
+) -> AbstractImportGraph:
     """
     Build and return an import graph for the supplied package name.
 
@@ -22,8 +24,7 @@ def build_graph(package_name, include_external_packages: bool = False) -> Abstra
     package_finder: AbstractPackageFinder = settings.PACKAGE_FINDER
 
     package_directory = package_finder.determine_package_directory(
-        package_name=package_name,
-        file_system=file_system,
+        package_name=package_name, file_system=file_system
     )
 
     # Build a list of all the Python modules in the package.
@@ -48,7 +49,7 @@ def build_graph(package_name, include_external_packages: bool = False) -> Abstra
         for direct_import in import_scanner.scan_for_imports(module):
             # Before we add the import, check to see if the imported module is in fact an
             # external module, and if so, tell the graph that it is a squashed module.
-            is_external = (direct_import.imported.package_name != package_name)
+            is_external = direct_import.imported.package_name != package_name
             graph.add_module(direct_import.imported.name, is_squashed=is_external)
 
             graph.add_import(

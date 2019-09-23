@@ -19,6 +19,7 @@ class Module(ValueObject):
     """
     A Python module.
     """
+
     def __init__(self, name: str) -> None:
         """
         Args:
@@ -31,34 +32,38 @@ class Module(ValueObject):
 
     @property
     def package_name(self) -> str:
-        return self.name.split('.')[0]
+        return self.name.split(".")[0]
 
     @property
-    def parent(self) -> 'Module':
-        components = self.name.split('.')
+    def parent(self) -> "Module":
+        components = self.name.split(".")
         if len(components) == 1:
-            raise ValueError('Module has no parent.')
-        return Module('.'.join(components[:-1]))
+            raise ValueError("Module has no parent.")
+        return Module(".".join(components[:-1]))
 
-    def is_child_of(self, module: 'Module') -> bool:
+    def is_child_of(self, module: "Module") -> bool:
         try:
             return module == self.parent
         except ValueError:
             # If this module has no parent, then it cannot be a child of the supplied module.
             return False
 
-    def is_descendant_of(self, module: 'Module') -> bool:
-        return self.name.startswith(f'{module.name}.')
+    def is_descendant_of(self, module: "Module") -> bool:
+        return self.name.startswith(f"{module.name}.")
 
 
 class DirectImport(ValueObject):
     """
     An import between one module and another.
     """
+
     def __init__(
-        self, *,
-        importer: Module, imported: Module,
-        line_number: int, line_contents: str,
+        self,
+        *,
+        importer: Module,
+        imported: Module,
+        line_number: int,
+        line_contents: str,
     ) -> None:
         self.importer = importer
         self.imported = imported

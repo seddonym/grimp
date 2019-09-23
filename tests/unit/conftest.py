@@ -6,7 +6,7 @@ from grimp.adaptors.modulefinder import ModuleFinder
 from grimp.adaptors.importscanner import ImportScanner
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def configure_unit_tests():
     settings.configure(
         IMPORT_GRAPH_CLASS=ImportGraph,

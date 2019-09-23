@@ -6,6 +6,7 @@ class AbstractFileSystem(abc.ABC):
     """
     Abstraction around file system calls.
     """
+
     @abc.abstractmethod
     def dirname(self, filename: str) -> str:
         """

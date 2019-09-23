@@ -1,4 +1,4 @@
-__all__ = ['build_graph']
+__all__ = ["build_graph"]
 
 from .application.usecases import build_graph
 from .application.config import settings
