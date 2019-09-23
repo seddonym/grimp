@@ -1,8 +1,8 @@
 import abc
-from typing import Set
+from typing import Dict, Set
 
 from grimp.application.ports.filesystem import AbstractFileSystem
-from grimp.domain.valueobjects import Module, DirectImport
+from grimp.domain.valueobjects import DirectImport, Module
 
 
 class AbstractImportScanner(abc.ABC):
@@ -12,24 +12,41 @@ class AbstractImportScanner(abc.ABC):
 
     def __init__(
         self,
-        modules: Set[Module],
-        package_directory: str,
+        modules_by_package_directory: Dict[str, Set[Module]],
         file_system: AbstractFileSystem,
         include_external_packages: bool = False,
     ) -> None:
         """
         Args:
-            - modules:           All the modules in the package we are scanning.
-            - package_directory: The full file path of the directory of the package that
-                                 contains all the modules are in, for example '/path/to/mypackage'.
-            - file_system:       The file system interface to use.
-            - include_external_packages: Whether to include imports of external packages
-                                         in the results.
+            - modules_by_package_directory: Dictionary containing all the modules for analysis,
+                                            keyed by the full file path of the directory of the
+                                            root package for each set of modules. For example:
+                                            {
+                                                "/path/to/packageone": {
+                                                    Module("packageone"),
+                                                    Module("packageone.foo"),
+                                                    Module("packageone.bar"),
+                                                    Module("packageone.bar.alpha"),
+                                                },
+                                                "/path/to/packagetwo": {
+                                                    Module("packagetwo"),
+                                                    Module("packagetwo.baz"),
+                                                    ...
+                                                },
+                                            }
+            - file_system:                  The file system interface to use.
+            - include_external_packages:    Whether to include imports of external modules (i.e.
+                                            modules not contained in modules_by_package_directory)
+                                            in the results.
         """
-        self.modules = modules
-        self.package_directory = package_directory
+        self.modules_by_package_directory = modules_by_package_directory
         self.file_system = file_system
         self.include_external_packages = include_external_packages
+
+        # Flatten all the modules into a set.
+        self.modules = set()
+        for package_modules in self.modules_by_package_directory.values():
+            self.modules |= package_modules
 
     @abc.abstractmethod
     def scan_for_imports(self, module: Module) -> Set[DirectImport]:
