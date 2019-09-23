@@ -35,8 +35,7 @@ def build_graph(
     )
 
     import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
-        modules=modules,
-        package_directory=package_directory,
+        modules_by_package_directory={package_directory: set(modules)},
         file_system=file_system,
         include_external_packages=include_external_packages,
     )

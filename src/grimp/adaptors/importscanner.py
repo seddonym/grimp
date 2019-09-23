@@ -75,13 +75,14 @@ class ImportScanner(AbstractImportScanner):
         (in which case the file is an __init__.py within a directory).
         """
         module_components = module.name.split(".")
-        package_directory_parts = self.file_system.split(self.package_directory)
+        package_directory = self._lookup_module_package_directory(module)
+        package_directory_parts = self.file_system.split(package_directory)
         assert (
             module_components[0] == package_directory_parts[-1]
         ), "The package directory should be the same as the first part of the module name."
 
         filename_root = self.file_system.join(
-            self.package_directory, *module_components[1:]
+            package_directory, *module_components[1:]
         )
         candidate_filenames = (
             f"{filename_root}.py",
@@ -91,6 +92,12 @@ class ImportScanner(AbstractImportScanner):
             if self.file_system.exists(candidate_filename):
                 return candidate_filename
         raise FileNotFoundError(f"Could not find module {module}.")
+
+    def _lookup_module_package_directory(self, module: Module) -> str:
+        for package_directory, modules in self.modules_by_package_directory.items():
+            if module in modules:
+                return package_directory
+        raise KeyError(f"{module} was not present in the scanner.")
 
     def _read_module_contents(self, module_filename: str) -> str:
         """
