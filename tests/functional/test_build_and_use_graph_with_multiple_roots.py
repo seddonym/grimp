@@ -1,11 +1,11 @@
-import pytest
+import pytest  # type: ignore
 from grimp import build_graph
 
 """
 For ease of reference, these are the imports of all the files:
 
 rootpackageblue: None
-rootpackageblue.one: 
+rootpackageblue.one: None
 rootpackageblue.one.alpha: sys, pytest
 rootpackageblue.two: from .one.alpha import BAR
 rootpackageblue.three: import rootpackageblue.two
@@ -17,7 +17,7 @@ rootpackagegreen.two: from rootpackageblue.one import alpha, from . import one
 
 # The order of the root packages supplied shouldn't affect the graph.
 PACKAGES_IN_DIFFERENT_ORDERS = (
-    ("rootpackageblue", "rootpackagegreen",),
+    ("rootpackageblue", "rootpackagegreen"),
     ("rootpackagegreen", "rootpackageblue"),
 )
 
@@ -65,4 +65,3 @@ class TestBuildGraph:
         ] == graph.get_import_details(
             importer="rootpackagegreen.two", imported="rootpackageblue.one.alpha"
         )
-

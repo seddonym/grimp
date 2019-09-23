@@ -1,11 +1,10 @@
-from typing import Iterable, List
 import logging
 import os
+from typing import Iterable, List
 
-from grimp.domain.valueobjects import Module
 from grimp.application.ports import modulefinder
 from grimp.application.ports.filesystem import AbstractFileSystem
-
+from grimp.domain.valueobjects import Module
 
 logger = logging.getLogger(__name__)
 

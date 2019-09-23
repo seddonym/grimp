@@ -374,7 +374,7 @@ def test_scans_multiple_packages(statement):
                 import foo.two
                 {statement}
                 import externalone
-                
+
                 arbitrary_expression = 1
             """
         }

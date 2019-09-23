@@ -1,11 +1,14 @@
 """
 Use cases handle application logic.
 """
+from typing import List
+
 from ..application.ports.filesystem import AbstractFileSystem
 from ..application.ports.graph import AbstractImportGraph
 from ..application.ports.importscanner import AbstractImportScanner
 from ..application.ports.modulefinder import AbstractModuleFinder
 from ..application.ports.packagefinder import AbstractPackageFinder
+from ..domain.valueobjects import Module
 from .config import settings
 
 
@@ -28,14 +31,16 @@ def build_graph(
 
         # Multiple packages.
         graph = build_graph("mypackage", "anotherpackage", "onemore")
-        graph = build_graph("mypackage", "anotherpackage", "onemore", include_external_packages=True)
+        graph = build_graph(
+            "mypackage", "anotherpackage", "onemore", include_external_packages=True,
+        )
     """
     module_finder: AbstractModuleFinder = settings.MODULE_FINDER
     file_system: AbstractFileSystem = settings.FILE_SYSTEM
     package_finder: AbstractPackageFinder = settings.PACKAGE_FINDER
 
     package_names = [package_name] + list(additional_package_names)
-    modules = []
+    modules: List[Module] = []
     modules_by_package_directory = {}
 
     for package_name in package_names:

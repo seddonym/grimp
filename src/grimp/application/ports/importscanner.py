@@ -44,7 +44,7 @@ class AbstractImportScanner(abc.ABC):
         self.include_external_packages = include_external_packages
 
         # Flatten all the modules into a set.
-        self.modules = set()
+        self.modules: Set[Module] = set()
         for package_modules in self.modules_by_package_directory.values():
             self.modules |= package_modules
 
