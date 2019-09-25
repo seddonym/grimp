@@ -19,6 +19,7 @@ class ImportLibPackageFinder(AbstractPackageFinder):
         if not package_filename:
             logger.debug("sys.path: {}".format(sys.path))
             raise ValueError(
-                "Could not find package '{}' in your Python path.".format(package_name))
+                "Could not find package '{}' in your Python path.".format(package_name)
+            )
         assert package_filename.origin  # For type checker.
         return file_system.dirname(package_filename.origin)

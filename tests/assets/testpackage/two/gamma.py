@@ -1,2 +1,2 @@
 from .beta import foo
-from ..  import utils
+from .. import utils

@@ -1,17 +1,15 @@
-from typing import Iterable, List
 import logging
 import os
+from typing import Iterable, List
 
-from grimp.domain.valueobjects import Module
 from grimp.application.ports import modulefinder
 from grimp.application.ports.filesystem import AbstractFileSystem
-
+from grimp.domain.valueobjects import Module
 
 logger = logging.getLogger(__name__)
 
 
 class ModuleFinder(modulefinder.AbstractModuleFinder):
-
     def find_modules(
         self, package_name: str, package_directory: str, file_system: AbstractFileSystem
     ) -> Iterable[Module]:
@@ -20,10 +18,10 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         modules: List[Module] = []
 
         for module_filename in self._get_python_files_inside_package(package_directory):
-            module_name = self._module_name_from_filename(module_filename, package_directory)
-            modules.append(
-                Module(module_name)
+            module_name = self._module_name_from_filename(
+                module_filename, package_directory
             )
+            modules.append(Module(module_name))
 
         return modules
 
@@ -36,7 +34,7 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         for dirpath, dirs, files in self.file_system.walk(directory):
             # Don't include directories that aren't Python packages,
             # nor their subdirectories.
-            if '__init__.py' not in files:
+            if "__init__.py" not in files:
                 for d in list(dirs):
                     dirs.remove(d)
                 continue
@@ -53,7 +51,7 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
     def _should_ignore_dir(self, directory: str) -> bool:
         # TODO: make this configurable.
         # Skip adding directories that are hidden.
-        return directory.startswith('.')
+        return directory.startswith(".")
 
     def _is_python_file(self, filename: str) -> bool:
         """
@@ -64,9 +62,11 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         Returns:
             bool: whether it's a Python file.
         """
-        return not filename.startswith('.') and filename.endswith('.py')
+        return not filename.startswith(".") and filename.endswith(".py")
 
-    def _module_name_from_filename(self, filename_and_path: str, package_directory: str) -> str:
+    def _module_name_from_filename(
+        self, filename_and_path: str, package_directory: str
+    ) -> str:
         """
         Args:
             filename_and_path (string) - the full name of the Python file.
@@ -75,9 +75,11 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
             Absolute module name for importing (string).
         """
         container_directory, package_name = self.file_system.split(package_directory)
-        internal_filename_and_path = filename_and_path[len(package_directory):]
+        internal_filename_and_path = filename_and_path[len(package_directory) :]
         internal_filename_and_path_without_extension = internal_filename_and_path[1:-3]
-        components = [package_name] + internal_filename_and_path_without_extension.split(os.sep)
-        if components[-1] == '__init__':
+        components = [
+            package_name
+        ] + internal_filename_and_path_without_extension.split(os.sep)
+        if components[-1] == "__init__":
             components.pop()
-        return '.'.join(components)
+        return ".".join(components)

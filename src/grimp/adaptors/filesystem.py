@@ -8,6 +8,7 @@ class FileSystem(AbstractFileSystem):
     """
     Abstraction around file system calls.
     """
+
     def dirname(self, filename: str) -> str:
         return os.path.dirname(filename)
 

@@ -6,7 +6,9 @@ from grimp.application.ports.filesystem import AbstractFileSystem
 
 
 class FakeFileSystem(AbstractFileSystem):
-    def __init__(self, contents: str = None, content_map: Dict[str, str] = None) -> None:
+    def __init__(
+        self, contents: str = None, content_map: Dict[str, str] = None
+    ) -> None:
         """
         Files can be declared as existing in the file system in two different ways, either
         in a contents string (which is a quick way of defining a lot of files), or in content_map
@@ -56,7 +58,9 @@ class FakeFileSystem(AbstractFileSystem):
         except KeyError:
             return []
 
-        yield from self._walk_contents(directory_contents, containing_directory=directory_name)
+        yield from self._walk_contents(
+            directory_contents, containing_directory=directory_name
+        )
 
     def _walk_contents(
         self, directory_contents: Dict[str, Any], containing_directory: str
@@ -80,11 +84,11 @@ class FakeFileSystem(AbstractFileSystem):
                 )
 
     def join(self, *components: str) -> str:
-        return '/'.join(components)
+        return "/".join(components)
 
     def split(self, file_name: str) -> Tuple[str, str]:
-        components = file_name.split('/')
-        return ('/'.join(components[:-1]), components[-1])
+        components = file_name.split("/")
+        return ("/".join(components[:-1]), components[-1])
 
     def _parse_contents(self, raw_contents: Optional[str]):
         """
@@ -109,16 +113,16 @@ class FakeFileSystem(AbstractFileSystem):
 
         # Convert to yaml for ease of parsing.
         yamlified_lines = []
-        raw_lines = [line for line in raw_contents.split('\n') if line.strip()]
+        raw_lines = [line for line in raw_contents.split("\n") if line.strip()]
 
         dedented_lines = self._dedent(raw_lines)
 
         for line in dedented_lines:
-            trimmed_line = line.rstrip().rstrip('/')
-            yamlified_line = trimmed_line + ':'
+            trimmed_line = line.rstrip().rstrip("/")
+            yamlified_line = trimmed_line + ":"
             yamlified_lines.append(yamlified_line)
 
-        yamlified_string = '\n'.join(yamlified_lines)
+        yamlified_string = "\n".join(yamlified_lines)
 
         return yaml.load(yamlified_string)
 
@@ -137,10 +141,10 @@ class FakeFileSystem(AbstractFileSystem):
         try:
             file_contents = self.content_map[file_name]
         except KeyError:
-            return ''
-        raw_lines = [line for line in file_contents.split('\n') if line.strip()]
+            return ""
+        raw_lines = [line for line in file_contents.split("\n") if line.strip()]
         dedented_lines = self._dedent(raw_lines)
-        return '\n'.join(dedented_lines)
+        return "\n".join(dedented_lines)
 
     def exists(self, file_name: str) -> bool:
         # The file should exist if it's either declared in contents or in content_map.
@@ -154,8 +158,8 @@ class FakeFileSystem(AbstractFileSystem):
         if not found_directory:
             return False
 
-        relative_file_name = file_name[len(found_directory) + 1:]
-        file_components = relative_file_name.split('/')
+        relative_file_name = file_name[len(found_directory) + 1 :]
+        file_components = relative_file_name.split("/")
 
         contents = self.contents[found_directory]
         for component in file_components:

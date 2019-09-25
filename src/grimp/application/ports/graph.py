@@ -6,6 +6,7 @@ class AbstractImportGraph(abc.ABC):
     """
     A Directed Graph of imports between Python modules.
     """
+
     # Mechanics
     # ---------
 
@@ -41,11 +42,12 @@ class AbstractImportGraph(abc.ABC):
 
     @abc.abstractmethod
     def add_import(
-        self, *,
+        self,
+        *,
         importer: str,
         imported: str,
         line_number: Optional[int] = None,
-        line_contents: Optional[str] = None
+        line_contents: Optional[str] = None,
     ) -> None:
         """
         Add a direct import between two modules to the graph. If the modules are not already
@@ -120,10 +122,7 @@ class AbstractImportGraph(abc.ABC):
 
     @abc.abstractmethod
     def get_import_details(
-        self,
-        *,
-        importer: str,
-        imported: str
+        self, *, importer: str, imported: str
     ) -> List[Dict[str, Union[str, int]]]:
         """
         Returns a list of the details of every direct import between two modules, in the form:
@@ -185,7 +184,7 @@ class AbstractImportGraph(abc.ABC):
 
     @abc.abstractmethod
     def find_shortest_chain(
-        self, importer: str, imported: str,
+        self, importer: str, imported: str
     ) -> Optional[Tuple[str, ...]]:
         """
         Attempt to find the shortest chain of imports between two modules, in the direction
@@ -198,7 +197,7 @@ class AbstractImportGraph(abc.ABC):
 
     @abc.abstractmethod
     def find_shortest_chains(
-        self, importer: str, imported: str,
+        self, importer: str, imported: str
     ) -> Set[Tuple[str, ...]]:
         """
         Find the shortest import chains that exist between the importer and imported, and
@@ -212,9 +211,7 @@ class AbstractImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def chain_exists(
-        self, importer: str, imported: str, as_packages=False,
-    ) -> bool:
+    def chain_exists(self, importer: str, imported: str, as_packages=False) -> bool:
         """
         Return whether any chain of imports exists between the two modules, in the direction
         of importer to imported. In other words, does the importer depend on the imported?
@@ -239,9 +236,9 @@ class AbstractImportGraph(abc.ABC):
         if modules:
             repr_output_size = 5
             module_list = list(modules)[:repr_output_size]
-            stringified_modules = ', '.join(repr(m) for m in module_list)
+            stringified_modules = ", ".join(repr(m) for m in module_list)
             if len(modules) > repr_output_size:
                 stringified_modules += ", ..."
         else:
-            stringified_modules = 'empty'
-        return f'<{self.__class__.__name__}: {stringified_modules}>'
+            stringified_modules = "empty"
+        return f"<{self.__class__.__name__}: {stringified_modules}>"
