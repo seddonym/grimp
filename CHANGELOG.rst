@@ -66,6 +66,6 @@ Changelog
 ------------------
 * Add find_shortest_chains method.
 
-latest
-------
+1.0b13 (2019-9-25)
+------------------
 * Support multiple root packages.
