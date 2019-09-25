@@ -43,6 +43,8 @@ def build_graph(
     modules: List[Module] = []
     modules_by_package_directory = {}
 
+    _validate_package_names_are_strings(package_names)
+
     for package_name in package_names:
         package_directory = package_finder.determine_package_directory(
             package_name=package_name, file_system=file_system
@@ -83,3 +85,9 @@ def build_graph(
             )
 
     return graph
+
+
+def _validate_package_names_are_strings(package_names: List[str]) -> None:
+    for name in package_names:
+        if not isinstance(name, str):
+            raise TypeError(f"Package names must be strings, got {name.__class__.__name__}.")

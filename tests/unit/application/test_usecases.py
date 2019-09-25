@@ -1,5 +1,4 @@
 import pytest  # type: ignore
-
 from grimp.application import usecases
 
 from tests.adaptors.filesystem import FakeFileSystem
@@ -64,3 +63,15 @@ class TestBuildGraph:
                     ValueError, match="Cannot find children of a squashed module."
                 ):
                     graph.find_children(module)
+
+    def test_boolean_additional_package_raises_type_error(self):
+        """
+        Tests that a useful error message if build_graph is called
+        with a boolean as the second argument.
+
+        This is because earlier versions of build_graph took include_external_packages
+        as the second argument, and it's possible it might have been called
+        as a positional argument.
+        """
+        with pytest.raises(TypeError, match="Package names must be strings, got bool."):
+            usecases.build_graph("mypackage", True)
