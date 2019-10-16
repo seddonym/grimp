@@ -69,3 +69,7 @@ Changelog
 1.0b13 (2019-9-25)
 ------------------
 * Support multiple root packages.
+
+latest
+------
+* Officially support Python 3.8.
