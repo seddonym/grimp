@@ -17,9 +17,6 @@ Builds a queryable graph of the imports within one or more Python packages.
 
 * Free software: BSD license
 
-**Warning:** This software is currently in beta. It is undergoing active development, and breaking changes may be
-introduced between versions.
-
 Quick start
 -----------
 

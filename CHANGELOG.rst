@@ -70,6 +70,6 @@ Changelog
 ------------------
 * Support multiple root packages.
 
-latest
-------
+1.0
+---
 * Officially support Python 3.8.
