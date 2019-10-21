@@ -249,3 +249,34 @@ Methods for manipulating the graph
     :param str importer: The name of the module that is importing the other module.
     :param str imported: The name of the module being imported.
     :return: None
+
+Saving / loading the graph
+--------------------------
+
+You may save an ``ImportGraph`` to a json file, and load it later. This is useful if it takes a long time to build
+the graph.
+
+.. code-block:: python
+
+    import grimp
+
+    grimp.save_graph(graph, filename="path/to/graph.json")
+
+.. py:function:: grimp.save_graph(graph: ImportGraph, filename: str)
+
+    Save an ImportGraph in a json file.
+
+    :param str filename: The name of the file to save. It is suggested that this has a ``.json`` extension.
+
+.. code-block:: python
+
+    import grimp
+
+    graph = grimp.load_graph("path/to/graph.json")
+
+.. py:function:: grimp.load_graph(filename: str) -> ImportGraph
+
+    Load an ImportGraph from a json file that was created by save_graph.
+
+    :param str filename: The name of the file to load.
+
