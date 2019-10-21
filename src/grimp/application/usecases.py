@@ -87,6 +87,17 @@ def build_graph(
     return graph
 
 
+def save_graph(graph: AbstractImportGraph, filename: str) -> None:
+    """
+    Save an ImportGraph in a json file.
+
+    Args:
+        graph:    The ImportGraph to save.
+        filename: The name of the file to save. It is suggested that this has a ``.json`` extension.
+    """
+    raise NotImplementedError
+
+
 def _validate_package_names_are_strings(package_names: List[str]) -> None:
     for name in package_names:
         if not isinstance(name, str):
