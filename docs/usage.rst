@@ -124,11 +124,17 @@ Methods for analysing direct imports
 
 .. py:function:: ImportGraph.get_import_details(importer, imported)
 
-    Provides a way of seeing the details of direct imports between two modules (usually
-    there will be only one of these, but it is possible for a module to import another
-    module twice).
+    Provides a way of seeing any available metadata about direct imports between two modules. Usually
+    the list will consist of a single dictionary, but it is possible for a module to import another
+    module more than once.
 
-    The details are in the following form::
+    This method should not be used to determine whether an import is present:
+    some of the imports in the graph may have no available metadata. For example, if an import
+    has been added by the ``add_import`` method without the ``line_number`` and ``line_contents`` specified, then
+    calling this method on the import will return an empty list. If you want to know whether the import is present,
+    use ``direct_import_exists``.
+
+    The details returned are in the following form::
 
         [
             {
@@ -140,9 +146,11 @@ Methods for analysing direct imports
             # (additional imports here)
         ]
 
+    If no such import exists, or if there are no available details, an empty list will be returned.
+
     :param str importer: A module name.
     :param str imported: A module name.
-    :return: A list of the details of every direct import between two modules.
+    :return: A list of any available metadata for imports between two modules.
     :rtype: List of dictionaries.
 
 .. py:function:: ImportGraph.count_imports()

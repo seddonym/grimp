@@ -73,3 +73,7 @@ Changelog
 1.0 (2019-10-17)
 ----------------
 * Officially support Python 3.8.
+
+latest
+------
+* Clarify behaviour of get_import_details.
