@@ -78,3 +78,4 @@ latest
 ------
 * Clarify behaviour of get_import_details.
 * Add module_is_squashed method.
+* Add squash_module method.

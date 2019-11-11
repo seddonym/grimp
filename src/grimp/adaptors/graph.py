@@ -48,6 +48,26 @@ class ImportGraph(graph.AbstractImportGraph):
         if module in self.modules:
             self._networkx_graph.remove_node(module)
 
+    def squash_module(self, module: str) -> None:
+        if self.is_module_squashed(module):
+            return
+
+        squashed_root = module
+        descendants = self.find_descendants(squashed_root)
+
+        # Add imports to/from the root.
+        for descendant in descendants:
+            for imported_module in self.find_modules_directly_imported_by(descendant):
+                self.add_import(importer=squashed_root, imported=imported_module)
+            for importing_module in self.find_modules_that_directly_import(descendant):
+                self.add_import(importer=importing_module, imported=squashed_root)
+
+        # Now we've added imports to/from the root, we can delete the root's descendants.
+        for descendant in descendants:
+            self.remove_module(descendant)
+
+        self._mark_module_as_squashed(squashed_root)
+
     def is_module_squashed(self, module: str) -> bool:
         if module not in self.modules:
             raise ModuleNotPresent(f'"{module}" not present in the graph.')

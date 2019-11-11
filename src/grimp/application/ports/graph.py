@@ -41,6 +41,18 @@ class AbstractImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def squash_module(self, module: str) -> None:
+        """
+        'Squash' a module in the graph.
+
+        If the module is not present in the graph, grimp.exceptions.ModuleNotPresent will be raised.
+
+        A squashed module represents both itself and all its descendants. This allow parts of the
+        graph to be simplified.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def is_module_squashed(self, module: str) -> bool:
         """
         Return whether a module is squashed.

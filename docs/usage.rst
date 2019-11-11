@@ -258,6 +258,17 @@ Methods for manipulating the graph
     :param str imported: The name of the module being imported.
     :return: None
 
+.. py:function:: ImportGraph.squash_module(module)
+
+    'Squash' a module in the graph (see `Terminology`_ above).
+
+    Squashing a pre-existing module will cause all imports to and from the descendants of that module to instead
+    point directly at the module being squashed. The import details (i.e. line numbers and contents) will be lost
+    for those imports. The descendants will then be removed from the graph.
+
+    :param str module: The name of a module, for example ``'mypackage.foo'``.
+    :return: None
+
 .. py:function:: ImportGraph.is_module_squashed(module)
 
     Return whether a module present in the graph is 'squashed' (see `Terminology`_ above).
