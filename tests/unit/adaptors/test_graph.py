@@ -2,6 +2,7 @@ import re
 
 import pytest  # type: ignore
 from grimp.adaptors.graph import ImportGraph
+from grimp.exceptions import ModuleNotPresent
 
 
 class TestRepr:
@@ -280,10 +281,10 @@ def test_find_upstream_modules(module, as_package, expected_result):
 )
 def test_find_children(module, expected_result):
     graph = ImportGraph()
+    foo, bar = "foo", "bar"
     a, b, c = "foo.a", "foo.b", "foo.c"
     d, e, f = "foo.a.one", "foo.b.one", "bar.g"
-
-    for module_to_add in (a, b, c, d, e, f):
+    for module_to_add in (foo, bar, a, b, c, d, e, f):
         graph.add_module(module_to_add)
 
     assert expected_result == graph.find_children(module)
@@ -309,10 +310,11 @@ def test_find_children_raises_exception_for_squashed_module():
 )
 def test_find_descendants(module, expected_result):
     graph = ImportGraph()
+    foo, bar = "foo", "bar"
     a, b, c = "foo.a", "foo.b", "foo.c"
     d, e, f = "foo.a.one", "foo.b.one", "bar.g"
 
-    for module_to_add in (a, b, c, d, e, f):
+    for module_to_add in (foo, bar, a, b, c, d, e, f):
         graph.add_module(module_to_add)
 
     assert expected_result == graph.find_descendants(module)
@@ -852,3 +854,225 @@ class TestGetImportDetails:
         assert imports_info == graph.get_import_details(
             importer="mypackage.foo", imported="mypackage.bar"
         )
+
+
+class TestIsModuleSquashed:
+    def test_returns_true_for_module_added_with_is_squashed(self):
+        graph = ImportGraph()
+        graph.add_module("foo", is_squashed=True)
+
+        assert graph.is_module_squashed("foo")
+
+    def test_returns_false_for_module_added_without_is_squashed(self):
+        graph = ImportGraph()
+        graph.add_module("foo", is_squashed=False)
+
+        assert not graph.is_module_squashed("foo")
+
+    def test_raises_module_not_present_for_nonexistent_module(self):
+        graph = ImportGraph()
+
+        with pytest.raises(ModuleNotPresent):
+            assert not graph.is_module_squashed("foo")
+
+
+class TestSquashModule:
+    def test_marks_module_as_squashed(self):
+        graph = ImportGraph()
+        modules_to_squash = {
+            "foo",
+            "foo.green",
+        }
+        for module in modules_to_squash:
+            graph.add_module(module)
+
+        graph.squash_module("foo")
+
+        assert graph.is_module_squashed("foo")
+
+    def test_updates_modules_in_graph(self):
+        graph = ImportGraph()
+        modules_to_squash = {
+            "foo",
+            "foo.green",
+            "foo.blue",
+            "foo.blue.alpha",
+        }
+        other_modules = {
+            "bar",
+            "bar.black",
+            "baz",
+        }
+        for module in modules_to_squash | other_modules:
+            graph.add_module(module)
+
+        graph.squash_module("foo")
+
+        assert {"foo"} | other_modules == graph.modules
+
+    def test_keeps_import_from_squashed_root(self):
+        graph = ImportGraph()
+        for module in [
+            "foo",
+            "foo.green",
+            "bar.blue",
+        ]:
+            graph.add_module(module)
+        graph.add_import(importer="foo", imported="bar.blue")
+
+        graph.squash_module("foo")
+
+        assert graph.direct_import_exists(importer="foo", imported="bar.blue")
+
+    def test_keeps_import_of_squashed_root(self):
+        graph = ImportGraph()
+        for module in [
+            "foo",
+            "foo.green",
+            "bar.blue",
+        ]:
+            graph.add_module(module)
+        graph.add_import(importer="bar.blue", imported="foo")
+
+        graph.squash_module("foo")
+
+        assert graph.direct_import_exists(importer="bar.blue", imported="foo")
+
+    def test_contracts_import_from_descendant(self):
+        graph = ImportGraph()
+        for module in [
+            "foo",
+            "foo.green",
+            "bar.blue",
+        ]:
+            graph.add_module(module)
+        graph.add_import(importer="foo.green", imported="bar.blue")
+
+        graph.squash_module("foo")
+
+        assert graph.direct_import_exists(importer="foo", imported="bar.blue")
+
+    def test_contracts_import_to_descendant(self):
+        graph = ImportGraph()
+        for module in [
+            "foo",
+            "foo.green",
+            "bar.blue",
+        ]:
+            graph.add_module(module)
+        graph.add_import(importer="bar.blue", imported="foo.green")
+
+        graph.squash_module("foo")
+
+        assert graph.direct_import_exists(importer="bar.blue", imported="foo")
+
+    def test_doesnt_error_if_imports_within_module(self):
+        graph = ImportGraph()
+        for module in [
+            "foo",
+            "foo.green",
+            "foo.blue",
+        ]:
+            graph.add_module(module)
+        graph.add_import(importer="foo.blue", imported="foo.green")
+
+        graph.squash_module("foo")
+
+    def test_import_details_from_squashed_root_are_preserved(self):
+        graph = ImportGraph()
+        for module in [
+            "foo",
+            "foo.green",
+            "bar.blue",
+        ]:
+            graph.add_module(module)
+        import_details = dict(
+            importer="foo",
+            imported="bar.blue",
+            line_number=1,
+            line_contents="from . import bar",
+        )
+        graph.add_import(**import_details)
+
+        graph.squash_module("foo")
+
+        assert [import_details] == graph.get_import_details(
+            importer="foo", imported="bar.blue"
+        )
+
+    def test_import_details_to_squashed_root_are_preserved(self):
+        graph = ImportGraph()
+        for module in [
+            "foo",
+            "foo.green",
+            "bar.blue",
+        ]:
+            graph.add_module(module)
+        import_details = dict(
+            importer="bar.blue",
+            imported="foo",
+            line_number=1,
+            line_contents="from . import foo",
+        )
+        graph.add_import(**import_details)
+
+        graph.squash_module("foo")
+
+        assert [import_details] == graph.get_import_details(
+            importer="bar.blue", imported="foo"
+        )
+
+    def test_import_details_from_descendant_are_lost(self):
+        graph = ImportGraph()
+        for module in [
+            "foo",
+            "foo.green",
+            "bar.blue",
+        ]:
+            graph.add_module(module)
+
+        graph.add_import(
+            importer="foo.green",
+            imported="bar.blue",
+            line_number=1,
+            line_contents="from . import bar.blue",
+        )
+
+        graph.squash_module("foo")
+
+        assert [] == graph.get_import_details(importer="foo", imported="bar.blue")
+
+    def test_import_details_to_descendant_are_lost(self):
+        graph = ImportGraph()
+        for module in [
+            "foo",
+            "foo.green",
+            "bar.blue",
+        ]:
+            graph.add_module(module)
+
+        graph.add_import(
+            importer="bar.blue",
+            imported="foo.green",
+            line_number=1,
+            line_contents="from foo import green",
+        )
+
+        graph.squash_module("foo")
+
+        assert [] == graph.get_import_details(importer="bar.blue", imported="foo")
+
+    def test_does_nothing_if_module_is_already_squashed(self):
+        graph = ImportGraph()
+        graph.add_module("foo", is_squashed=True)
+        graph.add_import(importer="foo", imported="bar")
+
+        graph.squash_module("foo")
+
+        assert graph.direct_import_exists(importer="foo", imported="bar")
+
+    def test_raises_module_not_present_if_no_module(self):
+        graph = ImportGraph()
+
+        with pytest.raises(ModuleNotPresent):
+            graph.squash_module("foo")

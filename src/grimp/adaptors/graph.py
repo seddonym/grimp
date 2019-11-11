@@ -4,6 +4,7 @@ import networkx  # type: ignore
 import networkx.algorithms  # type: ignore
 from grimp.application.ports import graph
 from grimp.domain.valueobjects import Module
+from grimp.exceptions import ModuleNotPresent
 
 
 class ImportGraph(graph.AbstractImportGraph):
@@ -32,7 +33,7 @@ class ImportGraph(graph.AbstractImportGraph):
             )
 
         if module in self.modules:
-            if self._is_existing_module_squashed(module) != is_squashed:
+            if self.is_module_squashed(module) != is_squashed:
                 raise ValueError(
                     "Cannot add a squashed module when it is already present in the graph as "
                     "an unsquashed module, or vice versa."
@@ -46,6 +47,32 @@ class ImportGraph(graph.AbstractImportGraph):
     def remove_module(self, module: str) -> None:
         if module in self.modules:
             self._networkx_graph.remove_node(module)
+
+    def squash_module(self, module: str) -> None:
+        if self.is_module_squashed(module):
+            return
+
+        squashed_root = module
+        descendants = self.find_descendants(squashed_root)
+
+        # Add imports to/from the root.
+        for descendant in descendants:
+            for imported_module in self.find_modules_directly_imported_by(descendant):
+                self.add_import(importer=squashed_root, imported=imported_module)
+            for importing_module in self.find_modules_that_directly_import(descendant):
+                self.add_import(importer=importing_module, imported=squashed_root)
+
+        # Now we've added imports to/from the root, we can delete the root's descendants.
+        for descendant in descendants:
+            self.remove_module(descendant)
+
+        self._mark_module_as_squashed(squashed_root)
+
+    def is_module_squashed(self, module: str) -> bool:
+        if module not in self.modules:
+            raise ModuleNotPresent(f'"{module}" not present in the graph.')
+
+        return module in self._squashed_modules
 
     def add_import(
         self,
@@ -84,7 +111,7 @@ class ImportGraph(graph.AbstractImportGraph):
     def find_children(self, module: str) -> Set[str]:
         # It doesn't make sense to find the children of a squashed module, as we don't store
         # the children in the graph.
-        if self._is_existing_module_squashed(module):
+        if self.is_module_squashed(module):
             raise ValueError("Cannot find children of a squashed module.")
 
         children = set()
@@ -96,7 +123,7 @@ class ImportGraph(graph.AbstractImportGraph):
     def find_descendants(self, module: str) -> Set[str]:
         # It doesn't make sense to find the descendants of a squashed module, as we don't store
         # the descendants in the graph.
-        if self._is_existing_module_squashed(module):
+        if self.is_module_squashed(module):
             raise ValueError("Cannot find descendants of a squashed module.")
 
         descendants = set()
@@ -293,19 +320,13 @@ class ImportGraph(graph.AbstractImportGraph):
         try:
             parent = Module(module).parent.name
         except ValueError:
-            # The module no more ancestors.
+            # The module has no more ancestors.
             return None
 
-        if self._is_existing_module_squashed(parent):
+        if parent in self.modules and self.is_module_squashed(parent):
             return parent
         else:
             return self._find_ancestor_squashed_module(parent)
-
-    def _is_existing_module_squashed(self, module: str) -> bool:
-        """
-        Return whether a module that currently exists in the graph is squashed.
-        """
-        return module in self._squashed_modules
 
     def _mark_module_as_squashed(self, module: str) -> None:
         """
@@ -320,7 +341,7 @@ class ImportGraph(graph.AbstractImportGraph):
         If the module is squashed, it will be treated as a single module.
         """
         importer_modules = {module}
-        if not self._is_existing_module_squashed(module):
+        if not self.is_module_squashed(module):
             importer_modules |= self.find_descendants(module)
         return importer_modules
 
