@@ -1076,3 +1076,116 @@ class TestSquashModule:
 
         with pytest.raises(ModuleNotPresent):
             graph.squash_module("foo")
+
+
+class TestFindAllSimpleChains:
+    def test_raise_module_not_present_if_importer_missing(self):
+        graph = ImportGraph()
+        graph.add_module("bar")
+
+        with pytest.raises(ModuleNotPresent):
+            graph.find_all_simple_chains(importer="foo", imported="bar")
+
+    def test_raise_module_not_present_if_imported_missing(self):
+        graph = ImportGraph()
+        graph.add_module("foo")
+
+        with pytest.raises(ModuleNotPresent):
+            graph.find_all_simple_chains(importer="foo", imported="bar")
+
+    def test_finds_no_paths_if_none_exist(self):
+        graph = ImportGraph()
+        graph.add_module("foo")
+        graph.add_module("bar")
+
+        result = list(graph.find_all_simple_chains(importer="foo", imported="bar"))
+
+        assert [] == result
+
+    def test_finds_no_paths_if_wrong_direction(self):
+        graph = ImportGraph()
+        self._add_chain(graph, "foo", "bar")
+
+        result = list(graph.find_all_simple_chains(importer="bar", imported="foo"))
+
+        assert [] == result
+
+    def test_finds_no_paths_if_importer_but_not_imported(self):
+        graph = ImportGraph()
+        self._add_chain(graph, "foo", "bar")
+        graph.add_module("baz")
+
+        result = list(graph.find_all_simple_chains(importer="foo", imported="baz"))
+
+        assert [] == result
+
+    def test_finds_no_paths_if_imported_but_not_importer(self):
+        graph = ImportGraph()
+        self._add_chain(graph, "foo", "bar")
+        graph.add_module("baz")
+
+        result = list(graph.find_all_simple_chains(importer="baz", imported="bar"))
+
+        assert [] == result
+
+    def test_finds_single_step_path(self):
+        graph = ImportGraph()
+        self._add_chain(graph, "foo", "bar")
+
+        result = tuple(graph.find_all_simple_chains(importer="foo", imported="bar"))
+
+        assert (("foo", "bar"),) == result
+
+    def test_finds_two_step_path(self):
+        graph = ImportGraph()
+        self._add_chain(graph, "foo", "bar", "baz")
+
+        result = tuple(graph.find_all_simple_chains(importer="foo", imported="baz"))
+
+        assert (("foo", "bar", "baz"),) == result
+
+    def test_finds_long_path(self):
+        graph = ImportGraph()
+        long_path = ("one", "two", "three", "four", "five")
+        self._add_chain(graph, *long_path)
+
+        result = tuple(graph.find_all_simple_chains(importer="one", imported="five"))
+
+        assert (long_path,) == result
+
+    def test_finds_multiple_paths(self):
+        graph = ImportGraph()
+        paths = (
+            ("foo", "blue", "bar"),
+            ("foo", "green", "bar"),
+            ("foo", "red", "yellow", "bar"),
+            ("foo", "brown", "purple", "grey", "pink", "bar"),
+        )
+        for path in paths:
+            self._add_chain(graph, *path)
+
+        result = set(graph.find_all_simple_chains(importer="foo", imported="bar"))
+
+        assert set(paths) == result
+
+    def test_includes_redundant_paths(self):
+        # I'm not definitely sure we want this behaviour, but this is what networkx's
+        # all_simple_paths gives us at the moment.
+        graph = ImportGraph()
+        paths = (
+            ("foo", "blue", "bar"),
+            ("foo", "green", "bar"),
+            ("foo", "green", "blue", "bar"),
+        )
+        for path in paths:
+            self._add_chain(graph, *path)
+
+        result = set(graph.find_all_simple_chains(importer="foo", imported="bar"))
+
+        assert set(paths) == result
+
+    def _add_chain(self, graph, *modules):
+        for index in range(len(modules) - 1):
+            graph.add_import(
+                importer=modules[index], imported=modules[index + 1],
+            )
