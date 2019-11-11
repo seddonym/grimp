@@ -1,5 +1,5 @@
 import abc
-from typing import Set, Tuple, Optional, Dict, Union, List
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 
 class AbstractImportGraph(abc.ABC):
@@ -125,7 +125,7 @@ class AbstractImportGraph(abc.ABC):
         self, *, importer: str, imported: str
     ) -> List[Dict[str, Union[str, int]]]:
         """
-        Returns a list of the details of every direct import between two modules, in the form:
+        Return available metadata relating to the direct imports between two modules, in the form:
         [
             {
                 'importer': 'mypackage.importer',
@@ -135,6 +135,12 @@ class AbstractImportGraph(abc.ABC):
             },
             (additional imports here)
         ]
+
+        If no import exists, or if there are no available details, returns an empty list.
+
+        Note, it is possible for an import to exist, but for there to be no available details.
+        For example, if an import has been added by the `add_import` method without line_number and
+        line_contents specified.
         """
         raise NotImplementedError
 

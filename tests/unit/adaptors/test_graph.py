@@ -464,7 +464,7 @@ class TestFindShortestChains:
         }
 
     def test_chains_that_reenter_importer_package_dont_stop_longer_chains_being_included(
-        self
+        self,
     ):
         graph = ImportGraph()
 
@@ -489,7 +489,7 @@ class TestFindShortestChains:
         }
 
     def test_chains_that_reenter_imported_package_dont_stop_longer_chains_being_included(
-        self
+        self,
     ):
         graph = ImportGraph()
 
@@ -819,6 +819,14 @@ class TestGetImportDetails:
         graph = ImportGraph()
 
         assert [] == graph.get_import_details(importer="foo", imported="bar")
+
+    def test_returns_empty_list_when_import_but_no_available_details(self):
+        graph = ImportGraph()
+
+        importer, imported = "foo", "bar"
+        graph.add_import(importer=importer, imported=imported),
+
+        assert [] == graph.get_import_details(importer=importer, imported=imported)
 
     def test_returns_only_relevant_imports(self):
         graph = ImportGraph()
