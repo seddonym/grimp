@@ -2,6 +2,7 @@ import re
 
 import pytest  # type: ignore
 from grimp.adaptors.graph import ImportGraph
+from grimp.exceptions import ModuleNotPresent
 
 
 class TestRepr:
@@ -280,10 +281,10 @@ def test_find_upstream_modules(module, as_package, expected_result):
 )
 def test_find_children(module, expected_result):
     graph = ImportGraph()
+    foo, bar = "foo", "bar"
     a, b, c = "foo.a", "foo.b", "foo.c"
     d, e, f = "foo.a.one", "foo.b.one", "bar.g"
-
-    for module_to_add in (a, b, c, d, e, f):
+    for module_to_add in (foo, bar, a, b, c, d, e, f):
         graph.add_module(module_to_add)
 
     assert expected_result == graph.find_children(module)
@@ -309,10 +310,11 @@ def test_find_children_raises_exception_for_squashed_module():
 )
 def test_find_descendants(module, expected_result):
     graph = ImportGraph()
+    foo, bar = "foo", "bar"
     a, b, c = "foo.a", "foo.b", "foo.c"
     d, e, f = "foo.a.one", "foo.b.one", "bar.g"
 
-    for module_to_add in (a, b, c, d, e, f):
+    for module_to_add in (foo, bar, a, b, c, d, e, f):
         graph.add_module(module_to_add)
 
     assert expected_result == graph.find_descendants(module)
@@ -852,3 +854,23 @@ class TestGetImportDetails:
         assert imports_info == graph.get_import_details(
             importer="mypackage.foo", imported="mypackage.bar"
         )
+
+
+class TestIsModuleSquashed:
+    def test_returns_true_for_module_added_with_is_squashed(self):
+        graph = ImportGraph()
+        graph.add_module("foo", is_squashed=True)
+
+        assert graph.is_module_squashed("foo")
+
+    def test_returns_false_for_module_added_without_is_squashed(self):
+        graph = ImportGraph()
+        graph.add_module("foo", is_squashed=False)
+
+        assert not graph.is_module_squashed("foo")
+
+    def test_raises_module_not_present_for_nonexistent_module(self):
+        graph = ImportGraph()
+
+        with pytest.raises(ModuleNotPresent):
+            assert not graph.is_module_squashed("foo")

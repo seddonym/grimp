@@ -257,3 +257,10 @@ Methods for manipulating the graph
     :param str importer: The name of the module that is importing the other module.
     :param str imported: The name of the module being imported.
     :return: None
+
+.. py:function:: ImportGraph.is_module_squashed(module)
+
+    Return whether a module present in the graph is 'squashed' (see `Terminology`_ above).
+
+    :param str module: The name of a module, for example ``'mypackage.foo'``.
+    :return: bool

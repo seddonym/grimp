@@ -77,3 +77,4 @@ Changelog
 latest
 ------
 * Clarify behaviour of get_import_details.
+* Add module_is_squashed method.
