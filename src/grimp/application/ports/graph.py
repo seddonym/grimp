@@ -1,5 +1,5 @@
 import abc
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Set, Tuple, Union
 
 
 class AbstractImportGraph(abc.ABC):
@@ -234,6 +234,23 @@ class AbstractImportGraph(abc.ABC):
 
         Returns:
             A set of tuples of strings. Each tuple is ordered from importer to imported modules.
+        """
+        raise NotImplementedError
+
+    def find_all_simple_chains(
+        self, importer: str, imported: str
+    ) -> Iterator[Tuple[str, ...]]:
+        """
+        Generate all simple chains between the importer and the imported modules.
+
+        A simple chain is one with no repeated modules.
+
+        Returns:
+            A generator that produces tuples of strings. Each tuple is ordered from importer
+            to imported modules.
+
+        If either module is not present in the graph, grimp.exceptions.ModuleNotPresent
+        will be raised.
         """
         raise NotImplementedError
 

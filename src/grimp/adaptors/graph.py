@@ -1,10 +1,11 @@
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, Union
 
 import networkx  # type: ignore
 import networkx.algorithms  # type: ignore
 from grimp.application.ports import graph
 from grimp.domain.valueobjects import Module
 from grimp.exceptions import ModuleNotPresent
+from grimp.helpers import wrap_generator
 
 
 class ImportGraph(graph.AbstractImportGraph):
@@ -287,6 +288,18 @@ class ImportGraph(graph.AbstractImportGraph):
         self._reveal_imports(imports_between_modules)
 
         return shortest_chains
+
+    def find_all_simple_chains(
+        self, importer: str, imported: str
+    ) -> Iterator[Tuple[str, ...]]:
+        for module in (importer, imported):
+            if module not in self.modules:
+                raise ModuleNotPresent(f'"{module}" not present in the graph.')
+        all_simple_paths = networkx.algorithms.simple_paths.all_simple_paths(
+            self._networkx_graph, source=importer, target=imported
+        )
+        # Cast the results to tuples.
+        return wrap_generator(all_simple_paths, tuple)
 
     def chain_exists(self, importer: str, imported: str, as_packages=False) -> bool:
         if not as_packages:
