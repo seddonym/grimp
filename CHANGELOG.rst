@@ -74,8 +74,8 @@ Changelog
 ----------------
 * Officially support Python 3.8.
 
-latest
-------
+1.1 (2019-11-18)
+----------------
 * Clarify behaviour of get_import_details.
 * Add module_is_squashed method.
 * Add squash_module method.
