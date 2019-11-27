@@ -13,6 +13,12 @@ class NotAnImport(Exception):
 
 
 class ImportScanner(AbstractImportScanner):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # We gain a big performance increase by building the set of root modules once,
+        # instead of letting each node parser figure them out from the internal modules.
+        self._root_modules = {module.root for module in self.modules}
+
     def scan_for_imports(self, module: Module) -> Set[DirectImport]:
         """
         Note: this method only analyses the module in question and will not load any other
@@ -45,6 +51,7 @@ class ImportScanner(AbstractImportScanner):
                 node=node,
                 module=module,
                 internal_modules=self.modules,
+                root_modules=self._root_modules,
                 is_package=is_package,
             )
         except NotAnImport:
@@ -119,13 +126,14 @@ class _BaseNodeParser:
         node: ast.AST,
         module: Module,
         internal_modules: Set[Module],
+        root_modules: Set[Module],
         is_package: bool,
     ) -> None:
         self.node = node
         self.module = module
         self.internal_modules = internal_modules
+        self.root_modules = root_modules
         self.module_is_package = is_package
-        self.root_modules = self._determine_root_modules()
 
     def determine_imported_modules(
         self, include_external_packages: bool
@@ -134,9 +142,6 @@ class _BaseNodeParser:
         Return the imported modules in the statement.
         """
         raise NotImplementedError
-
-    def _determine_root_modules(self) -> Set[Module]:
-        return {module.root for module in self.internal_modules}
 
     def _is_internal_module(self, module: Module) -> bool:
         return module.root in self.root_modules
@@ -257,7 +262,11 @@ class _ImportFromNodeParser(_BaseNodeParser):
 
 
 def _get_node_parser(
-    node: ast.AST, module: Module, internal_modules: Set[Module], is_package: bool
+    node: ast.AST,
+    module: Module,
+    internal_modules: Set[Module],
+    root_modules: Set[Module],
+    is_package: bool,
 ) -> _BaseNodeParser:
     """
     Return a NodeParser instance for the supplied node.
@@ -274,6 +283,7 @@ def _get_node_parser(
                 node=node,
                 module=module,
                 internal_modules=internal_modules,
+                root_modules=root_modules,
                 is_package=is_package,
             )
     raise NotAnImport
