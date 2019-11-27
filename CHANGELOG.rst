@@ -80,3 +80,7 @@ Changelog
 * Add module_is_squashed method.
 * Add squash_module method.
 * Add find_all_simple_chains method.
+
+latest
+------
+* Significantly increase the speed of building the graph.
