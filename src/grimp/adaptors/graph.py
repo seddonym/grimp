@@ -1,5 +1,4 @@
 from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, Union
-
 import networkx  # type: ignore
 import networkx.algorithms  # type: ignore
 from grimp.application.ports import graph
@@ -24,7 +23,11 @@ class ImportGraph(graph.AbstractImportGraph):
 
     @property
     def modules(self) -> Set[str]:
-        return set(self._networkx_graph.nodes)
+        # Recasting the nodes to a set each time is fairly expensive; this significantly speeds
+        # up the building of the graph.
+        if not hasattr(self, "_modules"):
+            self._modules = set(self._networkx_graph.nodes)
+        return self._modules
 
     def add_module(self, module: str, is_squashed: bool = False) -> None:
         ancestor_squashed_module = self._find_ancestor_squashed_module(module)
@@ -41,6 +44,7 @@ class ImportGraph(graph.AbstractImportGraph):
                 )
 
         self._networkx_graph.add_node(module)
+        self._modules.add(module)
 
         if is_squashed:
             self._mark_module_as_squashed(module)
@@ -48,6 +52,7 @@ class ImportGraph(graph.AbstractImportGraph):
     def remove_module(self, module: str) -> None:
         if module in self.modules:
             self._networkx_graph.remove_node(module)
+            self._modules.remove(module)
 
     def squash_module(self, module: str) -> None:
         if self.is_module_squashed(module):
@@ -99,6 +104,9 @@ class ImportGraph(graph.AbstractImportGraph):
             )
 
         self._networkx_graph.add_edge(importer, imported)
+        for module in (importer, imported):
+            if module not in self.modules:
+                self.add_module(module)
 
     def remove_import(self, *, importer: str, imported: str) -> None:
         self._networkx_graph.remove_edge(importer, imported)
