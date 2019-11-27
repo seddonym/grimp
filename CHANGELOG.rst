@@ -81,6 +81,6 @@ Changelog
 * Add squash_module method.
 * Add find_all_simple_chains method.
 
-latest
-------
+1.2 (2019-11-27)
+----------------
 * Significantly increase the speed of building the graph.
