@@ -84,3 +84,7 @@ Changelog
 1.2 (2019-11-27)
 ----------------
 * Significantly increase the speed of building the graph.
+
+latest
+------
+* Better handling of source code containing non-ascii compatible characters.
