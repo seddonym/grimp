@@ -1,5 +1,6 @@
-from typing import Tuple
 import os
+import tokenize
+from typing import Tuple
 
 from grimp.application.ports.filesystem import AbstractFileSystem
 
@@ -22,7 +23,9 @@ class FileSystem(AbstractFileSystem):
         return os.path.split(file_name)
 
     def read(self, file_name: str) -> str:
-        with open(file_name) as file:
+        # Use tokenize.open to give us a better chance of successfully decoding
+        # source code in a non-ascii compatible encoding.
+        with tokenize.open(file_name) as file:
             return file.read()
 
     def exists(self, file_name: str) -> bool:
