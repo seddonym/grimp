@@ -85,6 +85,6 @@ Changelog
 ----------------
 * Significantly increase the speed of building the graph.
 
-latest
-------
+1.2.1 (2020-3-16)
+-----------------
 * Better handling of source code containing non-ascii compatible characters.
