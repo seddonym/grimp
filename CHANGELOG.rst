@@ -87,4 +87,8 @@ Changelog
 
 1.2.1 (2020-3-16)
 -----------------
-* Better handling of source code containing non-ascii compatible characters.
+* Better handling of source code containing non-ascii compatible characters
+
+1.2.2 (2020-6-29)
+-----------------
+* Raise custom exception (SourceSyntaxError) if code under analysis contains syntax error.
