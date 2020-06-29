@@ -4,6 +4,7 @@ from typing import List, Set
 
 from grimp.application.ports.importscanner import AbstractImportScanner
 from grimp.domain.valueobjects import DirectImport, Module
+from grimp import exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,14 @@ class ImportScanner(AbstractImportScanner):
         is_package = self._module_is_package(module_filename)
         module_contents = self._read_module_contents(module_filename)
         module_lines = module_contents.splitlines()
-        ast_tree = ast.parse(module_contents)
+        try:
+            ast_tree = ast.parse(module_contents)
+        except SyntaxError as e:
+            raise exceptions.SourceSyntaxError(
+                filename=module_filename,
+                lineno=e.lineno,
+                text=e.text,
+            )
         for node in ast.walk(ast_tree):
             direct_imports |= self._parse_direct_imports_from_node(
                 node, module, module_lines, is_package
