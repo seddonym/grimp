@@ -21,5 +21,11 @@ class ImportLibPackageFinder(AbstractPackageFinder):
             raise ValueError(
                 "Could not find package '{}' in your Python path.".format(package_name)
             )
-        assert package_filename.origin  # For type checker.
+
+        if not package_filename.origin:  # For type checker.
+            raise ValueError((
+                "Cannot determine origin for package '{}'. "
+                "Is it missing __init__.py?"
+            ).format(package_name))
+
         return file_system.dirname(package_filename.origin)
