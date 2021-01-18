@@ -13,6 +13,15 @@ class ModuleNotPresent(GrimpException):
     """
 
 
+class NamespacePackageEncountered(GrimpException):
+    """
+    Indicates that there was no __init__.py at the top level.
+
+    This indicates a namespace package (see PEP 420), which is not currently supported. More
+    typically this is just an oversight which can be fixed by adding the __init__.py file.
+    """
+
+
 class SourceSyntaxError(GrimpException):
     """
     Indicates a syntax error in code that was being statically analysed.
