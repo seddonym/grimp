@@ -19,13 +19,12 @@ def test_syntax_error_includes_module():
     assert expected_exception == excinfo.value
 
 
-@pytest.mark.xfail
 def test_missing_root_init_file():
     with pytest.raises(
         exceptions.NamespacePackageEncountered,
         match=(
-            r"Package missingrootinitpackage appears to be a 'namespace package' (see PEP 420),"
-            r"which is not currently supported. If this is not deliberate, adding an __init__.py"
+            r"Package missingrootinitpackage appears to be a 'namespace package' \(see PEP 420\), "
+            r"which is not currently supported. If this is not deliberate, adding an __init__\.py "
             r"file should fix the problem."
         ),
     ):

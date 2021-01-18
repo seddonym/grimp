@@ -1,10 +1,10 @@
 import importlib.util
-import sys
 import logging
+import sys
 
-from grimp.application.ports.packagefinder import AbstractPackageFinder
+from grimp import exceptions
 from grimp.application.ports.filesystem import AbstractFileSystem
-
+from grimp.application.ports.packagefinder import AbstractPackageFinder
 
 logger = logging.getLogger(__name__)
 
@@ -21,5 +21,12 @@ class ImportLibPackageFinder(AbstractPackageFinder):
             raise ValueError(
                 "Could not find package '{}' in your Python path.".format(package_name)
             )
-        assert package_filename.origin  # For type checker.
-        return file_system.dirname(package_filename.origin)
+
+        if package_filename.has_location and package_filename.origin:
+            return file_system.dirname(package_filename.origin)
+
+        raise exceptions.NamespacePackageEncountered(
+            f"Package {package_name} appears to be a 'namespace package' (see PEP 420), "
+            "which is not currently supported. If this is not deliberate, adding an __init__.py "
+            "file should fix the problem."
+        )
