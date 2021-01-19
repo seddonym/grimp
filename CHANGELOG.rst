@@ -92,3 +92,7 @@ Changelog
 1.2.2 (2020-6-29)
 -----------------
 * Raise custom exception (SourceSyntaxError) if code under analysis contains syntax error.
+
+1.2.3 (2021-1-19)
+-----------------
+* Raise custom exception (NamespacePackageEncountered) if code under analysis appears to be a namespace package.
