@@ -33,6 +33,7 @@ setup(
         'Source code': 'https://github.com/seddonym/grimp/',
     },
     packages=find_packages('src'),
+    package_data={'grimp': ['py.typed']},
     package_dir={'': 'src'},
     py_modules=[splitext(basename(path))[0] for path in glob('src/*.py')],
     include_package_data=True,

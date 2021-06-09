@@ -255,7 +255,7 @@ class AbstractImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def chain_exists(self, importer: str, imported: str, as_packages=False) -> bool:
+    def chain_exists(self, importer: str, imported: str, as_packages: bool = False) -> bool:
         """
         Return whether any chain of imports exists between the two modules, in the direction
         of importer to imported. In other words, does the importer depend on the imported?
@@ -268,7 +268,7 @@ class AbstractImportGraph(abc.ABC):
         """
         raise NotImplementedError
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Display the instance in one of the following ways:
 

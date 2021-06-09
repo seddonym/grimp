@@ -309,7 +309,7 @@ class ImportGraph(graph.AbstractImportGraph):
         # Cast the results to tuples.
         return wrap_generator(all_simple_paths, tuple)
 
-    def chain_exists(self, importer: str, imported: str, as_packages=False) -> bool:
+    def chain_exists(self, importer: str, imported: str, as_packages: bool = False) -> bool:
         if not as_packages:
             return networkx.algorithms.has_path(
                 self._networkx_graph, source=importer, target=imported

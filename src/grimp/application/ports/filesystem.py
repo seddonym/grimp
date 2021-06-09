@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Iterator, List, Tuple
 import abc
 
 
@@ -17,7 +17,7 @@ class AbstractFileSystem(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def walk(self, directory_name):
+    def walk(self, directory_name: str) -> Iterator[Tuple[str, List[str], List[str]]]:
         """
         Given a directory, walk the file system recursively.
 

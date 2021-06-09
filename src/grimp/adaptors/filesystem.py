@@ -1,6 +1,6 @@
 import os
 import tokenize
-from typing import Tuple
+from typing import Iterator, List, Tuple
 
 from grimp.application.ports.filesystem import AbstractFileSystem
 
@@ -13,7 +13,7 @@ class FileSystem(AbstractFileSystem):
     def dirname(self, filename: str) -> str:
         return os.path.dirname(filename)
 
-    def walk(self, directory_name):
+    def walk(self, directory_name: str) -> Iterator[Tuple[str, List[str], List[str]]]:
         yield from os.walk(directory_name)
 
     def join(self, *components: str) -> str:
