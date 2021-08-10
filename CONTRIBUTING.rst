@@ -17,8 +17,8 @@ When `reporting a bug <https://github.com/seddonym/grimp/issues>`_ please includ
 Documentation improvements
 ==========================
 
-Nameless could always use more documentation, whether as part of the
-official Nameless docs, in docstrings, or even on the web in blog posts,
+grimp could always use more documentation, whether as part of the
+official grimp docs, in docstrings, or even on the web in blog posts,
 articles, and such.
 
 Feature requests and feedback
