@@ -17,8 +17,8 @@ When `reporting a bug <https://github.com/seddonym/grimp/issues>`_ please includ
 Documentation improvements
 ==========================
 
-grimp could always use more documentation, whether as part of the
-official grimp docs, in docstrings, or even on the web in blog posts,
+Grimp could always use more documentation, whether as part of the
+official docs, in docstrings, or even on the web in blog posts,
 articles, and such.
 
 Feature requests and feedback
