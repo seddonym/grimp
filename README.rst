@@ -10,7 +10,7 @@ Grimp
     :target: https://pypi.org/project/grimp/
 
 .. image:: https://api.travis-ci.com/seddonym/grimp.svg?branch=master
-    :target: https://travis-ci.com/seddonym/grimp
+    :target: https://app.travis-ci.com/github/seddonym/grimp
 
 
 Builds a queryable graph of the imports within one or more Python packages.
