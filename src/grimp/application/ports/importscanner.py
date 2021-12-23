@@ -22,17 +22,17 @@ class AbstractImportScanner(abc.ABC):
                                             keyed by the full file path of the directory of the
                                             root package for each set of modules. For example:
                                             {
-                                                "/path/to/packageone": {
+                                                "/path/to/packageone": ("packageone", {
                                                     Module("packageone"),
                                                     Module("packageone.foo"),
                                                     Module("packageone.bar"),
                                                     Module("packageone.bar.alpha"),
-                                                },
-                                                "/path/to/packagetwo": {
+                                                }),
+                                                "/path/to/packagetwo": ("packagetwo", {
                                                     Module("packagetwo"),
                                                     Module("packagetwo.baz"),
                                                     ...
-                                                },
+                                                }),
                                             }
             - file_system:                  The file system interface to use.
             - include_external_packages:    Whether to include imports of external modules (i.e.

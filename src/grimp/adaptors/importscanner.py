@@ -91,9 +91,14 @@ class ImportScanner(AbstractImportScanner):
         package_directory, package_name = self._lookup_module_package_directory(module)
         package_components = package_name.split(".")
         module_components = module.name.split(".")
-        assert module_components[0:len(package_components)] == package_components, "Module should be part of package"
+        assert (
+            module_components[0:len(package_components)] == package_components
+        ), "Module should be part of package"
 
-        filename_root = self.file_system.join(package_directory, *module_components[len(package_components):])
+        filename_root = self.file_system.join(
+            package_directory,
+            *module_components[len(package_components):]
+        )
         candidate_filenames = (
             f"{filename_root}.py",
             self.file_system.join(filename_root, "__init__.py"),
@@ -101,7 +106,7 @@ class ImportScanner(AbstractImportScanner):
         for candidate_filename in candidate_filenames:
             if self.file_system.exists(candidate_filename):
                 return candidate_filename
-        raise FileNotFoundError(f"Could not find module {module} ({package_components} {module_components}).")
+        raise FileNotFoundError(f"Could not find module {module}.")
 
     def _lookup_module_package_directory(self, module: Module) -> Tuple[str, str]:
         for package_directory, (package_name, modules) in self.modules_by_package_directory.items():
