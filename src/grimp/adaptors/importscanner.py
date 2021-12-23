@@ -1,6 +1,6 @@
 import ast
 import logging
-from typing import List, Set
+from typing import List, Set, Tuple
 
 from grimp.application.ports.importscanner import AbstractImportScanner
 from grimp.domain.valueobjects import DirectImport, Module
@@ -88,14 +88,12 @@ class ImportScanner(AbstractImportScanner):
         Any given module can either be a straight Python file (foo.py) or else a package
         (in which case the file is an __init__.py within a directory).
         """
+        package_directory, package_name = self._lookup_module_package_directory(module)
+        package_components = package_name.split(".")
         module_components = module.name.split(".")
-        package_directory = self._lookup_module_package_directory(module)
-        package_directory_parts = self.file_system.split(package_directory)
-        assert (
-            module_components[0] == package_directory_parts[-1]
-        ), "The package directory should be the same as the first part of the module name."
+        assert module_components[0:len(package_components)] == package_components, "Module should be part of package"
 
-        filename_root = self.file_system.join(package_directory, *module_components[1:])
+        filename_root = self.file_system.join(package_directory, *module_components[len(package_components):])
         candidate_filenames = (
             f"{filename_root}.py",
             self.file_system.join(filename_root, "__init__.py"),
@@ -103,12 +101,12 @@ class ImportScanner(AbstractImportScanner):
         for candidate_filename in candidate_filenames:
             if self.file_system.exists(candidate_filename):
                 return candidate_filename
-        raise FileNotFoundError(f"Could not find module {module}.")
+        raise FileNotFoundError(f"Could not find module {module} ({package_components} {module_components}).")
 
-    def _lookup_module_package_directory(self, module: Module) -> str:
-        for package_directory, modules in self.modules_by_package_directory.items():
+    def _lookup_module_package_directory(self, module: Module) -> Tuple[str, str]:
+        for package_directory, (package_name, modules) in self.modules_by_package_directory.items():
             if module in modules:
-                return package_directory
+                return package_directory, package_name
         raise KeyError(f"{module} was not present in the scanner.")
 
     def _read_module_contents(self, module_filename: str) -> str:

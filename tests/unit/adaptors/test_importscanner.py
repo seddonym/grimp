@@ -58,7 +58,7 @@ def test_absolute_imports(include_external_packages, expected_result):
     )
 
     import_scanner = ImportScanner(
-        modules_by_package_directory={"/path/to/foo": all_modules},
+        modules_by_package_directory={"/path/to/foo": ("foo", all_modules)},
         file_system=file_system,
         include_external_packages=include_external_packages,
     )
@@ -166,7 +166,7 @@ def test_absolute_from_imports(include_external_packages, expected_result):
     )
 
     import_scanner = ImportScanner(
-        modules_by_package_directory={"/path/to/foo": all_modules},
+        modules_by_package_directory={"/path/to/foo": ("foo", all_modules)},
         file_system=file_system,
         include_external_packages=include_external_packages,
     )
@@ -209,7 +209,7 @@ def test_relative_from_imports():
     )
 
     import_scanner = ImportScanner(
-        modules_by_package_directory={"/path/to/foo": all_modules},
+        modules_by_package_directory={"/path/to/foo": ("foo", all_modules)},
         file_system=file_system,
     )
 
@@ -237,6 +237,38 @@ def test_relative_from_imports():
     }
 
 
+def test_namespace_packages():
+    file_system = FakeFileSystem(
+        content_map={
+            "/path/to/myorg-foo/src/myorg/foo.py": """
+                import myorg.bar
+                import externalone
+                import externaltwo.subpackage
+                arbitrary_expression = 1
+            """
+        }
+    )
+
+    import_scanner = ImportScanner(
+        modules_by_package_directory={
+            "/path/to/myorg-foo/src/myorg/foo": ("myorg.foo", {Module("myorg.foo")}),
+            "/path/to/myorg-bar/src/myorg/bar": ("myorg.bar", {Module("myorg.bar")}),
+        },
+        file_system=file_system,
+    )
+
+    result = import_scanner.scan_for_imports(Module("myorg.foo"))
+
+    assert result == {
+        DirectImport(
+            importer=Module("myorg.foo"),
+            imported=Module("myorg.bar"),
+            line_number=1,
+            line_contents="import myorg.bar",
+        )
+    }
+
+
 @pytest.mark.parametrize(
     "import_source",
     ("from .two.yellow import my_function", "from foo.two.yellow import my_function"),
@@ -261,7 +293,7 @@ def test_trims_to_known_modules(import_source):
     )
 
     import_scanner = ImportScanner(
-        modules_by_package_directory={"/path/to/foo": all_modules},
+        modules_by_package_directory={"/path/to/foo": ("foo", all_modules)},
         file_system=file_system,
     )
 
@@ -303,7 +335,7 @@ def test_trims_to_known_modules_within_init_file():
     )
 
     import_scanner = ImportScanner(
-        modules_by_package_directory={"/path/to/foo": all_modules},
+        modules_by_package_directory={"/path/to/foo": ("foo", all_modules)},
         file_system=file_system,
     )
 
@@ -348,7 +380,7 @@ def test_trims_whitespace_from_start_of_line_contents():
     )
 
     import_scanner = ImportScanner(
-        modules_by_package_directory={"/path/to/foo": all_modules},
+        modules_by_package_directory={"/path/to/foo": ("foo", all_modules)},
         file_system=file_system,
     )
 
@@ -382,8 +414,8 @@ def test_scans_multiple_packages(statement):
 
     import_scanner = ImportScanner(
         modules_by_package_directory={
-            "/path/to/foo": foo_modules,
-            "/path/to/bar": bar_modules,
+            "/path/to/foo": ("foo", foo_modules),
+            "/path/to/bar": ("bar", bar_modules),
         },
         file_system=file_system,
     )

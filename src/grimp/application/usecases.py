@@ -57,7 +57,7 @@ def build_graph(
             file_system=file_system,
         )
         modules.extend(package_modules)
-        modules_by_package_directory[package_directory] = set(package_modules)
+        modules_by_package_directory[package_directory] = (package_name, set(package_modules))
 
     root_modules = {module.root for module in modules}
 

@@ -19,7 +19,7 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
 
         for module_filename in self._get_python_files_inside_package(package_directory):
             module_name = self._module_name_from_filename(
-                module_filename, package_directory
+                module_filename, package_directory, package_name
             )
             modules.append(Module(module_name))
 
@@ -65,7 +65,7 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         return not filename.startswith(".") and filename.endswith(".py")
 
     def _module_name_from_filename(
-        self, filename_and_path: str, package_directory: str
+        self, filename_and_path: str, package_directory: str, package_name: str
     ) -> str:
         """
         Args:
@@ -74,7 +74,6 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
          Returns:
             Absolute module name for importing (string).
         """
-        container_directory, package_name = self.file_system.split(package_directory)
         internal_filename_and_path = filename_and_path[len(package_directory) :]
         internal_filename_and_path_without_extension = internal_filename_and_path[1:-3]
         components = [

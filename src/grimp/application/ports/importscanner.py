@@ -1,5 +1,5 @@
 import abc
-from typing import Dict, Set
+from typing import Dict, Set, Tuple
 
 from grimp.application.ports.filesystem import AbstractFileSystem
 from grimp.domain.valueobjects import DirectImport, Module
@@ -12,7 +12,7 @@ class AbstractImportScanner(abc.ABC):
 
     def __init__(
         self,
-        modules_by_package_directory: Dict[str, Set[Module]],
+        modules_by_package_directory: Dict[str, Tuple[str, Set[Module]]],
         file_system: AbstractFileSystem,
         include_external_packages: bool = False,
     ) -> None:
@@ -45,7 +45,7 @@ class AbstractImportScanner(abc.ABC):
 
         # Flatten all the modules into a set.
         self.modules: Set[Module] = set()
-        for package_modules in self.modules_by_package_directory.values():
+        for _, package_modules in self.modules_by_package_directory.values():
             self.modules |= package_modules
 
     @abc.abstractmethod
