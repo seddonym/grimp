@@ -33,12 +33,13 @@ class ImportLibPackageFinder(AbstractPackageFinder):
             return file_system.dirname(spec.origin)
 
         raise exceptions.NamespacePackageEncountered(
-            f"Package '{package_name}' is a namespace package (see PEP 420). Try specifying the top level subpackage "
-            "within the namespace instead. If you are not intentionally using namespace packages, adding an "
-            "__init__.py file should fix the problem."
+            f"Package '{package_name}' is a namespace package (see PEP 420). Try specifying the "
+            "top level subpackage within the namespace instead. If you are not intentionally "
+            "using namespace packages, adding an __init__.py file should fix the problem."
         )
 
     def _is_a_package(self, spec: ModuleSpec, file_system: AbstractFileSystem) -> bool:
+        assert spec.origin
         filename = file_system.split(spec.origin)[1]
         return filename == "__init__.py"
 
@@ -50,4 +51,5 @@ class ImportLibPackageFinder(AbstractPackageFinder):
             return False
 
         root_spec = importlib.util.find_spec(module.parent.name)
+        assert root_spec
         return root_spec.has_location

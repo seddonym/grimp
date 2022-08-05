@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-import pytest
+import pytest  # type: ignore
 
 from grimp import exceptions
 from grimp.adaptors.packagefinder import ImportLibPackageFinder
@@ -34,9 +34,9 @@ def test_determine_package_directory_doesnt_support_namespace_packages():
     with pytest.raises(
         exceptions.NamespacePackageEncountered,
         match=re.escape(
-            f"Package 'mynamespace' is a namespace package (see PEP 420). Try specifying the top level subpackage "
-            "within the namespace instead. If you are not intentionally using namespace packages, adding an "
-            "__init__.py file should fix the problem."
+            "Package 'mynamespace' is a namespace package (see PEP 420). Try specifying the top "
+            "level subpackage within the namespace instead. If you are not intentionally using "
+            "namespace packages, adding an __init__.py file should fix the problem."
         ),
     ):
         ImportLibPackageFinder().determine_package_directory(

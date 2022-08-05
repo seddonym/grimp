@@ -25,9 +25,9 @@ def test_missing_root_init_file():
     with pytest.raises(
         exceptions.NamespacePackageEncountered,
         match=re.escape(
-            "Package 'missingrootinitpackage' is a namespace package (see PEP 420). Try specifying the top level subpackage "
-            "within the namespace instead. If you are not intentionally using namespace packages, adding an "
-            "__init__.py file should fix the problem."
+            "Package 'missingrootinitpackage' is a namespace package (see PEP 420). Try specifying "
+            "the top level subpackage within the namespace instead. If you are not intentionally "
+            "using namespace packages, adding an __init__.py file should fix the problem."
         ),
     ):
         build_graph("missingrootinitpackage")

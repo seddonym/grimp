@@ -1,4 +1,4 @@
-import pytest
+import pytest  # type: ignore
 
 from grimp import build_graph, exceptions
 

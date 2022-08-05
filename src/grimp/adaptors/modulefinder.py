@@ -80,7 +80,8 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
     ) -> str:
         """
         Args:
-            package_name (string) - the importable name of the top level package. Could be namespaced.
+            package_name (string) - the importable name of the top level package. Could
+                be namespaced.
             filename_and_path (string) - the full name of the Python file.
             package_directory (string) - the full path of the top level Python package directory.
          Returns:

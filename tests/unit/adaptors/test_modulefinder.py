@@ -45,8 +45,8 @@ def test_namespaced_packages():
     file_system = FakeFileSystem(
         contents="""
         /path/to/somenamespace/foo/
-                __init__.py 
-                blue.py   
+                __init__.py
+                blue.py
                 green/
                     __init__.py
                     one.py
