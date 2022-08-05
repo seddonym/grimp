@@ -1,12 +1,12 @@
-import os
 import sys
+from pathlib import Path
 
-dirname = os.path.dirname(__file__)
+ASSETS_PATH = Path(__file__).parent / "assets"
+
+TEST_ASSETS = (
+    ASSETS_PATH,
+    ASSETS_PATH / "multipleroots",
+)
 
 # Add test assets to the Python path.
-
-assets_path = os.path.abspath(os.path.join(dirname, "assets"))
-sys.path.append(assets_path)
-
-multiple_roots_path = os.path.abspath(os.path.join(dirname, "assets", "multipleroots"))
-sys.path.append(multiple_roots_path)
+sys.path.extend([str((ASSETS_PATH / path).resolve()) for path in TEST_ASSETS])
