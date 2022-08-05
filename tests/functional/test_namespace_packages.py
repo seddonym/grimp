@@ -20,21 +20,15 @@ def test_build_graph_for_namespace():
 
 
 GREEN_MODULES = {"mynamespace.green", "mynamespace.green.alpha"}
-YELLOW_MODULES = {"mynamespace.yellow"}
 BLUE_MODULES = {"mynamespace.blue", "mynamespace.blue.alpha", "mynamespace.blue.beta"}
 
 
-@pytest.mark.xfail
 @pytest.mark.parametrize(
     "package, expected_modules",
     (
         (
             "mynamespace.green",
             GREEN_MODULES,
-        ),
-        (
-            "mynamespace.yellow",
-            YELLOW_MODULES,
         ),
         (
             "mynamespace.blue",
@@ -48,14 +42,12 @@ def test_modules_for_namespace_child(package, expected_modules):
     assert graph.modules == expected_modules
 
 
-@pytest.mark.xfail
 def test_modules_for_multiple_namespace_children():
-    graph = build_graph("mynamespace.green", "mynamespace.yellow", "mynamespace.blue")
+    graph = build_graph("mynamespace.green", "mynamespace.blue")
 
-    assert graph.modules == GREEN_MODULES | YELLOW_MODULES | BLUE_MODULES
+    assert graph.modules == GREEN_MODULES | BLUE_MODULES
 
 
-@pytest.mark.xfail
 def test_import_within_namespace_child():
     graph = build_graph("mynamespace.blue")
 
@@ -63,13 +55,10 @@ def test_import_within_namespace_child():
         importer="mynamespace.blue.alpha", imported="mynamespace.blue.beta"
     )
 
-@pytest.mark.xfail
+
 def test_import_between_namespace_children():
-    graph = build_graph("mynamespace.blue", "mynamespace.green", "mynamespace.yellow")
+    graph = build_graph("mynamespace.blue", "mynamespace.green")
 
     assert graph.direct_import_exists(
         importer="mynamespace.blue.alpha", imported="mynamespace.green.alpha"
-    )
-    assert graph.direct_import_exists(
-        importer="mynamespace.yellow", imported="mynamespace.green.alpha"
     )
