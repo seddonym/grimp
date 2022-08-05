@@ -14,11 +14,8 @@ taken in part from `the official Python docs`_:
 
 - **Module**: A file containing Python definitions and statements. This includes ordinary ``.py`` files and
   ``__init__.py`` files.
-- **Package**: A special kind of module that namespaces other modules using dotted module names. For example, the module
-  name ``A.B`` designates a submodule named ``B`` in a package named ``A``. Packages take the form of ``__init__.py``
-  files in a container directory. Packages may contain other packages. *A package is also a module.*
-- **Top Level Package**: A package in the root namespace - in other words, one that is not a subpackage. For example,
-  ``A`` is a top level package, but ``A.B`` is not.
+- **Package**: A Python module which can contain submodules or recursively, subpackages.
+- **Top Level Package**: A package that is not a subpackage of another package.
 - **Graph**: A graph `in the mathematical sense`_ of a collection of items with relationships between them. Grimp's
   ``ImportGraph`` is a directed graph of imports between modules.
 - **Direct Import**: An import from one module to another.
@@ -52,14 +49,24 @@ Building the graph
 
     Build and return an ImportGraph for the supplied package or packages.
 
-    :param str package_name: The name of the top level package, for example ``'mypackage'``.
-    :param tuple(str) additional_package_names: Tuple of any additional top level package names. These can be
+    :param str package_name: The name of an importable package, for example ``'mypackage'``. For regular packages, this
+        must be the top level package (i.e. one with no dots in its name). However, in the special case of
+        `namespace packages`_, the name of the *portion* should be supplied, for example ``'mynamespace.foo'``.
+    :param tuple[str, ...] additional_package_names: Tuple of any additional package names. These can be
         supplied as positional arguments, as in the example above.
     :param bool include_external_packages: Whether to include external packages in the import graph. If this is ``True``,
-        any other top level packages that are imported by this top level package (including packages in the
-        standard library) will be included in the graph as squashed modules (see `Terminology`_ above). Note: external
-        packages are only analysed as modules that are imported; any imports they make themselves will not
-        be included in the graph.
+        any other top level packages (including packages in the standard library) that are imported by this package will
+        be included in the graph as squashed modules (see `Terminology`_ above).
+
+        The behaviour is more complex if one of the internal packages is a `namespace portion`_.
+        In this case, the squashed module will have the shallowest name that doesn't clash with any internal modules.
+        For example, in a graph with internal packages ``namespace.foo`` and ``namespace.bar.one.green``,
+        ``namespace.bar.one.orange.alpha`` would be added to the graph as ``namespace.bar.one.orange``. However, in a graph
+        with only ``namespace.foo`` as an internal package, the same external module would be added as
+        ``namespace.bar``.
+
+        *Note: external packages are only analysed as modules that are imported; any imports they make themselves will
+        not be included in the graph.*
     :return: An import graph that you can use to analyse the package.
     :rtype: ImportGraph
 
@@ -286,3 +293,6 @@ Methods for manipulating the graph
 
     :param str module: The name of a module, for example ``'mypackage.foo'``.
     :return: bool
+
+.. _namespace packages: https://docs.python.org/3/glossary.html#term-namespace-package
+.. _namespace portion: https://docs.python.org/3/glossary.html#term-portion

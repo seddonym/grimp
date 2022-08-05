@@ -1,6 +1,8 @@
 import os
+import re
 
 import pytest  # type: ignore
+
 from grimp import build_graph, exceptions
 
 
@@ -22,10 +24,10 @@ def test_syntax_error_includes_module():
 def test_missing_root_init_file():
     with pytest.raises(
         exceptions.NamespacePackageEncountered,
-        match=(
-            r"Package missingrootinitpackage appears to be a 'namespace package' \(see PEP 420\), "
-            r"which is not currently supported. If this is not deliberate, adding an __init__\.py "
-            r"file should fix the problem."
+        match=re.escape(
+            "Package 'missingrootinitpackage' is a namespace package (see PEP 420). Try specifying "
+            "the portion name instead. If you are not intentionally "
+            "using namespace packages, adding an __init__.py file should fix the problem."
         ),
     ):
         build_graph("missingrootinitpackage")
