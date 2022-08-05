@@ -1,4 +1,6 @@
-from grimp.domain.valueobjects import Module, DirectImport
+import pytest
+
+from grimp.domain.valueobjects import DirectImport, Module
 
 
 class TestModule:
@@ -24,8 +26,39 @@ class TestModule:
         assert hash(a) == hash(b)
         assert hash(a) != hash(c)
 
-    def test_package_name(self):
-        assert Module("foo.bar.baz").package_name == "foo"
+    @pytest.mark.parametrize(
+        "module, expected",
+        (
+            (Module("foo.bar.baz"), "foo"),
+            (Module("foo.bar.baz", top_level_package="foo.bar"), "foo.bar"),
+        ),
+    )
+    def test_package_name(self, module, expected):
+        assert module.package_name == expected
+
+    @pytest.mark.parametrize(
+        "module, expected",
+        (
+            (Module("foo"), ValueError("Module has no parent.")),
+            (Module("foo.bar"), Module("foo")),
+            (Module("foo.bar.baz"), Module("foo.bar")),
+            (
+                Module("foo.bar", top_level_package="foo.bar"),
+                ValueError("Module has no parent."),
+            ),
+            (Module("foo.bar.baz", top_level_package="foo.bar"), Module("foo.bar")),
+            (
+                Module("foo.bar.baz.foobar", top_level_package="foo.bar"),
+                Module("foo.bar.baz"),
+            ),
+        ),
+    )
+    def test_parent(self, module, expected):
+        if isinstance(expected, Exception):
+            with pytest.raises(expected.__class__, match=str(expected)):
+                module.parent
+        else:
+            assert module.parent == expected
 
 
 class TestDirectImport:

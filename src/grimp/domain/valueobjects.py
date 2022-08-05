@@ -18,33 +18,42 @@ class ValueObject:
 class Module(ValueObject):
     """
     A Python module.
+
+    Attributes:
+
+        package_name:
+            The name of the module's top level package.
+
+            This is usually just the first module before the dot in the name. But in the case of namespaced packages,
+            the root package could be a module higher up.
     """
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, top_level_package: str = "") -> None:
         """
         Args:
             name: The fully qualified name of a Python module, e.g. 'package.foo.bar'.
+            top_level_package: optional, the root package of the module. Only needs to be passed for modules in a
+                               namespace package.
         """
         self.name = name
+        self.package_name = top_level_package or name.split(".")[0]
 
     def __str__(self) -> str:
         return self.name
 
     @property
-    def package_name(self) -> str:
-        return self.name.split(".")[0]
-
-    @property
     def root(self) -> "Module":
         """
         The root package.
+
+        Note that for modules in namespaced packages, this may be a package with a dot in it. See self.package_name.
         """
-        return Module(self.package_name)
+        return Module(self.package_name, top_level_package=self.package_name)
 
     @property
     def parent(self) -> "Module":
         components = self.name.split(".")
-        if len(components) == 1:
+        if self == self.root or len(components) == 1:
             raise ValueError("Module has no parent.")
         return Module(".".join(components[:-1]))
 
