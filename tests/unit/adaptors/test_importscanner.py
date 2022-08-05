@@ -1,7 +1,7 @@
 import pytest  # type: ignore
+
 from grimp.adaptors.importscanner import ImportScanner
 from grimp.domain.valueobjects import DirectImport, Module
-
 from tests.adaptors.filesystem import FakeFileSystem
 
 
@@ -66,6 +66,88 @@ def test_absolute_imports(include_external_packages, expected_result):
     result = import_scanner.scan_for_imports(Module("foo.one"))
 
     assert expected_result == result
+
+
+def test_namespaced_package():
+    MODULE_ONE = Module("namespace.foo.one", top_level_package="namespace.foo")
+    MODULE_TWO = Module("namespace.foo.two", top_level_package="namespace.foo")
+    MODULE_THREE = Module("namespace.foo.three", top_level_package="namespace.foo")
+    MODULE_FOUR = Module("namespace.foo.four", top_level_package="namespace.foo")
+    MODULE_GREEN = Module("namespace.foo.two.green", top_level_package="namespace.foo")
+    MODULE_BLUE = Module("namespace.foo.two.blue", top_level_package="namespace.foo")
+    MODULE_ALPHA = Module(
+        "namespace.foo.two.green.alpha", top_level_package="namespace.foo"
+    )
+
+    all_modules = {
+        MODULE_ONE,
+        MODULE_TWO,
+        MODULE_THREE,
+        MODULE_FOUR,
+        MODULE_GREEN,
+        MODULE_BLUE,
+        MODULE_ALPHA,
+    }
+    file_system = FakeFileSystem(
+        content_map={
+            "/path/to/namespace/foo/one.py": """
+                import namespace.foo.two
+                from namespace.foo import three
+                from . import four
+            """,
+            "/path/to/namespace/foo/two/green/alpha.py": """
+                from .. import blue
+                from ... import three
+            """,
+        }
+    )
+
+    import_scanner = ImportScanner(
+        modules_by_package_directory={"/path/to/namespace/foo": all_modules},
+        file_system=file_system,
+    )
+
+    results = (
+        import_scanner.scan_for_imports(MODULE_ONE),
+        import_scanner.scan_for_imports(MODULE_ALPHA),
+    )
+
+    assert results == (
+        {
+            DirectImport(
+                importer=MODULE_ONE,
+                imported=MODULE_TWO,
+                line_number=1,
+                line_contents="import namespace.foo.two",
+            ),
+            DirectImport(
+                importer=MODULE_ONE,
+                imported=MODULE_THREE,
+                line_number=2,
+                line_contents="from namespace.foo import three",
+            ),
+            DirectImport(
+                importer=MODULE_ONE,
+                imported=MODULE_FOUR,
+                line_number=3,
+                line_contents="from . import four",
+            ),
+        },
+        {
+            DirectImport(
+                importer=MODULE_ALPHA,
+                imported=MODULE_BLUE,
+                line_number=1,
+                line_contents="from .. import blue",
+            ),
+            DirectImport(
+                importer=MODULE_ALPHA,
+                imported=MODULE_THREE,
+                line_number=2,
+                line_contents="from ... import three",
+            ),
+        },
+    )
 
 
 @pytest.mark.parametrize(

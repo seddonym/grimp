@@ -2,9 +2,9 @@ import ast
 import logging
 from typing import List, Set
 
+from grimp import exceptions
 from grimp.application.ports.importscanner import AbstractImportScanner
 from grimp.domain.valueobjects import DirectImport, Module
-from grimp import exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -89,13 +89,12 @@ class ImportScanner(AbstractImportScanner):
         (in which case the file is an __init__.py within a directory).
         """
         module_components = module.name.split(".")
-        package_directory = self._lookup_module_package_directory(module)
-        package_directory_parts = self.file_system.split(package_directory)
-        assert (
-            module_components[0] == package_directory_parts[-1]
-        ), "The package directory should be the same as the first part of the module name."
+        top_level_components = module.package_name.split(".")
+        leaf_components = module_components[len(top_level_components) :]
 
-        filename_root = self.file_system.join(package_directory, *module_components[1:])
+        package_directory = self._lookup_module_package_directory(module)
+
+        filename_root = self.file_system.join(package_directory, *leaf_components)
         candidate_filenames = (
             f"{filename_root}.py",
             self.file_system.join(filename_root, "__init__.py"),
@@ -151,6 +150,12 @@ class _BaseNodeParser:
         """
         raise NotImplementedError
 
+    def _module_from_name(self, name: str) -> Module:
+        for root_module in self.root_modules:
+            if name == root_module.name or name.startswith(f"{root_module.name}."):
+                return Module(name, top_level_package=root_module.name)
+        return Module(name)
+
     def _is_internal_module(self, module: Module) -> bool:
         return module.root in self.root_modules
 
@@ -169,7 +174,7 @@ class _ImportNodeParser(_BaseNodeParser):
 
         assert isinstance(self.node, self.node_class)  # For type checker.
         for alias in self.node.names:
-            module_from_alias = Module(alias.name)
+            module_from_alias = self._module_from_name(alias.name)
 
             if self._is_internal_module(module_from_alias):
                 imported_module = module_from_alias
@@ -202,7 +207,7 @@ class _ImportFromNodeParser(_BaseNodeParser):
             # Absolute import.
             # Let the type checker know we expect node.module to be set here.
             assert isinstance(self.node.module, str)
-            node_module = Module(self.node.module)
+            node_module = self._module_from_name(self.node.module)
             if not self._is_internal_module(node_module):
                 if include_external_packages:
                     # Just return the top level package of the external module.
@@ -237,9 +242,10 @@ class _ImportFromNodeParser(_BaseNodeParser):
         # node.names corresponds to 'a', 'b' and 'c' in 'from x import a, b, c'.
         for alias in self.node.names:
             full_module_name = ".".join([module_base, alias.name])
+            untrimmed_module = self._module_from_name(full_module_name)
             try:
                 imported_module = self._trim_to_internal_module(
-                    untrimmed_module=Module(full_module_name)
+                    untrimmed_module=untrimmed_module
                 )
             except FileNotFoundError:
                 logger.warning(
@@ -261,7 +267,9 @@ class _ImportFromNodeParser(_BaseNodeParser):
             # a module (e.g. a function): the result of something like 'from .subpackage
             # import my_function'. So we trim the components back to the module.
             components = untrimmed_module.name.split(".")[:-1]
-            trimmed_module = Module(".".join(components))
+            trimmed_module = Module(
+                ".".join(components), top_level_package=untrimmed_module.package_name
+            )
 
             if trimmed_module in self.internal_modules:
                 return trimmed_module
