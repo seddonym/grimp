@@ -6,6 +6,8 @@ ASSETS_PATH = Path(__file__).parent / "assets"
 TEST_ASSETS = (
     ASSETS_PATH,
     ASSETS_PATH / "multipleroots",
+    ASSETS_PATH / "namespacepackages" / "locationone",
+    ASSETS_PATH / "namespacepackages" / "locationtwo",
 )
 
 # Add test assets to the Python path.

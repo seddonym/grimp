@@ -17,8 +17,11 @@ taken in part from `the official Python docs`_:
 - **Package**: A special kind of module that namespaces other modules using dotted module names. For example, the module
   name ``A.B`` designates a submodule named ``B`` in a package named ``A``. Packages take the form of ``__init__.py``
   files in a container directory. Packages may contain other packages. *A package is also a module.*
-- **Top Level Package**: A package in the root namespace - in other words, one that is not a subpackage. For example,
-  ``A`` is a top level package, but ``A.B`` is not.
+- **Top Level Module**: A module that has no parents. Usually, this is simply one that is in the root namespace, and so
+  has no dots in its path: So ``A`` will usually be a top level package, while ``A.B`` will not. However, in the case
+  of `native namespace packages`, modules may have no parent module but be included in a namespace. For example, if
+  ``A.B`` is distributed as a package within the namespace ``A``, then ``A.B`` will be a top level module, and ``A``
+  will not exist in the graph.
 - **Graph**: A graph `in the mathematical sense`_ of a collection of items with relationships between them. Grimp's
   ``ImportGraph`` is a directed graph of imports between modules.
 - **Direct Import**: An import from one module to another.
@@ -31,6 +34,7 @@ taken in part from `the official Python docs`_:
 
 .. _the official Python docs: https://docs.python.org/3/tutorial/modules.html
 .. _in the mathematical sense: https://en.wikipedia.org/wiki/Graph_(discrete_mathematics)
+.. _native namespace packages_: https://packaging.python.org/en/latest/guides/packaging-namespace-packages/#native-namespace-packages
 
 Building the graph
 ------------------
@@ -52,7 +56,7 @@ Building the graph
 
     Build and return an ImportGraph for the supplied package or packages.
 
-    :param str package_name: The name of the top level package, for example ``'mypackage'``.
+    :param str package_name: The name of a top level package, for example ``'mypackage'``.
     :param tuple(str) additional_package_names: Tuple of any additional top level package names. These can be
         supplied as positional arguments, as in the example above.
     :param bool include_external_packages: Whether to include external packages in the import graph. If this is ``True``,

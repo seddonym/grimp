@@ -1,0 +1,1 @@
+from mynamespace import yellow
