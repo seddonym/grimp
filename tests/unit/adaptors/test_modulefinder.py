@@ -1,7 +1,5 @@
 from grimp.adaptors.modulefinder import ModuleFinder
 from grimp.domain.valueobjects import Module
-
-
 from tests.adaptors.filesystem import FakeFileSystem
 
 
@@ -37,6 +35,38 @@ def test_happy_path():
         Module("mypackage.foo.two"),
         Module("mypackage.foo.two.green"),
         Module("mypackage.foo.two.blue"),
+    }
+    assert set(result) == expected_modules
+
+
+def test_namespaced_packages():
+    module_finder = ModuleFinder()
+
+    file_system = FakeFileSystem(
+        contents="""
+        /path/to/somenamespace/foo/
+                __init__.py 
+                blue.py   
+                green/
+                    __init__.py
+                    one.py
+                    two/
+                        __init__.py
+        """
+    )
+
+    result = module_finder.find_modules(
+        package_name="somenamespace.foo",
+        package_directory="/path/to/somenamespace/foo",
+        file_system=file_system,
+    )
+
+    expected_modules = {
+        Module("somenamespace.foo", top_level_package="somenamespace.foo"),
+        Module("somenamespace.foo.blue", top_level_package="somenamespace.foo"),
+        Module("somenamespace.foo.green", top_level_package="somenamespace.foo"),
+        Module("somenamespace.foo.green.one", top_level_package="somenamespace.foo"),
+        Module("somenamespace.foo.green.two", top_level_package="somenamespace.foo"),
     }
     assert set(result) == expected_modules
 

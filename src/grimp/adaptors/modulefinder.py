@@ -15,13 +15,24 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
     ) -> Iterable[Module]:
         self.file_system = file_system
 
+        if "." in package_name:
+            # It's a namespaced package; build the Modules differently.
+            top_level_package = package_name
+        else:
+            top_level_package = None
+
         modules: List[Module] = []
 
         for module_filename in self._get_python_files_inside_package(package_directory):
             module_name = self._module_name_from_filename(
-                module_filename, package_directory
+                package_name, module_filename, package_directory
             )
-            modules.append(Module(module_name))
+            module = (
+                Module(module_name, top_level_package=top_level_package)
+                if top_level_package
+                else Module(module_name)
+            )
+            modules.append(module)
 
         return modules
 
@@ -65,16 +76,16 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         return not filename.startswith(".") and filename.endswith(".py")
 
     def _module_name_from_filename(
-        self, filename_and_path: str, package_directory: str
+        self, package_name: str, filename_and_path: str, package_directory: str
     ) -> str:
         """
         Args:
+            package_name (string) - the importable name of the top level package. Could be namespaced.
             filename_and_path (string) - the full name of the Python file.
             package_directory (string) - the full path of the top level Python package directory.
          Returns:
             Absolute module name for importing (string).
         """
-        container_directory, package_name = self.file_system.split(package_directory)
         internal_filename_and_path = filename_and_path[len(package_directory) :]
         internal_filename_and_path_without_extension = internal_filename_and_path[1:-3]
         components = [
