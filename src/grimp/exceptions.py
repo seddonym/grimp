@@ -22,6 +22,12 @@ class NamespacePackageEncountered(GrimpException):
     """
 
 
+class NotATopLevelModule(GrimpException):
+    """
+    Indicates when a child module was recieved instead of a top level module.
+    """
+
+
 class SourceSyntaxError(GrimpException):
     """
     Indicates a syntax error in code that was being statically analysed.
