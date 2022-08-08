@@ -2,6 +2,11 @@
 Changelog
 =========
 
+latest
+------
+* Officially support Python 3.9 and 3.10.
+* Drop support for Python 3.6.
+
 1.2.3 (2021-1-19)
 -----------------
 * Raise custom exception (NamespacePackageEncountered) if code under analysis appears to be a namespace package.
