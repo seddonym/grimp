@@ -78,6 +78,8 @@ You may now use the graph object to analyse the package. Some examples::
         },
     ]
 
+For the full list of methods, see :doc:`usage`.
+
 External packages
 -----------------
 
@@ -103,3 +105,19 @@ You may analyse multiple root packages. To do this, pass each package name as a 
         'somepackage.bar.one',
         'anotherpackage.baz',
     }
+
+Namespace packages
+------------------
+
+Grimp supports `native namespace packages`_.
+
+This Python feature allows subpackages to be distributed independently, while still importable under a shared namespace. `The Python client for Google's Cloud Logging API`_, for example, makes us of this. When installed, it is importable in Python as ``google.cloud.logging``. The parent packages ``google`` and ``google.cloud`` are the namespace packages, while ``google.cloud.logging`` is the distribution package. Other distribution packages can be installed separately that are also importable under those namespaces.
+
+Grimp expects the package name passed to ``build_graph`` to be a distribution package, rather than a namespace package. So in the case of the example above, the graph should be built like so:
+
+    >>> graph = grimp.build_graph('google.cloud.logging')
+
+If, instead, a namespace package is passed (e.g. ``grimp.build_graph('google.cloud')``), Grimp will raise ``NamespacePackageEncountered``.
+
+.. _native namespace packages: https://packaging.python.org/en/latest/guides/packaging-namespace-packages/#native-namespace-packages
+.. _The Python client for Google's Cloud Logging API: https://pypi.org/project/google-cloud-logging/
