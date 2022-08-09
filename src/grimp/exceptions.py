@@ -21,10 +21,15 @@ class NamespacePackageEncountered(GrimpException):
     typically this is just an oversight which can be fixed by adding the __init__.py file.
     """
 
+class NotAPackage(GrimpException):
+    """
+    Indicates when a non-package module was encountered instead of a package.
+    """
 
 class NotATopLevelModule(GrimpException):
     """
     Indicates when a child module was recieved instead of a top level module.
+    TODO remove?
     """
 
 

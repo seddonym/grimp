@@ -1,4 +1,6 @@
-from grimp import build_graph
+import pytest
+
+from grimp import build_graph, exceptions
 
 """
 For ease of reference, these are the imports of all the files:
@@ -252,3 +254,117 @@ class TestFindUpstreamModules:
             "testpackage.utils",
             "testpackage.one",
         }
+
+
+class TestSubpackageGraph:
+    @pytest.mark.parametrize(
+        "subpackage, expected_modules",
+        (
+            (
+                "testpackage.one",
+                {
+                    "pytest",
+                    "sys",
+                    "testpackage.one",
+                    "testpackage.one.alpha",
+                    "testpackage.one.beta",
+                    "testpackage.one.gamma",
+                    "testpackage.one.delta",
+                    "testpackage.one.delta.blue",
+                },
+            ),
+            (
+                "testpackage.two",
+                {"testpackage.one.delta", "testpackage.one.delta.blue"},
+            ),
+            (
+                "testpackage.one.alpha",
+                exceptions.NotAPackage,
+            ),
+        ),
+    )
+    def test_modules(self, subpackage, expected_modules):
+        graph = build_graph(subpackage)
+
+        assert graph.modules == expected_modules
+
+    @pytest.mark.parametrize(
+        "subpackage, expected_modules",
+        (
+            (
+                "testpackage.one",
+                {
+                    "testpackage.one",
+                    "testpackage.one.alpha",
+                    "testpackage.one.beta",
+                    "testpackage.one.gamma",
+                    "testpackage.one.delta",
+                    "testpackage.one.delta.blue",
+                },
+                # TODO: how should we handle imports of other modules in the same root import package
+                # e.g. an import of testpackage.two.alpha? As an external import, should that be included as
+                # testpackage, testpackage.two, or testpackage.two.alpha? Or should it depend on whether it is
+                # a namespace package or not?
+                #
+            ),
+        ),
+    )
+    def test_modules_of_external_packages(self, subpackage, expected_modules):
+        graph = build_graph(subpackage, include_external_packages=True)
+
+        assert graph.modules == expected_modules
+
+    @pytest.mark.parametrize(
+        "module_to_add", ("testpackage", "testpackage.foo", "testpackage.one.foo")
+    )
+    def test_add_module(self, module_to_add):
+        graph = build_graph("testpackage.one")
+
+        graph.add_module(module_to_add)
+
+        assert module_to_add in graph.module
+
+    @pytest.mark.parametrize(
+        "module_to_remove", ("testpackage.one", "testpackage.one.alpha")
+    )
+    def test_remove_module(self, module_to_remove):
+        graph = build_graph("testpackage.one")
+
+        graph.remove_module(module_to_remove)
+
+        assert module_to_remove not in graph.modules
+
+    def test_find_children(self):
+        graph = build_graph("testpackage.one")
+
+        assert graph.find_children("testpackage.one") == {
+            "testpackage.one.alpha",
+            "testpackage.one.beta",
+            "testpackage.one.gamma",
+            "testpackage.one.delta",
+        }
+
+    def test_find_descendants(self):
+        graph = build_graph("testpackage.one")
+
+        assert graph.find_descendants("testpackage.one") == {
+            "testpackage.one.alpha",
+            "testpackage.one.beta",
+            "testpackage.one.gamma",
+            "testpackage.one.delta",
+            "testpackage.one.delta.blue",
+        }
+
+    def test_find_modules_directly_imported_by(self):
+        graph = build_graph("testpackage.one")
+
+        result = graph.find_modules_directly_imported_by("testpackage.one.beta")
+
+        assert {"testpackage.one.alpha"} == result
+
+    def test_find_modules_that_directly_import(self):
+        graph = build_graph("testpackage.one")
+
+        result = graph.find_modules_that_directly_import("testpackage.one.alpha")
+
+        assert {"testpackage.one.beta"} == result
