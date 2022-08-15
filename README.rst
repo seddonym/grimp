@@ -78,7 +78,6 @@ You may now use the graph object to analyse the package. Some examples::
         },
     ]
 
-For the full list of methods, see :doc:`usage`.
 
 External packages
 -----------------
