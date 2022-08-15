@@ -1,7 +1,6 @@
 from grimp.adaptors.modulefinder import ModuleFinder
+from grimp.application.ports.modulefinder import FoundPackage
 from grimp.domain.valueobjects import Module
-
-
 from tests.adaptors.filesystem import FakeFileSystem
 
 
@@ -24,21 +23,63 @@ def test_happy_path():
         """
     )
 
-    result = module_finder.find_modules(
+    result = module_finder.find_package(
         package_name="mypackage",
         package_directory="/path/to/mypackage",
         file_system=file_system,
     )
 
-    expected_modules = {
-        Module("mypackage"),
-        Module("mypackage.foo"),
-        Module("mypackage.foo.one"),
-        Module("mypackage.foo.two"),
-        Module("mypackage.foo.two.green"),
-        Module("mypackage.foo.two.blue"),
-    }
-    assert set(result) == expected_modules
+    assert result == FoundPackage(
+        name="mypackage",
+        directory="/path/to/mypackage",
+        modules=frozenset(
+            {
+                Module("mypackage"),
+                Module("mypackage.foo"),
+                Module("mypackage.foo.one"),
+                Module("mypackage.foo.two"),
+                Module("mypackage.foo.two.green"),
+                Module("mypackage.foo.two.blue"),
+            }
+        ),
+    )
+
+
+def test_namespaced_packages():
+    module_finder = ModuleFinder()
+
+    file_system = FakeFileSystem(
+        contents="""
+        /path/to/somenamespace/foo/
+                __init__.py
+                blue.py
+                green/
+                    __init__.py
+                    one.py
+                    two/
+                        __init__.py
+        """
+    )
+
+    result = module_finder.find_package(
+        package_name="somenamespace.foo",
+        package_directory="/path/to/somenamespace/foo",
+        file_system=file_system,
+    )
+
+    assert result == FoundPackage(
+        name="somenamespace.foo",
+        directory="/path/to/somenamespace/foo",
+        modules=frozenset(
+            {
+                Module("somenamespace.foo"),
+                Module("somenamespace.foo.blue"),
+                Module("somenamespace.foo.green"),
+                Module("somenamespace.foo.green.one"),
+                Module("somenamespace.foo.green.two"),
+            }
+        ),
+    )
 
 
 def test_ignores_orphaned_python_files():
@@ -60,18 +101,23 @@ def test_ignores_orphaned_python_files():
             """
     )
 
-    result = module_finder.find_modules(
+    result = module_finder.find_package(
         package_name="mypackage",
         package_directory="/path/to/mypackage",
         file_system=file_system,
     )
 
-    expected_modules = {
-        Module("mypackage"),
-        Module("mypackage.two"),
-        Module("mypackage.two.green"),
-    }
-    assert set(result) == expected_modules
+    assert result == FoundPackage(
+        name="mypackage",
+        directory="/path/to/mypackage",
+        modules=frozenset(
+            {
+                Module("mypackage"),
+                Module("mypackage.two"),
+                Module("mypackage.two.green"),
+            }
+        ),
+    )
 
 
 def test_ignores_hidden_directories():
@@ -92,15 +138,20 @@ def test_ignores_hidden_directories():
                 """
     )
 
-    result = module_finder.find_modules(
+    result = module_finder.find_package(
         package_name="mypackage",
         package_directory="/path/to/mypackage",
         file_system=file_system,
     )
 
-    expected_modules = {
-        Module("mypackage"),
-        Module("mypackage.two"),
-        Module("mypackage.two.green"),
-    }
-    assert set(result) == expected_modules
+    assert result == FoundPackage(
+        name="mypackage",
+        directory="/path/to/mypackage",
+        modules=frozenset(
+            {
+                Module("mypackage"),
+                Module("mypackage.two"),
+                Module("mypackage.two.green"),
+            }
+        ),
+    )

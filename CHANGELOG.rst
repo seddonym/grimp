@@ -6,6 +6,7 @@ latest
 ------
 * Officially support Python 3.9 and 3.10.
 * Drop support for Python 3.6.
+* Support namespaced packages.
 
 1.2.3 (2021-1-19)
 -----------------

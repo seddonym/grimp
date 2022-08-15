@@ -78,6 +78,8 @@ You may now use the graph object to analyse the package. Some examples::
         },
     ]
 
+For the full list of methods, see :doc:`usage`.
+
 External packages
 -----------------
 
@@ -103,3 +105,25 @@ You may analyse multiple root packages. To do this, pass each package name as a 
         'somepackage.bar.one',
         'anotherpackage.baz',
     }
+
+Namespace packages
+------------------
+
+Graphs can also be built from `portions`_ of `namespace packages`_. To do this, provide the portion name, rather than the namespace name:
+
+    >>> graph = grimp.build_graph('somenamespace.foo')
+
+What's a namespace package?
+###########################
+
+Namespace packages are a Python feature allows subpackages to be distributed independently, while still importable under a shared namespace. This is, for example, used by `the Python client for Google's Cloud Logging API`_. When installed, it is importable in Python as ``google.cloud.logging``. The parent packages ``google`` and ``google.cloud`` are both namespace packages, while ``google.cloud.logging`` is known as the 'portion'. Other portions in the same namespace can be installed separately, for example ``google.cloud.secretmanager``.
+
+Grimp expects the package name passed to ``build_graph`` to be a portion, rather than a namespace package. So in the case of the example above, the graph should be built like so:
+
+    >>> graph = grimp.build_graph('google.cloud.logging')
+
+If, instead, a namespace package is passed (e.g. ``grimp.build_graph('google.cloud')``), Grimp will raise ``NamespacePackageEncountered``.
+
+.. _portions: https://docs.python.org/3/glossary.html#term-portion
+.. _namespace packages: https://docs.python.org/3/glossary.html#term-namespace-package
+.. _The Python client for Google's Cloud Logging API: https://pypi.org/project/google-cloud-logging/

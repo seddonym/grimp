@@ -1,7 +1,8 @@
 import pytest  # type: ignore
-from grimp.adaptors.importscanner import ImportScanner
-from grimp.domain.valueobjects import DirectImport, Module
 
+from grimp.adaptors.importscanner import ImportScanner
+from grimp.application.ports.modulefinder import FoundPackage
+from grimp.domain.valueobjects import DirectImport, Module
 from tests.adaptors.filesystem import FakeFileSystem
 
 
@@ -58,7 +59,13 @@ def test_absolute_imports(include_external_packages, expected_result):
     )
 
     import_scanner = ImportScanner(
-        modules_by_package_directory={"/path/to/foo": all_modules},
+        found_packages={
+            FoundPackage(
+                name="foo",
+                directory="/path/to/foo",
+                modules=frozenset(all_modules),
+            )
+        },
         file_system=file_system,
         include_external_packages=include_external_packages,
     )
@@ -66,6 +73,212 @@ def test_absolute_imports(include_external_packages, expected_result):
     result = import_scanner.scan_for_imports(Module("foo.one"))
 
     assert expected_result == result
+
+
+def test_single_namespace_package_portion():
+    MODULE_FOO = Module("namespace.foo")
+    MODULE_ONE = Module("namespace.foo.one")
+    MODULE_TWO = Module("namespace.foo.two")
+    MODULE_THREE = Module("namespace.foo.three")
+    MODULE_FOUR = Module("namespace.foo.four")
+    MODULE_GREEN = Module("namespace.foo.two.green")
+    MODULE_BLUE = Module("namespace.foo.two.blue")
+    MODULE_ALPHA = Module("namespace.foo.two.green.alpha")
+
+    all_modules = {
+        MODULE_FOO,
+        MODULE_ONE,
+        MODULE_TWO,
+        MODULE_THREE,
+        MODULE_FOUR,
+        MODULE_GREEN,
+        MODULE_BLUE,
+        MODULE_ALPHA,
+    }
+    file_system = FakeFileSystem(
+        content_map={
+            "/path/to/namespace/foo/one.py": """
+                import namespace.foo.two
+                from namespace.foo import three
+                from . import four
+            """,
+            "/path/to/namespace/foo/two/green/alpha.py": """
+                from .. import blue
+                from ... import three
+            """,
+        }
+    )
+
+    import_scanner = ImportScanner(
+        found_packages={
+            FoundPackage(
+                name="namespace.foo",
+                directory="/path/to/namespace/foo",
+                modules=frozenset(all_modules),
+            )
+        },
+        file_system=file_system,
+    )
+
+    results = (
+        import_scanner.scan_for_imports(MODULE_ONE),
+        import_scanner.scan_for_imports(MODULE_ALPHA),
+    )
+
+    assert results == (
+        {
+            DirectImport(
+                importer=MODULE_ONE,
+                imported=MODULE_TWO,
+                line_number=1,
+                line_contents="import namespace.foo.two",
+            ),
+            DirectImport(
+                importer=MODULE_ONE,
+                imported=MODULE_THREE,
+                line_number=2,
+                line_contents="from namespace.foo import three",
+            ),
+            DirectImport(
+                importer=MODULE_ONE,
+                imported=MODULE_FOUR,
+                line_number=3,
+                line_contents="from . import four",
+            ),
+        },
+        {
+            DirectImport(
+                importer=MODULE_ALPHA,
+                imported=MODULE_BLUE,
+                line_number=1,
+                line_contents="from .. import blue",
+            ),
+            DirectImport(
+                importer=MODULE_ALPHA,
+                imported=MODULE_THREE,
+                line_number=2,
+                line_contents="from ... import three",
+            ),
+        },
+    )
+
+
+@pytest.mark.parametrize("include_external_packages", (True, False))
+def test_import_of_portion_not_in_graph(include_external_packages):
+    # Include two namespaces, one deeper than the other.
+    MODULE_BAR_ONE_GREEN = Module("namespace.bar.one.green")
+    MODULE_BAR_ONE_GREEN_ALPHA = Module("namespace.bar.one.green.alpha")
+
+    MODULE_FOO = Module("namespace.foo")
+    MODULE_FOO_ONE = Module("namespace.foo.one")
+    MODULE_FOO_BLUE = Module("namespace.foo.one.blue")
+
+    all_modules = {
+        MODULE_FOO,
+        MODULE_FOO_ONE,
+        MODULE_FOO_BLUE,
+    }
+    file_system = FakeFileSystem(
+        content_map={
+            "/path/to/namespace/foo/one.py": """
+                import namespace.bar.one.orange
+                from namespace.yellow import one
+                from .. import mauve
+                from ..cyan import one
+                from ..magenta.one import alpha
+            """,
+            "/path/to/namespace/foo/one/blue.py": """
+                from ... import teal
+                from ...pink import one
+                from ...scarlet.one import alpha
+            """,
+        }
+    )
+
+    import_scanner = ImportScanner(
+        found_packages={
+            FoundPackage(
+                name="namespace.foo",
+                directory="/path/to/namespace/foo",
+                modules=frozenset(all_modules),
+            ),
+            FoundPackage(
+                name="namespace.bar.one.green",
+                directory="/path/to/namespace/bar/one/green",
+                modules=frozenset(
+                    {
+                        MODULE_BAR_ONE_GREEN,
+                        MODULE_BAR_ONE_GREEN_ALPHA,
+                    }
+                ),
+            ),
+        },
+        file_system=file_system,
+        include_external_packages=include_external_packages,
+    )
+
+    results = (
+        import_scanner.scan_for_imports(MODULE_FOO_ONE),
+        import_scanner.scan_for_imports(MODULE_FOO_BLUE),
+    )
+
+    if include_external_packages:
+        assert results == (
+            {
+                DirectImport(
+                    importer=MODULE_FOO_ONE,
+                    imported=Module("namespace.bar.one.orange"),
+                    line_number=1,
+                    line_contents="import namespace.bar.one.orange",
+                ),
+                DirectImport(
+                    importer=MODULE_FOO_ONE,
+                    imported=Module("namespace.yellow"),
+                    line_number=2,
+                    line_contents="from namespace.yellow import one",
+                ),
+                DirectImport(
+                    importer=MODULE_FOO_ONE,
+                    imported=Module("namespace.mauve"),
+                    line_number=3,
+                    line_contents="from .. import mauve",
+                ),
+                DirectImport(
+                    importer=MODULE_FOO_ONE,
+                    imported=Module("namespace.cyan"),
+                    line_number=4,
+                    line_contents="from ..cyan import one",
+                ),
+                DirectImport(
+                    importer=MODULE_FOO_ONE,
+                    imported=Module("namespace.magenta"),
+                    line_number=5,
+                    line_contents="from ..magenta.one import alpha",
+                ),
+            },
+            {
+                DirectImport(
+                    importer=MODULE_FOO_BLUE,
+                    imported=Module("namespace.teal"),
+                    line_number=1,
+                    line_contents="from ... import teal",
+                ),
+                DirectImport(
+                    importer=MODULE_FOO_BLUE,
+                    imported=Module("namespace.pink"),
+                    line_number=2,
+                    line_contents="from ...pink import one",
+                ),
+                DirectImport(
+                    importer=MODULE_FOO_BLUE,
+                    imported=Module("namespace.scarlet"),
+                    line_number=3,
+                    line_contents="from ...scarlet.one import alpha",
+                ),
+            },
+        )
+    else:
+        assert results == (set(), set())
 
 
 @pytest.mark.parametrize(
@@ -133,8 +346,11 @@ def test_absolute_imports(include_external_packages, expected_result):
 )
 def test_absolute_from_imports(include_external_packages, expected_result):
     all_modules = {
+        Module("foo"),
+        Module("foo.one"),
         Module("foo.one.blue"),
         Module("foo.one.green"),
+        Module("foo.two"),
         Module("foo.two.brown"),
         Module("foo.two.yellow"),
         Module("foo.three"),
@@ -166,7 +382,13 @@ def test_absolute_from_imports(include_external_packages, expected_result):
     )
 
     import_scanner = ImportScanner(
-        modules_by_package_directory={"/path/to/foo": all_modules},
+        found_packages={
+            FoundPackage(
+                name="foo",
+                directory="/path/to/foo",
+                modules=frozenset(all_modules),
+            )
+        },
         file_system=file_system,
         include_external_packages=include_external_packages,
     )
@@ -209,7 +431,13 @@ def test_relative_from_imports():
     )
 
     import_scanner = ImportScanner(
-        modules_by_package_directory={"/path/to/foo": all_modules},
+        found_packages={
+            FoundPackage(
+                name="foo",
+                directory="/path/to/foo",
+                modules=frozenset(all_modules),
+            )
+        },
         file_system=file_system,
     )
 
@@ -261,7 +489,13 @@ def test_trims_to_known_modules(import_source):
     )
 
     import_scanner = ImportScanner(
-        modules_by_package_directory={"/path/to/foo": all_modules},
+        found_packages={
+            FoundPackage(
+                name="foo",
+                directory="/path/to/foo",
+                modules=frozenset(all_modules),
+            )
+        },
         file_system=file_system,
     )
 
@@ -303,7 +537,13 @@ def test_trims_to_known_modules_within_init_file():
     )
 
     import_scanner = ImportScanner(
-        modules_by_package_directory={"/path/to/foo": all_modules},
+        found_packages={
+            FoundPackage(
+                name="foo",
+                directory="/path/to/foo",
+                modules=frozenset(all_modules),
+            )
+        },
         file_system=file_system,
     )
 
@@ -348,7 +588,13 @@ def test_trims_whitespace_from_start_of_line_contents():
     )
 
     import_scanner = ImportScanner(
-        modules_by_package_directory={"/path/to/foo": all_modules},
+        found_packages={
+            FoundPackage(
+                name="foo",
+                directory="/path/to/foo",
+                modules=frozenset(all_modules),
+            )
+        },
         file_system=file_system,
     )
 
@@ -362,6 +608,82 @@ def test_trims_whitespace_from_start_of_line_contents():
             line_contents="from . import two",
         )
     }
+
+
+@pytest.mark.parametrize(
+    "statement, expected_module_name",
+    (
+        # External packages that share a namespace with an internal module resolve
+        # to the shallowest component that does not clash with an internal module namespace.
+        ("import namespace", None),
+        ("import namespace.foo", None),
+        ("from namespace import foo", None),
+        ("import namespace.bar", "namespace.bar"),
+        ("from namespace import bar", "namespace.bar"),
+        ("from ... import bar", "namespace.bar"),
+        ("import namespace.bar.orange", "namespace.bar"),
+        ("from namespace.bar import orange", "namespace.bar"),
+        ("from ...bar import orange", "namespace.bar"),
+        ("import namespace.foo.green", "namespace.foo.green"),
+        ("from namespace.foo import green", "namespace.foo.green"),
+        ("from .. import green", "namespace.foo.green"),
+        ("import namespace.foo.green.alpha", "namespace.foo.green"),
+        ("from namespace.foo.green import alpha", "namespace.foo.green"),
+        ("from ..green import alpha", "namespace.foo.green"),
+        ("import namespace.foo.green.alpha.one", "namespace.foo.green"),
+        ("from namespace.foo.green.alpha import one", "namespace.foo.green"),
+        ("from ..green.alpha import one", "namespace.foo.green"),
+        ("from .. import green", "namespace.foo.green"),
+        ("import namespace.foo.green.alpha", "namespace.foo.green"),
+        ("from namespace.foo.green import alpha", "namespace.foo.green"),
+        ("from ..green import alpha", "namespace.foo.green"),
+        ("import namespace.foo.green.alpha.one", "namespace.foo.green"),
+        ("from namespace.foo.green.alpha import one", "namespace.foo.green"),
+        ("from ..green.alpha import one", "namespace.foo.green"),
+    ),
+)
+def test_external_package_imports_for_namespace_packages(
+    statement, expected_module_name
+):
+    module_to_scan = Module("namespace.foo.blue.alpha")
+
+    file_system = FakeFileSystem(
+        content_map={
+            "/path/to/namespace/foo/blue/alpha.py": statement,
+        }
+    )
+
+    import_scanner = ImportScanner(
+        found_packages={
+            FoundPackage(
+                name="namespace.foo.blue",
+                directory="/path/to/namespace/foo/blue",
+                modules=frozenset(
+                    {
+                        Module("namespace.foo.blue"),
+                        module_to_scan,
+                        Module("namespace.foo.blue.beta"),
+                    }
+                ),
+            )
+        },
+        file_system=file_system,
+        include_external_packages=True,
+    )
+
+    result = import_scanner.scan_for_imports(module_to_scan)
+
+    if expected_module_name:
+        assert {
+            DirectImport(
+                importer=module_to_scan,
+                imported=Module(expected_module_name),
+                line_number=1,
+                line_contents=statement,
+            ),
+        } == result
+    else:
+        assert result == set()
 
 
 @pytest.mark.parametrize("statement", ("import bar.blue", "from bar import blue"))
@@ -381,9 +703,17 @@ def test_scans_multiple_packages(statement):
     )
 
     import_scanner = ImportScanner(
-        modules_by_package_directory={
-            "/path/to/foo": foo_modules,
-            "/path/to/bar": bar_modules,
+        found_packages={
+            FoundPackage(
+                name="foo",
+                directory="/path/to/foo",
+                modules=frozenset(foo_modules),
+            ),
+            FoundPackage(
+                name="bar",
+                directory="/path/to/bar",
+                modules=frozenset(bar_modules),
+            ),
         },
         file_system=file_system,
     )

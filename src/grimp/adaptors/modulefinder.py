@@ -10,20 +10,24 @@ logger = logging.getLogger(__name__)
 
 
 class ModuleFinder(modulefinder.AbstractModuleFinder):
-    def find_modules(
+    def find_package(
         self, package_name: str, package_directory: str, file_system: AbstractFileSystem
-    ) -> Iterable[Module]:
+    ) -> modulefinder.FoundPackage:
         self.file_system = file_system
 
         modules: List[Module] = []
 
         for module_filename in self._get_python_files_inside_package(package_directory):
             module_name = self._module_name_from_filename(
-                module_filename, package_directory
+                package_name, module_filename, package_directory
             )
             modules.append(Module(module_name))
 
-        return modules
+        return modulefinder.FoundPackage(
+            name=package_name,
+            directory=package_directory,
+            modules=frozenset(modules),
+        )
 
     def _get_python_files_inside_package(self, directory: str) -> Iterable[str]:
         """
@@ -65,16 +69,17 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         return not filename.startswith(".") and filename.endswith(".py")
 
     def _module_name_from_filename(
-        self, filename_and_path: str, package_directory: str
+        self, package_name: str, filename_and_path: str, package_directory: str
     ) -> str:
         """
         Args:
+            package_name (string) - the importable name of the top level package. Could
+                be namespaced.
             filename_and_path (string) - the full name of the Python file.
             package_directory (string) - the full path of the top level Python package directory.
          Returns:
             Absolute module name for importing (string).
         """
-        container_directory, package_name = self.file_system.split(package_directory)
         internal_filename_and_path = filename_and_path[len(package_directory) :]
         internal_filename_and_path_without_extension = internal_filename_and_path[1:-3]
         components = [

@@ -1,9 +1,21 @@
-from typing import Iterable
 import abc
+from dataclasses import dataclass
+from typing import FrozenSet
 
 from grimp.domain.valueobjects import Module
 
 from .filesystem import AbstractFileSystem
+
+
+@dataclass(frozen=True)
+class FoundPackage:
+    """
+    Set of modules found under a single package, together with metadata.
+    """
+
+    name: str
+    directory: str
+    modules: FrozenSet[Module]
 
 
 class AbstractModuleFinder(abc.ABC):
@@ -12,9 +24,9 @@ class AbstractModuleFinder(abc.ABC):
     """
 
     @abc.abstractmethod
-    def find_modules(
+    def find_package(
         self, package_name: str, package_directory: str, file_system: AbstractFileSystem
-    ) -> Iterable[Module]:
+    ) -> FoundPackage:
         """
         Searches the package for all importable Python modules.
         """

@@ -1,6 +1,6 @@
 import pytest  # type: ignore
-from grimp.application import usecases
 
+from grimp.application import usecases
 from tests.adaptors.filesystem import FakeFileSystem
 from tests.adaptors.packagefinder import BaseFakePackageFinder
 from tests.config import override_settings
@@ -22,7 +22,9 @@ class TestBuildGraph:
                             blue.py
             """,
             content_map={
-                "/path/to/mypackage/foo/one.py": "import mypackage.foo.two.green",
+                "/path/to/mypackage/foo/one.py": (
+                    "import mypackage.foo.two.green\n" "from .. import Something"
+                ),
                 "/path/to/mypackage/foo/two/green.py": "import mypackage.foo.two.blue\n"
                 "from external.subpackage import foobar\n"
                 "import decimal",
@@ -42,7 +44,7 @@ class TestBuildGraph:
         expected_import_map = {
             "mypackage": set(),
             "mypackage.foo": set(),
-            "mypackage.foo.one": {"mypackage.foo.two.green"},
+            "mypackage.foo.one": {"mypackage.foo.two.green", "mypackage"},
             "mypackage.foo.two": set(),
             "mypackage.foo.two.green": {"mypackage.foo.two.blue"},
             "mypackage.foo.two.blue": set(),
