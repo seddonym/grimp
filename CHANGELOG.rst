@@ -2,8 +2,8 @@
 Changelog
 =========
 
-latest
-------
+1.3 (2022-8-15)
+---------------
 * Officially support Python 3.9 and 3.10.
 * Drop support for Python 3.6.
 * Support namespaced packages.
