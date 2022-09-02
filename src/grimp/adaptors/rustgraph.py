@@ -111,7 +111,7 @@ class ImportGraph(graph.AbstractImportGraph):
                 self.add_module(module)
         importer_node = self._node_lookup[importer]
         imported_node = self._node_lookup[imported]
-        self._retworkx_graph.add_edge(importer_node, imported_node, None)
+        self._retworkx_graph.add_edge(importer_node, imported_node, f"{importer} [{importer_node}] -> {imported} [{imported_node}]")
 
     def remove_import(self, *, importer: str, imported: str) -> None:
         importer_node = self._node_lookup[importer]

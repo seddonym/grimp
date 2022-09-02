@@ -66,6 +66,7 @@ def build_graph(
     # Scan each module for imports and add them to the graph.
     for module in modules:
         graph.add_module(module.name)
+        direct_imports = import_scanner.scan_for_imports(module)
         for direct_import in import_scanner.scan_for_imports(module):
             # Before we add the import, check to see if the imported module is in fact an
             # external module, and if so, tell the graph that it is a squashed module.
@@ -80,6 +81,7 @@ def build_graph(
                 line_number=direct_import.line_number,
                 line_contents=direct_import.line_contents,
             )
+            pass
 
     return graph
 

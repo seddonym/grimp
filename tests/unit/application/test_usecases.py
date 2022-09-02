@@ -7,7 +7,11 @@ from tests.config import override_settings
 
 
 class TestBuildGraph:
-    @pytest.mark.parametrize("include_external_packages", (True, False))
+    @pytest.mark.parametrize("include_external_packages", (
+            #True,
+            False,
+
+    ))
     def test_happy_path(self, include_external_packages):
         file_system = FakeFileSystem(
             contents="""

@@ -1,6 +1,7 @@
 import re
 
 import pytest  # type: ignore
+
 from grimp.adaptors.rustgraph import ImportGraph
 from grimp.exceptions import ModuleNotPresent
 
@@ -1184,8 +1185,59 @@ class TestFindAllSimpleChains:
 
         assert set(paths) == result
 
+    def test_squash_then_find_modules(self):
+        # Exploratory test, maybe not necessary
+        graph = ImportGraph()
+        graph.add_module("mypackage.blue")
+        graph.add_module("mypackage.blue.one")
+        graph.add_module("mypackage.green")
+        graph.add_module("mypackage.green.one")
+        graph.add_import(
+            importer="mypackage.blue.one", imported="mypackage.green.one.alpha"
+        )
+
+        graph.squash_module("mypackage.green.one")
+
+        assert {"mypackage.green.one"} == graph.find_modules_directly_imported_by(
+            "mypackage.blue.one"
+        )
+
+    def test_bug_finding(self):
+
+        graph = ImportGraph()
+        graph.add_module("mypackage.foo.two")
+        graph.add_module("mypackage.foo.two.green")
+        graph.add_module("mypackage")
+        graph.add_module("mypackage.foo.two.blue")
+        graph.add_module("mypackage.foo.one")
+        graph.add_module("mypackage.foo")
+
+        graph.add_import(
+            importer="mypackage.foo.two.green",
+            imported="mypackage.foo.two.blue",
+            line_number=1,
+            line_contents="eoeou",
+        )
+        graph.add_import(
+            importer="mypackage.foo.one",
+            imported="mypackage",
+            line_number=1,
+            line_contents="eoeou",
+        )
+        graph.add_import(
+            importer="mypackage.foo.one",
+            imported="mypackage.foo.two.green",
+            line_number=1,
+            line_contents="eoeou",
+        )
+
+        assert {"mypackage.foo.two.blue"} == graph.find_modules_directly_imported_by(
+            "mypackage.foo.two.green"
+        )
+
     def _add_chain(self, graph, *modules):
         for index in range(len(modules) - 1):
             graph.add_import(
-                importer=modules[index], imported=modules[index + 1],
+                importer=modules[index],
+                imported=modules[index + 1],
             )
