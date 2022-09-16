@@ -214,17 +214,6 @@ Methods for analysing import chains
              contained within other chains in the result set will be excluded.
     :rtype: A set of tuples of strings. Each tuple is ordered from importer to imported modules.
 
-.. py:function:: ImportGraph.find_all_simple_chains(importer, imported)
-
-    :param str importer: A module or subpackage within the graph.
-    :param str imported: Another module or subpackage within the graph.
-    :return: All simple chains between the importer and the imported modules (a simple chain is one with no
-        repeated modules).
-
-        If either module is not present in the graph, grimp.exceptions.ModuleNotPresent
-        will be raised.
-    :rtype: A generator of tuples of strings. Each tuple is ordered from importer to imported modules.
-
 .. py:function:: ImportGraph.chain_exists(importer, imported, as_packages=False)
 
     :param str importer: The module at the start of the potential chain of imports (as in ``find_shortest_chain``).

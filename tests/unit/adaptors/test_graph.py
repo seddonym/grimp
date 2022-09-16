@@ -1,6 +1,8 @@
 import re
+from copy import deepcopy
 
 import pytest  # type: ignore
+
 from grimp.adaptors.graph import ImportGraph
 from grimp.exceptions import ModuleNotPresent
 
@@ -40,6 +42,93 @@ class TestRepr:
             f"'{re_part}', '{re_part}', ...>",
             repr(graph),
         )
+
+
+class TestCopy:
+    def test_removing_import_doesnt_affect_copy(self):
+        graph = ImportGraph()
+        graph.add_import(
+            importer="foo", imported="bar", line_number=3, line_contents="import bar"
+        )
+        graph.add_import(importer="bar", imported="baz")
+        copied_graph = deepcopy(graph)
+
+        graph.remove_import(importer="foo", imported="bar")
+
+        assert copied_graph.find_shortest_chain(importer="foo", imported="baz") == (
+            "foo",
+            "bar",
+            "baz",
+        )
+        assert copied_graph.get_import_details(importer="foo", imported="bar") == [
+            {
+                "importer": "foo",
+                "imported": "bar",
+                "line_number": 3,
+                "line_contents": "import bar",
+            }
+        ]
+
+    def test_can_mutate_import_details_externally(self):
+        graph = ImportGraph()
+        original_line_contents = "import bar"
+        graph.add_import(
+            importer="foo",
+            imported="bar",
+            line_number=3,
+            line_contents=original_line_contents,
+        )
+        [details] = graph.get_import_details(importer="foo", imported="bar")
+        copied_graph = deepcopy(graph)
+
+        details["line_contents"] = "changed"
+        [copied_graph_details] = copied_graph.get_import_details(
+            importer="foo", imported="bar"
+        )
+
+        assert copied_graph_details["line_contents"] == original_line_contents
+
+    def test_copies_squashed_modules(self):
+        graph = ImportGraph()
+        modules_to_squash = {
+            "foo",
+            "foo.green",
+            "foo.blue",
+            "foo.blue.alpha",
+        }
+        other_modules = {
+            "bar",
+            "bar.black",
+            "baz",
+        }
+        for module in modules_to_squash | other_modules:
+            graph.add_module(module)
+        graph.squash_module("foo")
+
+        copied_graph = deepcopy(graph)
+
+        assert copied_graph.is_module_squashed("foo")
+
+    def test_does_not_share_squashed_modules(self):
+        graph = ImportGraph()
+        modules_to_squash = {
+            "foo",
+            "foo.green",
+            "foo.blue",
+            "foo.blue.alpha",
+        }
+        other_modules = {
+            "bar",
+            "bar.black",
+            "baz",
+        }
+        for module in modules_to_squash | other_modules:
+            graph.add_module(module)
+        copied_graph = deepcopy(graph)
+
+        graph.squash_module("foo")
+
+        assert not copied_graph.is_module_squashed("foo")
 
 
 def test_modules_when_empty():
@@ -186,29 +275,65 @@ def test_direct_import_exists(importer, imported, as_packages, expected_result):
         )
 
 
-@pytest.mark.parametrize(
-    "imports, expected_count",
-    (
-        ((), 0),
-        ((("foo.one", "foo.two"),), 1),
-        ((("foo.one", "foo.two"), ("foo.three", "foo.two")), 2),
+class TestCountImports:
+    @pytest.mark.parametrize(
+        "imports, expected_count",
         (
+            ((), 0),
+            ((("foo.one", "foo.two"),), 1),
+            ((("foo.one", "foo.two"), ("foo.three", "foo.two")), 2),
             (
-                ("foo.one", "foo.two"),
-                ("foo.three", "foo.two"),
-                ("foo.three", "foo.two"),  # Duplicate should not increase the number.
+                (
+                    ("foo.one", "foo.two"),
+                    ("foo.three", "foo.two"),
+                    (
+                        "foo.three",
+                        "foo.two",
+                    ),  # Duplicate should not increase the number.
+                ),
+                2,
             ),
-            2,
         ),
-    ),
-)
-def test_count_imports(imports, expected_count):
-    graph = ImportGraph()
+    )
+    def test_count_imports(self, imports, expected_count):
+        graph = ImportGraph()
 
-    for importer, imported in imports:
-        graph.add_import(importer=importer, imported=imported)
+        for importer, imported in imports:
+            graph.add_import(importer=importer, imported=imported)
 
-    assert expected_count == graph.count_imports()
+        assert expected_count == graph.count_imports()
+
+    def test_count_imports_for_multiple_imports_between_same_modules(self):
+        # Count imports does not actually return the number of imports, but the number of
+        # dependencies between modules.
+        graph = ImportGraph()
+
+        graph.add_import(
+            importer="blue",
+            imported="green",
+            line_contents="import green",
+            line_number=1,
+        )
+        graph.add_import(
+            importer="blue",
+            imported="green",
+            line_contents="from green import *",
+            line_number=2,
+        )
+
+        assert graph.count_imports() == 1
+
+    def test_count_imports_after_removals(self):
+        graph = ImportGraph()
+
+        graph.add_import(importer="blue", imported="green")
+        graph.add_import(importer="blue", imported="orange")
+        graph.add_import(importer="blue", imported="yellow")
+        graph.add_import(importer="green", imported="orange")
+
+        graph.remove_import(importer="blue", imported="yellow")
+
+        assert graph.count_imports() == 3
 
 
 @pytest.mark.parametrize(
@@ -332,32 +457,76 @@ def test_find_descendants_raises_exception_for_squashed_module():
         graph.find_descendants(module)
 
 
-def test_find_shortest_chain_when_exists():
-    graph = ImportGraph()
-    a, b, c = "foo", "bar", "baz"
-    d, e, f = "long", "way", "around"
+class TestFindShortestChain:
+    def test_find_shortest_chain_when_exists(self):
+        graph = ImportGraph()
+        a, b, c = "foo", "bar", "baz"
+        d, e, f = "long", "way", "around"
 
-    # Add short path.
-    graph.add_import(importer=a, imported=b)
-    graph.add_import(importer=b, imported=c)
+        # Add short path.
+        graph.add_import(importer=a, imported=b)
+        graph.add_import(importer=b, imported=c)
 
-    # Add longer path.
-    graph.add_import(importer=a, imported=d)
-    graph.add_import(importer=d, imported=e)
-    graph.add_import(importer=e, imported=f)
-    graph.add_import(importer=f, imported=c)
+        # Add longer path.
+        graph.add_import(importer=a, imported=d)
+        graph.add_import(importer=d, imported=e)
+        graph.add_import(importer=e, imported=f)
+        graph.add_import(importer=f, imported=c)
 
-    assert (a, b, c) == graph.find_shortest_chain(importer=a, imported=c)
+        assert (a, b, c) == graph.find_shortest_chain(importer=a, imported=c)
 
+    def test_find_shortest_chain_returns_direct_import_when_exists(self):
+        graph = ImportGraph()
+        a, b = "foo", "bar"
+        d, e, f = "long", "way", "around"
 
-def test_find_shortest_chain_returns_none_if_not_exists():
-    graph = ImportGraph()
-    a, b, c = "foo", "bar", "baz"
+        # Add short path.
+        graph.add_import(importer=a, imported=b)
 
-    graph.add_import(importer=a, imported=b)
-    graph.add_import(importer=b, imported=c)
+        # Add longer path.
+        graph.add_import(importer=a, imported=d)
+        graph.add_import(importer=d, imported=e)
+        graph.add_import(importer=e, imported=f)
+        graph.add_import(importer=f, imported=b)
 
-    assert None is graph.find_shortest_chain(importer=c, imported=a)
+        assert (a, b) == graph.find_shortest_chain(importer=a, imported=b)
+
+    def test_find_shortest_chain_returns_none_if_not_exists(self):
+        graph = ImportGraph()
+        a, b, c = "foo", "bar", "baz"
+
+        graph.add_import(importer=a, imported=b)
+        graph.add_import(importer=b, imported=c)
+
+        assert None is graph.find_shortest_chain(importer=c, imported=a)
+
+    def test_raises_value_error_if_importer_not_present(self):
+        graph = ImportGraph()
+
+        with pytest.raises(ValueError, match="Module foo is not present in the graph."):
+            graph.find_shortest_chain(importer="foo", imported="bar")
+
+    def test_raises_value_error_if_imported_not_present(self):
+        graph = ImportGraph()
+        graph.add_module("foo")
+
+        with pytest.raises(ValueError, match="Module bar is not present in the graph."):
+            graph.find_shortest_chain(importer="foo", imported="bar")
+
+    def test_find_shortest_chain_copes_with_cycle(self):
+        graph = ImportGraph()
+        a, b, c, d, e = "blue", "green", "orange", "yellow", "purple"
+
+        # Add path with some cycles.
+        graph.add_import(importer=a, imported=b)
+        graph.add_import(importer=b, imported=a)
+        graph.add_import(importer=b, imported=c)
+        graph.add_import(importer=c, imported=d)
+        graph.add_import(importer=d, imported=b)
+        graph.add_import(importer=d, imported=e)
+        graph.add_import(importer=e, imported=d)
+
+        assert (a, b, c, d, e) == graph.find_shortest_chain(importer=a, imported=e)
 
 
 class TestFindShortestChains:
@@ -522,6 +691,39 @@ class TestFindShortestChains:
                 "blue.bar",
             ),
         }
+
+    def test_doesnt_lose_import_details(self):
+        # Find shortest chains uses hiding mechanisms, this checks that it doesn't
+        # inadvertently delete import details for the things it hides.
+        graph = ImportGraph()
+        graph.add_module("green")
+        graph.add_module("blue")
+        import_details = {
+            "importer": "green.foo",
+            "imported": "blue.bar",
+            "line_contents": "import blue.bar",
+            "line_number": 5,
+        }
+        graph.add_import(**import_details)
+
+        graph.find_shortest_chains(importer="green", imported="blue")
+
+        assert graph.get_import_details(importer="green.foo", imported="blue.bar") == [
+            import_details
+        ]
+
+    def test_doesnt_change_import_count(self):
+        # Find shortest chains uses hiding mechanisms, this checks that it doesn't
+        # inadvertently change the import count.
+        graph = ImportGraph()
+        graph.add_module("green")
+        graph.add_module("blue")
+        graph.add_import(importer="green.foo", imported="blue.bar")
+        count_prior = graph.count_imports()
+
+        graph.find_shortest_chains(importer="green", imported="blue")
+
+        assert graph.count_imports() == count_prior
 
 
 @pytest.mark.parametrize(
@@ -695,19 +897,83 @@ def test_add_module():
     assert graph.modules == {module}
 
 
-def test_remove_module():
-    graph = ImportGraph()
-    a, b = {"mypackage.blue", "mypackage.green"}
+class TestRemoveModule:
+    def test_removes_module_from_modules(self):
+        graph = ImportGraph()
+        a, b = {"mypackage.blue", "mypackage.green"}
 
-    graph.add_module(a)
-    graph.add_module(b)
-    graph.add_import(importer=a, imported=b)
+        graph.add_module(a)
+        graph.add_module(b)
+        graph.add_import(importer=a, imported=b)
 
-    graph.remove_module(b)
-    assert {a} == graph.modules
+        graph.remove_module(b)
+        assert graph.modules == {a}
 
-    # Removing a non-existent module doesn't cause an error.
-    graph.remove_module("mypackage.yellow")
+    def test_removes_module_removes_import_details_for_imported(self):
+        graph = ImportGraph()
+        a, b, c = {"mypackage.blue", "mypackage.green", "mypackage.yellow"}
+
+        graph.add_import(
+            importer=a,
+            imported=b,
+            line_contents="import mypackage.green",
+            line_number=1,
+        )
+        graph.add_import(
+            importer=a,
+            imported=c,
+            line_contents="import mypackage.yellow",
+            line_number=2,
+        )
+
+        graph.remove_module(b)
+        assert graph.get_import_details(importer=a, imported=b) == []
+        assert graph.get_import_details(importer=a, imported=c) == [
+            {
+                "importer": a,
+                "imported": c,
+                "line_contents": "import mypackage.yellow",
+                "line_number": 2,
+            }
+        ]
+
+    def test_removes_module_removes_import_details_for_importer(self):
+        graph = ImportGraph()
+        a, b, c = {"mypackage.blue", "mypackage.green", "mypackage.yellow"}
+
+        graph.add_import(
+            importer=b,
+            imported=a,
+            line_contents="import mypackage.blue",
+            line_number=1,
+        )
+        graph.add_import(
+            importer=a,
+            imported=c,
+            line_contents="import mypackage.yellow",
+            line_number=2,
+        )
+
+        graph.remove_module(b)
+        assert graph.get_import_details(importer=b, imported=a) == []
+        assert graph.get_import_details(importer=a, imported=c) == [
+            {
+                "importer": a,
+                "imported": c,
+                "line_contents": "import mypackage.yellow",
+                "line_number": 2,
+            }
+        ]
+
+    def test_removing_non_existent_module_doesnt_error(self):
+        graph = ImportGraph()
+        a, b = {"mypackage.blue", "mypackage.green"}
+
+        graph.add_module(a)
+        graph.add_module(b)
+        graph.add_import(importer=a, imported=b)
+
+        graph.remove_module("mypackage.yellow")
 
 
 class TestAddSquashedModule:
@@ -780,16 +1046,46 @@ def test_add_import(add_module):
     assert set() == graph.find_modules_directly_imported_by(b)
 
 
-def test_remove_import():
-    graph = ImportGraph()
-    a, b, c = "foo", "bar", "baz"
-    graph.add_import(importer=a, imported=b)
-    graph.add_import(importer=a, imported=c)
+class TestRemoveImport:
+    def test_removes_from_modules(self):
+        graph = ImportGraph()
+        a, b, c = "foo", "bar", "baz"
+        graph.add_import(importer=a, imported=b)
+        graph.add_import(importer=a, imported=c)
 
-    graph.remove_import(importer=a, imported=b)
+        graph.remove_import(importer=a, imported=b)
 
-    assert {a, b, c} == graph.modules
-    assert {c} == graph.find_modules_directly_imported_by(a)
+        assert {a, b, c} == graph.modules
+        assert {c} == graph.find_modules_directly_imported_by(a)
+
+    def test_removes_from_import_details(self):
+        graph = ImportGraph()
+        a, b, c = {"mypackage.blue", "mypackage.green", "mypackage.yellow"}
+
+        graph.add_import(
+            importer=a,
+            imported=b,
+            line_contents="import mypackage.green",
+            line_number=1,
+        )
+        graph.add_import(
+            importer=a,
+            imported=c,
+            line_contents="import mypackage.yellow",
+            line_number=2,
+        )
+
+        graph.remove_import(importer=a, imported=b)
+
+        assert graph.get_import_details(importer=a, imported=b) == []
+        assert graph.get_import_details(importer=a, imported=c) == [
+            {
+                "importer": a,
+                "imported": c,
+                "line_contents": "import mypackage.yellow",
+                "line_number": 2,
+            }
+        ]
 
 
 class TestGetImportDetails:
@@ -1022,6 +1318,46 @@ class TestSquashModule:
             importer="bar.blue", imported="foo"
         )
 
+    def test_original_import_details_from_descendant_are_lost(self):
+        graph = ImportGraph()
+        for module in [
+            "foo",
+            "foo.green",
+            "bar.blue",
+        ]:
+            graph.add_module(module)
+
+        graph.add_import(
+            importer="foo.green",
+            imported="bar.blue",
+            line_number=1,
+            line_contents="from . import bar.blue",
+        )
+
+        graph.squash_module("foo")
+
+        assert [] == graph.get_import_details(importer="foo.green", imported="bar.blue")
+
+    def test_original_import_details_to_descendant_are_lost(self):
+        graph = ImportGraph()
+        for module in [
+            "foo",
+            "foo.green",
+            "bar.blue",
+        ]:
+            graph.add_module(module)
+
+        graph.add_import(
+            importer="bar.blue",
+            imported="foo.green",
+            line_number=1,
+            line_contents="from foo import green",
+        )
+
+        graph.squash_module("foo")
+
+        assert [] == graph.get_import_details(importer="bar.blue", imported="foo.green")
+
     def test_import_details_from_descendant_are_lost(self):
         graph = ImportGraph()
         for module in [
@@ -1079,113 +1415,9 @@ class TestSquashModule:
 
 
 class TestFindAllSimpleChains:
-    def test_raise_module_not_present_if_importer_missing(self):
-        graph = ImportGraph()
-        graph.add_module("bar")
-
-        with pytest.raises(ModuleNotPresent):
-            graph.find_all_simple_chains(importer="foo", imported="bar")
-
-    def test_raise_module_not_present_if_imported_missing(self):
-        graph = ImportGraph()
-        graph.add_module("foo")
-
-        with pytest.raises(ModuleNotPresent):
-            graph.find_all_simple_chains(importer="foo", imported="bar")
-
-    def test_finds_no_paths_if_none_exist(self):
-        graph = ImportGraph()
-        graph.add_module("foo")
-        graph.add_module("bar")
-
-        result = list(graph.find_all_simple_chains(importer="foo", imported="bar"))
-
-        assert [] == result
-
-    def test_finds_no_paths_if_wrong_direction(self):
-        graph = ImportGraph()
-        self._add_chain(graph, "foo", "bar")
-
-        result = list(graph.find_all_simple_chains(importer="bar", imported="foo"))
-
-        assert [] == result
-
-    def test_finds_no_paths_if_importer_but_not_imported(self):
-        graph = ImportGraph()
-        self._add_chain(graph, "foo", "bar")
-        graph.add_module("baz")
-
-        result = list(graph.find_all_simple_chains(importer="foo", imported="baz"))
-
-        assert [] == result
-
-    def test_finds_no_paths_if_imported_but_not_importer(self):
-        graph = ImportGraph()
-        self._add_chain(graph, "foo", "bar")
-        graph.add_module("baz")
-
-        result = list(graph.find_all_simple_chains(importer="baz", imported="bar"))
-
-        assert [] == result
-
-    def test_finds_single_step_path(self):
-        graph = ImportGraph()
-        self._add_chain(graph, "foo", "bar")
-
-        result = tuple(graph.find_all_simple_chains(importer="foo", imported="bar"))
-
-        assert (("foo", "bar"),) == result
-
-    def test_finds_two_step_path(self):
-        graph = ImportGraph()
-        self._add_chain(graph, "foo", "bar", "baz")
-
-        result = tuple(graph.find_all_simple_chains(importer="foo", imported="baz"))
-
-        assert (("foo", "bar", "baz"),) == result
-
-    def test_finds_long_path(self):
-        graph = ImportGraph()
-        long_path = ("one", "two", "three", "four", "five")
-        self._add_chain(graph, *long_path)
-
-        result = tuple(graph.find_all_simple_chains(importer="one", imported="five"))
-
-        assert (long_path,) == result
-
-    def test_finds_multiple_paths(self):
-        graph = ImportGraph()
-        paths = (
-            ("foo", "blue", "bar"),
-            ("foo", "green", "bar"),
-            ("foo", "red", "yellow", "bar"),
-            ("foo", "brown", "purple", "grey", "pink", "bar"),
-        )
-        for path in paths:
-            self._add_chain(graph, *path)
-
-        result = set(graph.find_all_simple_chains(importer="foo", imported="bar"))
-
-        assert set(paths) == result
-
-    def test_includes_redundant_paths(self):
-        # I'm not definitely sure we want this behaviour, but this is what networkx's
-        # all_simple_paths gives us at the moment.
-        graph = ImportGraph()
-        paths = (
-            ("foo", "blue", "bar"),
-            ("foo", "green", "bar"),
-            ("foo", "green", "blue", "bar"),
-        )
-        for path in paths:
-            self._add_chain(graph, *path)
-
-        result = set(graph.find_all_simple_chains(importer="foo", imported="bar"))
-
-        assert set(paths) == result
-
-    def _add_chain(self, graph, *modules):
-        for index in range(len(modules) - 1):
-            graph.add_import(
-                importer=modules[index], imported=modules[index + 1],
-            )
+    def test_removed_exception(self):
+        with pytest.raises(
+            AttributeError,
+            match="This method has been removed. Consider using find_shortest_chains instead?",
+        ):
+            ImportGraph().find_all_simple_chains(importer="foo", imported="bar")

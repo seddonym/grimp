@@ -243,19 +243,16 @@ class AbstractImportGraph(abc.ABC):
         """
         Generate all simple chains between the importer and the imported modules.
 
-        A simple chain is one with no repeated modules.
-
-        Returns:
-            A generator that produces tuples of strings. Each tuple is ordered from importer
-            to imported modules.
-
-        If either module is not present in the graph, grimp.exceptions.ModuleNotPresent
-        will be raised.
+        Note: this method is no longer documented and will be removed.
         """
-        raise NotImplementedError
+        raise AttributeError(
+            "This method has been removed. Consider using find_shortest_chains instead?"
+        )
 
     @abc.abstractmethod
-    def chain_exists(self, importer: str, imported: str, as_packages: bool = False) -> bool:
+    def chain_exists(
+        self, importer: str, imported: str, as_packages: bool = False
+    ) -> bool:
         """
         Return whether any chain of imports exists between the two modules, in the direction
         of importer to imported. In other words, does the importer depend on the imported?

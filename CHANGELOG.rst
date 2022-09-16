@@ -2,6 +2,14 @@
 Changelog
 =========
 
+latest
+------
+
+* Significantly speed up graph copying.
+* Remove find_all_simple_chains method.
+* No longer use a networkx graph internally.
+* Fix bug where import details remained stored in the graph after removing modules or imports.
+
 1.3 (2022-8-15)
 ---------------
 * Officially support Python 3.9 and 3.10.
