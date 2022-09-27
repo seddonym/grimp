@@ -8,6 +8,7 @@ Contents
    readme
    installation
    usage
+   networkx
    contributing
    authors
    changelog
