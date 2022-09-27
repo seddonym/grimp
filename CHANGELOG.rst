@@ -2,8 +2,8 @@
 Changelog
 =========
 
-latest
-------
+2.0 (2022-9-27)
+---------------
 
 * Significantly speed up graph copying.
 * Remove find_all_simple_chains method.
