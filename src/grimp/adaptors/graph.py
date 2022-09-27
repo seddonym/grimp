@@ -1,33 +1,60 @@
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, Union
-import networkx  # type: ignore
-import networkx.algorithms  # type: ignore
+from copy import copy
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
+
+from grimp.algorithms.shortest_path import bidirectional_shortest_path
 from grimp.application.ports import graph
 from grimp.domain.valueobjects import Module
 from grimp.exceptions import ModuleNotPresent
-from grimp.helpers import wrap_generator
 
 
 class ImportGraph(graph.AbstractImportGraph):
     """
-    Implementation of the ImportGraph, backed by a networkx directional graph.
+    Pure Python implementation of the ImportGraph.
     """
 
     def __init__(self) -> None:
-        self._networkx_graph = networkx.DiGraph()
+        # Maps all the modules directly imported by each key.
+        self._importeds_by_importer: Dict[str, Set[str]] = {}
+        # Maps all the modules that directly import each key.
+        self._importers_by_imported: Dict[str, Set[str]] = {}
+
+        self._edge_count = 0
+
         # Instantiate a dict that stores the details for all direct imports.
         self._import_details: Dict[str, List[Dict[str, Any]]] = {}
         self._squashed_modules: Set[str] = set()
+
+    # Dunder methods
+    # --------------
+
+    def __deepcopy__(self, memodict: Dict) -> "ImportGraph":
+        new_graph = ImportGraph()
+        new_graph._importeds_by_importer = {
+            key: value.copy() for key, value in self._importeds_by_importer.items()
+        }
+        new_graph._importers_by_imported = {
+            key: value.copy() for key, value in self._importers_by_imported.items()
+        }
+        new_graph._edge_count = self._edge_count
+
+        # Note: this copies the dictionaries containing each import detail
+        # by *reference*, so be careful about mutating the import details
+        # dictionaries internally.
+        new_graph._import_details = {
+            key: value.copy() for key, value in self._import_details.items()
+        }
+
+        new_graph._squashed_modules = self._squashed_modules.copy()
+
+        return new_graph
 
     # Mechanics
     # ---------
 
     @property
     def modules(self) -> Set[str]:
-        # Recasting the nodes to a set each time is fairly expensive; this significantly speeds
-        # up the building of the graph.
-        if not hasattr(self, "_modules"):
-            self._modules = set(self._networkx_graph.nodes)
-        return self._modules
+        # Note: wrapping this in a set() makes it 10 times slower to build the graph!
+        return cast(Set[str], self._importeds_by_importer.keys())
 
     def add_module(self, module: str, is_squashed: bool = False) -> None:
         ancestor_squashed_module = self._find_ancestor_squashed_module(module)
@@ -43,16 +70,23 @@ class ImportGraph(graph.AbstractImportGraph):
                     "an unsquashed module, or vice versa."
                 )
 
-        self._networkx_graph.add_node(module)
-        self._modules.add(module)
+        self._importeds_by_importer.setdefault(module, set())
+        self._importers_by_imported.setdefault(module, set())
 
         if is_squashed:
             self._mark_module_as_squashed(module)
 
     def remove_module(self, module: str) -> None:
-        if module in self.modules:
-            self._networkx_graph.remove_node(module)
-            self._modules.remove(module)
+        if module not in self.modules:
+            # TODO: rethink this behaviour.
+            return
+
+        for imported in copy(self.find_modules_directly_imported_by(module)):
+            self.remove_import(importer=module, imported=imported)
+        for importer in copy(self.find_modules_that_directly_import(module)):
+            self.remove_import(importer=importer, imported=module)
+        del self._importeds_by_importer[module]
+        del self._importers_by_imported[module]
 
     def squash_module(self, module: str) -> None:
         if self.is_module_squashed(module):
@@ -103,16 +137,38 @@ class ImportGraph(graph.AbstractImportGraph):
                 }
             )
 
-        self._networkx_graph.add_edge(importer, imported)
-        for module in (importer, imported):
-            if module not in self.modules:
-                self.add_module(module)
+        importer_map = self._importeds_by_importer.setdefault(importer, set())
+        imported_map = self._importers_by_imported.setdefault(imported, set())
+        if imported not in importer_map:
+            # (Alternatively could check importer in imported_map.)
+            importer_map.add(imported)
+            imported_map.add(importer)
+            self._edge_count += 1
+
+        # Also ensure they have entry in other maps.
+        self._importeds_by_importer.setdefault(imported, set())
+        self._importers_by_imported.setdefault(importer, set())
 
     def remove_import(self, *, importer: str, imported: str) -> None:
-        self._networkx_graph.remove_edge(importer, imported)
+        if imported in self._importeds_by_importer[importer]:
+            self._importeds_by_importer[importer].remove(imported)
+            self._importers_by_imported[imported].remove(importer)
+            self._edge_count -= 1
+
+            # Clean up import details.
+            if importer in self._import_details:
+                new_details = [
+                    details
+                    for details in self._import_details[importer]
+                    if details["imported"] != imported
+                ]
+                if new_details:
+                    self._import_details[importer] = new_details
+                else:
+                    del self._import_details[importer]
 
     def count_imports(self) -> int:
-        return len(self._networkx_graph.edges)
+        return self._edge_count
 
     # Descendants
     # -----------
@@ -147,9 +203,6 @@ class ImportGraph(graph.AbstractImportGraph):
     def direct_import_exists(
         self, *, importer: str, imported: str, as_packages: bool = False
     ) -> bool:
-        """
-        Whether or not the importer module directly imports the imported module.
-        """
         if not as_packages:
             return imported in self.find_modules_directly_imported_by(importer)
 
@@ -173,17 +226,21 @@ class ImportGraph(graph.AbstractImportGraph):
         return False
 
     def find_modules_directly_imported_by(self, module: str) -> Set[str]:
-        return set(self._networkx_graph.successors(module))
+        return self._importeds_by_importer[module]
 
     def find_modules_that_directly_import(self, module: str) -> Set[str]:
-        return set(self._networkx_graph.predecessors(module))
+        return self._importers_by_imported[module]
 
     def get_import_details(
         self, *, importer: str, imported: str
     ) -> List[Dict[str, Union[str, int]]]:
         import_details_for_importer = self._import_details.get(importer, [])
         # Only include the details for the imported module.
-        return [i for i in import_details_for_importer if i["imported"] == imported]
+        # Note: we copy each details dictionary at this point, as our deepcopying
+        # only copies the dictionaries by reference.
+        return [
+            i.copy() for i in import_details_for_importer if i["imported"] == imported
+        ]
 
     # Indirect imports
     # ----------------
@@ -201,9 +258,7 @@ class ImportGraph(graph.AbstractImportGraph):
 
         for candidate in filter(lambda m: m not in source_modules, self.modules):
             for source_module in source_modules:
-                if networkx.algorithms.has_path(
-                    self._networkx_graph, candidate, source_module
-                ):
+                if self.chain_exists(importer=candidate, imported=source_module):
                     downstream_modules.add(candidate)
                     break
 
@@ -220,9 +275,7 @@ class ImportGraph(graph.AbstractImportGraph):
 
         for candidate in filter(lambda m: m not in destination_modules, self.modules):
             for destination_module in destination_modules:
-                if networkx.algorithms.has_path(
-                    self._networkx_graph, destination_module, candidate
-                ):
+                if self.chain_exists(importer=destination_module, imported=candidate):
                     upstream_modules.add(candidate)
                     break
 
@@ -231,14 +284,16 @@ class ImportGraph(graph.AbstractImportGraph):
     def find_shortest_chain(
         self, importer: str, imported: str
     ) -> Optional[Tuple[str, ...]]:
-        try:
-            return tuple(
-                networkx.algorithms.shortest_path(
-                    self._networkx_graph, source=importer, target=imported
-                )
-            )
-        except networkx.NetworkXNoPath:
-            return None
+        for module in (importer, imported):
+            if module not in self.modules:
+                raise ValueError(f"Module {module} is not present in the graph.")
+
+        return bidirectional_shortest_path(
+            importers_by_imported=self._importers_by_imported,
+            importeds_by_importer=self._importeds_by_importer,
+            importer=importer,
+            imported=imported,
+        )
 
     def find_shortest_chains(
         self, importer: str, imported: str
@@ -297,23 +352,12 @@ class ImportGraph(graph.AbstractImportGraph):
 
         return shortest_chains
 
-    def find_all_simple_chains(
-        self, importer: str, imported: str
-    ) -> Iterator[Tuple[str, ...]]:
-        for module in (importer, imported):
-            if module not in self.modules:
-                raise ModuleNotPresent(f'"{module}" not present in the graph.')
-        all_simple_paths = networkx.algorithms.simple_paths.all_simple_paths(
-            self._networkx_graph, source=importer, target=imported
-        )
-        # Cast the results to tuples.
-        return wrap_generator(all_simple_paths, tuple)
-
-    def chain_exists(self, importer: str, imported: str, as_packages: bool = False) -> bool:
+    def chain_exists(
+        self, importer: str, imported: str, as_packages: bool = False
+    ) -> bool:
         if not as_packages:
-            return networkx.algorithms.has_path(
-                self._networkx_graph, source=importer, target=imported
-            )
+            return bool(self.find_shortest_chain(importer=importer, imported=imported))
+
         upstream_modules = self._all_modules_in_package(imported)
         downstream_modules = self._all_modules_in_package(importer)
 
@@ -392,8 +436,10 @@ class ImportGraph(graph.AbstractImportGraph):
             imports: Set of direct imports, in the form (importer, imported).
         """
         for importer, imported in tuple(imports):
-            if self._networkx_graph.has_edge(importer, imported):
-                self._networkx_graph.remove_edge(importer, imported)
+            if self.direct_import_exists(importer=importer, imported=imported):
+                # Low-level removal from import graph (but leaving other metadata in place).
+                self._importeds_by_importer[importer].remove(imported)
+                self._importers_by_imported[imported].remove(importer)
 
     def _reveal_imports(self, imports: Set[Tuple[str, str]]) -> None:
         """
@@ -403,4 +449,6 @@ class ImportGraph(graph.AbstractImportGraph):
             imports: Set of direct imports, in the form (importer, imported).
         """
         for importer, imported in tuple(imports):
-            self._networkx_graph.add_edge(importer, imported)
+            # Low-level addition to import graph.
+            self._importeds_by_importer[importer].add(imported)
+            self._importers_by_imported[imported].add(importer)

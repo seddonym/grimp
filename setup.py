@@ -54,7 +54,4 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
         'Topic :: Utilities',
     ],
-    install_requires=[
-        'networkx>=2.1,<3',
-    ],
 )
