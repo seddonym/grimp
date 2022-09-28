@@ -290,12 +290,7 @@ class ImportGraph(graph.AbstractImportGraph):
             if module not in self.modules:
                 raise ValueError(f"Module {module} is not present in the graph.")
 
-        return bidirectional_shortest_path(
-            importers_by_imported=self._importers_by_imported,
-            importeds_by_importer=self._importeds_by_importer,
-            importer=importer,
-            imported=imported,
-        )
+        return self._find_shortest_chain(importer=importer, imported=imported)
 
     def find_shortest_chains(
         self, importer: str, imported: str
@@ -339,7 +334,7 @@ class ImportGraph(graph.AbstractImportGraph):
             for downstream in downstream_modules:
                 imports_by_downstream_module = map_of_imports[downstream]
                 self._reveal_imports(imports_by_downstream_module)
-                shortest_chain = self.find_shortest_chain(
+                shortest_chain = self._find_shortest_chain(
                     imported=upstream, importer=downstream
                 )
                 if shortest_chain:
@@ -358,7 +353,7 @@ class ImportGraph(graph.AbstractImportGraph):
         self, importer: str, imported: str, as_packages: bool = False
     ) -> bool:
         if not as_packages:
-            return bool(self.find_shortest_chain(importer=importer, imported=imported))
+            return bool(self._find_shortest_chain(importer=importer, imported=imported))
 
         upstream_modules = self._all_modules_in_package(imported)
         downstream_modules = self._all_modules_in_package(importer)
@@ -454,6 +449,18 @@ class ImportGraph(graph.AbstractImportGraph):
             # Low-level addition to import graph.
             self._importeds_by_importer[importer].add(imported)
             self._importers_by_imported[imported].add(importer)
+
+    def _find_shortest_chain(
+        self, importer: str, imported: str
+    ) -> Optional[Tuple[str, ...]]:
+        # Similar to find_shortest_chain but without bothering to check if the modules are
+        # in the graph first.
+        return bidirectional_shortest_path(
+            importers_by_imported=self._importers_by_imported,
+            importeds_by_importer=self._importeds_by_importer,
+            importer=importer,
+            imported=imported,
+        )
 
 
 _StringSet = Set[str]
