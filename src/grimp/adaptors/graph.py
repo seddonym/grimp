@@ -54,7 +54,9 @@ class ImportGraph(graph.AbstractImportGraph):
     @property
     def modules(self) -> Set[str]:
         # Note: wrapping this in a set() makes it 10 times slower to build the graph!
-        return cast(Set[str], self._importeds_by_importer.keys())
+        # As a further optimisation, we use the _StringSet type alias instead of looking up Set[str]
+        # when casting.
+        return cast(_StringSet, self._importeds_by_importer.keys())
 
     def add_module(self, module: str, is_squashed: bool = False) -> None:
         ancestor_squashed_module = self._find_ancestor_squashed_module(module)
@@ -452,3 +454,6 @@ class ImportGraph(graph.AbstractImportGraph):
             # Low-level addition to import graph.
             self._importeds_by_importer[importer].add(imported)
             self._importers_by_imported[imported].add(importer)
+
+
+_StringSet = Set[str]
