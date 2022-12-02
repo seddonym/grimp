@@ -7,7 +7,7 @@ from grimp.application.ports.filesystem import AbstractFileSystem
 
 class FakeFileSystem(AbstractFileSystem):
     def __init__(
-        self, contents: str = None, content_map: Dict[str, str] = None
+        self, contents: Optional[str] = None, content_map: Optional[Dict[str, str]] = None
     ) -> None:
         """
         Files can be declared as existing in the file system in two different ways, either
