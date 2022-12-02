@@ -4,10 +4,10 @@ cache: pip
 sudo: required
 jobs:
   include:
-    - python: '3.11.0'
+    - python: '3.11'
       env:
         - TOXENV=py311,report,check,docs
-    - python: '3.10.5'
+    - python: '3.10'
       env:
         - TOXENV=py310,report
     - python: '3.9.0'
