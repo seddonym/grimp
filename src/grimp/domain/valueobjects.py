@@ -68,11 +68,13 @@ class DirectImport(ValueObject):
         imported: Module,
         line_number: int,
         line_contents: str,
+        type_checking: bool = False,
     ) -> None:
         self.importer = importer
         self.imported = imported
         self.line_number = line_number
         self.line_contents = line_contents
+        self.type_checking = type_checking
 
     def __str__(self) -> str:
         return "{} -> {} (l. {})".format(self.importer, self.imported, self.line_number)

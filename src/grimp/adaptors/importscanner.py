@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import ast
 import logging
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Final, Type
+from ast import NodeVisitor, If, Import, ImportFrom, Name, Attribute
 
 from grimp import exceptions
 from grimp.application.ports.importscanner import AbstractImportScanner
@@ -10,11 +13,95 @@ from grimp.domain.valueobjects import DirectImport, Module
 logger = logging.getLogger(__name__)
 
 
-class NotAnImport(Exception):
-    pass
+class _TreeWalker(NodeVisitor):
+    def __init__(self,
+                 import_scanner: AbstractImportScanner,
+                 module: Module,
+                 found_package: FoundPackage,
+                 module_lines: List[str],
+                 is_package: bool) -> None:
+        self.module: Final[Module] = module
+        self.found_package: Final[FoundPackage] = found_package
+        self._import_scanner: Final[AbstractImportScanner] = import_scanner
+        self.module_lines: Final[List[str]] = module_lines
+        self.is_package: Final[bool] = is_package
+        self.direct_imports: Set[DirectImport] = set()
+
+        self._type_checking_depth = 0
+        super().__init__()
+
+    @property
+    def found_packages(self) -> Set[FoundPackage]:
+        return self._import_scanner.found_packages
+
+    @property
+    def include_external_packages(self) -> bool:
+        return self._import_scanner.include_external_packages
+
+    @property
+    def is_type_checking(self) -> bool:
+        return self._type_checking_depth > 0
+
+    def visit_Import(self, node: Import) -> None:
+        print(f"IMPORT {node.names}! {self.is_type_checking}")
+        self._parse_direct_imports_from_node(node, _ImportNodeParser)
+
+    def visit_ImportFrom(self, node: ImportFrom) -> None:
+        print(f"IMPORT {node.names}! {self.is_type_checking}")
+        self._parse_direct_imports_from_node(node, _ImportFromNodeParser)
+
+    def _parse_direct_imports_from_node(
+        self,
+        node: ast.AST,
+        parser_cls: Type[_BaseNodeParser]
+    ) -> None:
+        """
+        Parse an ast node into a set of DirectImports.
+        """
+        parser = parser_cls(
+            node=node,
+            module=self.module,
+            found_package=self.found_package,
+            found_packages=self.found_packages,
+            is_package=self.is_package,
+        )
+
+        for imported in parser.determine_imported_modules(
+            include_external_packages=self.include_external_packages
+        ):
+            self.direct_imports.add(
+                DirectImport(
+                    importer=self.module,
+                    imported=imported,
+                    line_number=node.lineno,
+                    line_contents=self.module_lines[node.lineno - 1].strip(),
+                    type_checking=self.is_type_checking
+                )
+            )
+
+    # def visit_Name(self, node: Name) -> None:
+    #     print(node.id)
+    #
+    # def visit_Attribute(self, node: Name) -> None:
+    #     print(node.id)
+
+    def visit_If(self, node: If) -> None:
+        cond = False
+        if isinstance(node.test, Attribute):
+            cond = node.test.attr == "TYPE_CHECKING"
+        elif isinstance(node.test, Name):
+            cond = node.test.id == "TYPE_CHECKING"
+
+        if cond:
+            self._type_checking_depth += 1
+            super().generic_visit(node)
+            self._type_checking_depth -= 1
+        else:
+            super().generic_visit(node)
 
 
-class ImportScanner(AbstractImportScanner):
+class ImportScanner(AbstractImportScanner, NodeVisitor):
+
     def scan_for_imports(self, module: Module) -> Set[DirectImport]:
         """
         Note: this method only analyses the module in question and will not load any other
@@ -22,8 +109,6 @@ class ImportScanner(AbstractImportScanner):
         because you can't know whether "from foo.bar import baz" is importing a module
         called  `baz`, or a function `baz` from the module `bar`.)
         """
-        direct_imports: Set[DirectImport] = set()
-
         found_package = self._found_package_for_module(module)
         module_filename = self._determine_module_filename(module, found_package)
         is_package = self._module_is_package(module_filename)
@@ -37,50 +122,11 @@ class ImportScanner(AbstractImportScanner):
                 lineno=e.lineno,
                 text=e.text,
             )
-        for node in ast.walk(ast_tree):
-            direct_imports |= self._parse_direct_imports_from_node(
-                node, module, found_package, module_lines, is_package
-            )
 
-        return direct_imports
+        walker = _TreeWalker(self, module, found_package, module_lines, is_package)
+        walker.visit(ast_tree)
 
-    def _parse_direct_imports_from_node(
-        self,
-        node: ast.AST,
-        module: Module,
-        found_package: FoundPackage,
-        module_lines: List[str],
-        is_package: bool,
-    ) -> Set[DirectImport]:
-        """
-        Parse an ast node into a set of DirectImports.
-        """
-        try:
-            parser = _get_node_parser(
-                node=node,
-                module=module,
-                found_package=found_package,
-                found_packages=self.found_packages,
-                is_package=is_package,
-            )
-        except NotAnImport:
-            return set()
-
-        direct_imports: Set[DirectImport] = set()
-
-        for imported in parser.determine_imported_modules(
-            include_external_packages=self.include_external_packages
-        ):
-            direct_imports.add(
-                DirectImport(
-                    importer=module,
-                    imported=imported,
-                    line_number=node.lineno,
-                    line_contents=module_lines[node.lineno - 1].strip(),
-                )
-            )
-
-        return direct_imports
+        return walker.direct_imports
 
     def _determine_module_filename(
         self, module: Module, found_package: FoundPackage
@@ -369,31 +415,3 @@ class _ImportFromNodeParser(_BaseNodeParser):
             if include_external_packages:
                 return self._distill_external_module(untrimmed_module)
         return None
-
-
-def _get_node_parser(
-    node: ast.AST,
-    module: Module,
-    found_package: FoundPackage,
-    found_packages: Set[FoundPackage],
-    is_package: bool,
-) -> _BaseNodeParser:
-    """
-    Return a NodeParser instance for the supplied node.
-
-    Raises NotAnImport if the supplied node is not an import statement.
-    """
-    parser_class_map = {
-        ast.ImportFrom: _ImportFromNodeParser,
-        ast.Import: _ImportNodeParser,
-    }
-    for node_class, parser_class in parser_class_map.items():
-        if isinstance(node, node_class):
-            return parser_class(
-                node=node,
-                module=module,
-                found_package=found_package,
-                found_packages=found_packages,
-                is_package=is_package,
-            )
-    raise NotAnImport

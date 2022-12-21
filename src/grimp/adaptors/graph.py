@@ -123,6 +123,7 @@ class ImportGraph(graph.AbstractImportGraph):
         imported: str,
         line_number: Optional[int] = None,
         line_contents: Optional[str] = None,
+        type_checking: bool = False,
     ) -> None:
         if any((line_number, line_contents)):
             if not all((line_number, line_contents)):
@@ -136,6 +137,7 @@ class ImportGraph(graph.AbstractImportGraph):
                     "imported": imported,
                     "line_number": line_number,
                     "line_contents": line_contents,
+                    "type_checking": type_checking,
                 }
             )
 

@@ -69,6 +69,7 @@ class AbstractImportGraph(abc.ABC):
         imported: str,
         line_number: Optional[int] = None,
         line_contents: Optional[str] = None,
+        type_checking: bool = False,
     ) -> None:
         """
         Add a direct import between two modules to the graph. If the modules are not already
