@@ -27,7 +27,7 @@ class _TreeWalker(NodeVisitor):
         self.is_package: Final[bool] = is_package
         self.direct_imports: Set[DirectImport] = set()
 
-        self._type_checking_depth = 0
+        self.is_type_checking = False
         super().__init__()
 
     @property
@@ -38,16 +38,10 @@ class _TreeWalker(NodeVisitor):
     def include_external_packages(self) -> bool:
         return self._import_scanner.include_external_packages
 
-    @property
-    def is_type_checking(self) -> bool:
-        return self._type_checking_depth > 0
-
     def visit_Import(self, node: Import) -> None:
-        print(f"IMPORT {node.names}! {self.is_type_checking}")
         self._parse_direct_imports_from_node(node, _ImportNodeParser)
 
     def visit_ImportFrom(self, node: ImportFrom) -> None:
-        print(f"IMPORT {node.names}! {self.is_type_checking}")
         self._parse_direct_imports_from_node(node, _ImportFromNodeParser)
 
     def _parse_direct_imports_from_node(
@@ -79,23 +73,20 @@ class _TreeWalker(NodeVisitor):
                 )
             )
 
-    # def visit_Name(self, node: Name) -> None:
-    #     print(node.id)
-    #
-    # def visit_Attribute(self, node: Name) -> None:
-    #     print(node.id)
-
     def visit_If(self, node: If) -> None:
         cond = False
         if isinstance(node.test, Attribute):
+            # Case for "if t.TYPE_CHECKING:" or "if typing.TYPE_CHECKING:"
             cond = node.test.attr == "TYPE_CHECKING"
         elif isinstance(node.test, Name):
+            # Case for "if TYPE_CHECKING:"
             cond = node.test.id == "TYPE_CHECKING"
 
-        if cond:
-            self._type_checking_depth += 1
+        if cond and not self.is_type_checking:
+            self.is_type_checking = True
+            # Process nodes under the if condition
             super().generic_visit(node)
-            self._type_checking_depth -= 1
+            self.is_type_checking = False
         else:
             super().generic_visit(node)
 
