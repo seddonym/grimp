@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 import logging
-from typing import List, Optional, Set, Final, Type
+from typing import List, Optional, Set, Final, Type, Union, overload
 from ast import NodeVisitor, If, Import, ImportFrom, Name, Attribute
 
 from grimp import exceptions
@@ -44,9 +44,42 @@ class _TreeWalker(NodeVisitor):
     def visit_ImportFrom(self, node: ImportFrom) -> None:
         self._parse_direct_imports_from_node(node, _ImportFromNodeParser)
 
+    def visit_If(self, node: If) -> None:
+        cond = False
+        if isinstance(node.test, Attribute):
+            # Case for "if t.TYPE_CHECKING:" or "if typing.TYPE_CHECKING:"
+            cond = node.test.attr == "TYPE_CHECKING"
+        elif isinstance(node.test, Name):
+            # Case for "if TYPE_CHECKING:"
+            cond = node.test.id == "TYPE_CHECKING"
+
+        if cond and not self.is_type_checking:
+            self.is_type_checking = True
+            # Process nodes under the if condition
+            super().generic_visit(node)
+            self.is_type_checking = False
+        else:
+            super().generic_visit(node)
+
+    @overload
     def _parse_direct_imports_from_node(
         self,
-        node: ast.AST,
+        node: Import,
+        parser_cls: Type[_ImportNodeParser]
+    ) -> None:
+        ...
+
+    @overload
+    def _parse_direct_imports_from_node(
+        self,
+        node: ImportFrom,
+        parser_cls: Type[_ImportFromNodeParser]
+    ) -> None:
+        ...
+
+    def _parse_direct_imports_from_node(
+        self,
+        node: Union[Import, ImportFrom],
         parser_cls: Type[_BaseNodeParser]
     ) -> None:
         """
@@ -73,25 +106,8 @@ class _TreeWalker(NodeVisitor):
                 )
             )
 
-    def visit_If(self, node: If) -> None:
-        cond = False
-        if isinstance(node.test, Attribute):
-            # Case for "if t.TYPE_CHECKING:" or "if typing.TYPE_CHECKING:"
-            cond = node.test.attr == "TYPE_CHECKING"
-        elif isinstance(node.test, Name):
-            # Case for "if TYPE_CHECKING:"
-            cond = node.test.id == "TYPE_CHECKING"
 
-        if cond and not self.is_type_checking:
-            self.is_type_checking = True
-            # Process nodes under the if condition
-            super().generic_visit(node)
-            self.is_type_checking = False
-        else:
-            super().generic_visit(node)
-
-
-class ImportScanner(AbstractImportScanner, NodeVisitor):
+class ImportScanner(AbstractImportScanner):
 
     def scan_for_imports(self, module: Module) -> Set[DirectImport]:
         """
