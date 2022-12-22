@@ -66,6 +66,7 @@ class TestCopy:
                 "imported": "bar",
                 "line_number": 3,
                 "line_contents": "import bar",
+                "type_checking": False,
             }
         ]
 
@@ -703,6 +704,7 @@ class TestFindShortestChains:
             "imported": "blue.bar",
             "line_contents": "import blue.bar",
             "line_number": 5,
+            "type_checking": False,
         }
         graph.add_import(**import_details)
 
@@ -934,6 +936,7 @@ class TestRemoveModule:
                 "imported": c,
                 "line_contents": "import mypackage.yellow",
                 "line_number": 2,
+                "type_checking": False,
             }
         ]
 
@@ -962,6 +965,7 @@ class TestRemoveModule:
                 "imported": c,
                 "line_contents": "import mypackage.yellow",
                 "line_number": 2,
+                "type_checking": False,
             }
         ]
 
@@ -1084,6 +1088,7 @@ class TestRemoveImport:
                 "imported": c,
                 "line_contents": "import mypackage.yellow",
                 "line_number": 2,
+                "type_checking": False,
             }
         ]
 
@@ -1098,12 +1103,14 @@ class TestGetImportDetails:
                 imported="mypackage.bar",
                 line_number=1,
                 line_contents="from . import bar",
+                type_checking=False,
             ),
             dict(
                 importer="mypackage.foo",
                 imported="mypackage.bar",
                 line_number=10,
                 line_contents="from .bar import a_function",
+                type_checking=False,
             ),
         ]
         for import_info in imports_info:
@@ -1135,6 +1142,7 @@ class TestGetImportDetails:
                 imported="mypackage.bar",
                 line_number=1,
                 line_contents="from . import bar",
+                type_checking=False,
             )
         ]
         graph.add_import(**imports_info[0])
@@ -1287,6 +1295,7 @@ class TestSquashModule:
             imported="bar.blue",
             line_number=1,
             line_contents="from . import bar",
+            type_checking=False,
         )
         graph.add_import(**import_details)
 
@@ -1309,6 +1318,7 @@ class TestSquashModule:
             imported="foo",
             line_number=1,
             line_contents="from . import foo",
+            type_checking=False,
         )
         graph.add_import(**import_details)
 

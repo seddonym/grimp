@@ -47,6 +47,7 @@ class TestBuildGraph:
                 "imported": "rootpackageblue.one.alpha",
                 "line_number": 1,
                 "line_contents": "from .one.alpha import BAR",
+                "type_checking": False,
             }
         ] == graph.get_import_details(
             importer="rootpackageblue.two", imported="rootpackageblue.one.alpha"
@@ -61,6 +62,7 @@ class TestBuildGraph:
                 "imported": "rootpackageblue.one.alpha",
                 "line_number": 1,
                 "line_contents": "from rootpackageblue.one import alpha",
+                "type_checking": False,
             }
         ] == graph.get_import_details(
             importer="rootpackagegreen.two", imported="rootpackageblue.one.alpha"

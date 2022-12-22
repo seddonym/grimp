@@ -146,6 +146,7 @@ def test_get_import_details():
             "imported": "testpackage.two.alpha",
             "line_number": 5,
             "line_contents": "from .two import alpha",
+            "type_checking": False,
         }
     ] == graph.get_import_details(
         importer="testpackage.utils", imported="testpackage.two.alpha"

@@ -17,5 +17,6 @@ def test_build_graph_of_non_ascii_source():
             "imported": "encodingpackage.imported",
             "line_number": 1,
             "line_contents": "from .imported import π",
+            "type_checking": False,
         },
     ] == result
