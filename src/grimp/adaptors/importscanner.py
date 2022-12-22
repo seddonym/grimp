@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 import logging
-from typing import List, Optional, Set, Final, Type, Union, overload
+from typing import List, Optional, Set, Type, Union, overload
 from ast import NodeVisitor, If, Import, ImportFrom, Name, Attribute
 
 from grimp import exceptions
@@ -20,11 +20,11 @@ class _TreeWalker(NodeVisitor):
                  found_package: FoundPackage,
                  module_lines: List[str],
                  is_package: bool) -> None:
-        self.module: Final[Module] = module
-        self.found_package: Final[FoundPackage] = found_package
-        self._import_scanner: Final[AbstractImportScanner] = import_scanner
-        self.module_lines: Final[List[str]] = module_lines
-        self.is_package: Final[bool] = is_package
+        self.module = module
+        self.found_package = found_package
+        self._import_scanner = import_scanner
+        self.module_lines = module_lines
+        self.is_package = is_package
         self.direct_imports: Set[DirectImport] = set()
 
         self.is_type_checking = False
