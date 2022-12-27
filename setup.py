@@ -55,4 +55,8 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
         'Topic :: Utilities',
     ],
+    python_requires=">=3.7",
+    install_requires=[
+        "typing-extensions>=3.10.0.0",
+    ],
 )
