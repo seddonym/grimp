@@ -38,6 +38,10 @@ class FakeFileSystem(AbstractFileSystem):
         self.contents = self._parse_contents(contents)
         self.content_map = content_map if content_map else {}
 
+    @property
+    def sep(self) -> str:
+        return "/"
+
     def dirname(self, filename: str) -> str:
         """
         Return the full path to the directory name of the supplied filename.

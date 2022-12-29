@@ -7,6 +7,15 @@ class AbstractFileSystem(abc.ABC):
     Abstraction around file system calls.
     """
 
+    @property
+    @abc.abstractmethod
+    def sep(self) -> str:
+        """
+        Return the file separator for the FileSystem.
+
+        E.G. '/' for UNIX systems and '\\' for Windows systems
+        """
+
     @abc.abstractmethod
     def dirname(self, filename: str) -> str:
         """
