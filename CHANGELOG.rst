@@ -2,8 +2,8 @@
 Changelog
 =========
 
-latest
-------
+2.2 (2023-1-5)
+--------------
 
 * Annotate get_import_details return value with a DetailedImport.
 
