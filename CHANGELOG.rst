@@ -2,6 +2,11 @@
 Changelog
 =========
 
+latest
+------
+
+* Annotate get_import_details return value with a DetailedImport.
+
 2.1 (2022-12-2)
 ---------------
 

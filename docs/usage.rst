@@ -158,7 +158,8 @@ Methods for analysing direct imports
     :param str importer: A module name.
     :param str imported: A module name.
     :return: A list of any available metadata for imports between two modules.
-    :rtype: List of dictionaries.
+    :rtype: List of dictionaries with the structure shown above. If you want to use type annotations, you may use the
+        ``grimp.DetailedImport`` TypedDict for each dictionary.
 
 .. py:function:: ImportGraph.count_imports()
 
