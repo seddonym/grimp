@@ -1,5 +1,5 @@
 from copy import copy
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
+from typing import Dict, List, Optional, Set, Tuple, cast
 
 from grimp.algorithms.shortest_path import bidirectional_shortest_path
 from grimp.application.ports import graph
@@ -21,7 +21,7 @@ class ImportGraph(graph.AbstractImportGraph):
         self._edge_count = 0
 
         # Instantiate a dict that stores the details for all direct imports.
-        self._import_details: Dict[str, List[Dict[str, Any]]] = {}
+        self._import_details: Dict[str, List[graph.DetailedImport]] = {}
         self._squashed_modules: Set[str] = set()
 
     # Dunder methods
@@ -135,9 +135,8 @@ class ImportGraph(graph.AbstractImportGraph):
                 {
                     "importer": importer,
                     "imported": imported,
-                    "line_number": line_number,
-                    "line_contents": line_contents,
-                    "type_checking": type_checking,
+                    "line_number": cast(int, line_number),
+                    "line_contents": cast(str, line_contents),
                 }
             )
 
@@ -237,7 +236,7 @@ class ImportGraph(graph.AbstractImportGraph):
 
     def get_import_details(
         self, *, importer: str, imported: str
-    ) -> List[Dict[str, Union[str, int]]]:
+    ) -> List[graph.DetailedImport]:
         import_details_for_importer = self._import_details.get(importer, [])
         # Only include the details for the imported module.
         # Note: we copy each details dictionary at this point, as our deepcopying

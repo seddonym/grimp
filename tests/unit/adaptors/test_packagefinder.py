@@ -5,6 +5,7 @@ import pytest  # type: ignore
 
 from grimp import exceptions
 from grimp.adaptors.packagefinder import ImportLibPackageFinder
+from grimp.adaptors.filesystem import FileSystem
 from tests.adaptors.filesystem import FakeFileSystem
 
 assets = (Path(__file__).parent.parent.parent / "assets").resolve()
@@ -26,7 +27,7 @@ assets = (Path(__file__).parent.parent.parent / "assets").resolve()
 )
 def test_determine_package_directory(package, expected):
     assert ImportLibPackageFinder().determine_package_directory(
-        package, FakeFileSystem()
+        package, FileSystem()
     ) == str(expected)
 
 

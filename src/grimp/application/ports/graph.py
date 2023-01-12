@@ -1,5 +1,14 @@
 import abc
-from typing import Dict, Iterator, List, Optional, Set, Tuple, Union
+from typing import Iterator, List, Optional, Set, Tuple
+
+from typing_extensions import TypedDict
+
+
+class DetailedImport(TypedDict):
+    importer: str
+    imported: str
+    line_number: int
+    line_contents: str
 
 
 class AbstractImportGraph(abc.ABC):
@@ -145,7 +154,7 @@ class AbstractImportGraph(abc.ABC):
     @abc.abstractmethod
     def get_import_details(
         self, *, importer: str, imported: str
-    ) -> List[Dict[str, Union[str, int]]]:
+    ) -> List[DetailedImport]:
         """
         Return available metadata relating to the direct imports between two modules, in the form:
         [

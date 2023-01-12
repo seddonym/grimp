@@ -10,6 +10,10 @@ class FileSystem(AbstractFileSystem):
     Abstraction around file system calls.
     """
 
+    @property
+    def sep(self) -> str:
+        return os.sep
+
     def dirname(self, filename: str) -> str:
         return os.path.dirname(filename)
 

@@ -21,7 +21,7 @@ def read(*names, **kwargs):
 
 setup(
     name='grimp',
-    version='2.1',
+    version='2.2',
     license='BSD 2-Clause License',
     description="Builds a queryable graph of the imports within one or more Python packages.",
     long_description=read('README.rst'),
@@ -54,5 +54,9 @@ setup(
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: Implementation :: CPython',
         'Topic :: Utilities',
+    ],
+    python_requires=">=3.7",
+    install_requires=[
+        "typing-extensions>=3.10.0.0",
     ],
 )
