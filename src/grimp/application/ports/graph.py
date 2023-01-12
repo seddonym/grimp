@@ -9,6 +9,7 @@ class DetailedImport(TypedDict):
     imported: str
     line_number: int
     line_contents: str
+    type_checking: bool
 
 
 class AbstractImportGraph(abc.ABC):

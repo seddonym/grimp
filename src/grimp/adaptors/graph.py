@@ -137,6 +137,7 @@ class ImportGraph(graph.AbstractImportGraph):
                     "imported": imported,
                     "line_number": cast(int, line_number),
                     "line_contents": cast(str, line_contents),
+                    "type_checking": type_checking
                 }
             )
 
