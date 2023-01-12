@@ -164,6 +164,7 @@ class AbstractImportGraph(abc.ABC):
                 'imported': 'mypackage.imported',
                 'line_number': 5,
                 'line_contents': 'from mypackage import imported',
+                'type_checking': False
             },
             (additional imports here)
         ]

@@ -2,6 +2,11 @@
 Changelog
 =========
 
+latest
+------
+
+* Add type_checking metadata to get_import_details.
+
 2.2 (2023-1-5)
 --------------
 

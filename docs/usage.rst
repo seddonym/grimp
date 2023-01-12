@@ -149,11 +149,14 @@ Methods for analysing direct imports
                 'imported': 'mypackage.imported',
                 'line_number': 5,
                 'line_contents': 'from mypackage import imported',
+                'type_checking': False
             },
             # (additional imports here)
         ]
 
     If no such import exists, or if there are no available details, an empty list will be returned.
+
+    The ``type_checking`` metadata indicates whether the import was made under a ``TYPE_CHECKING`` guard (`relevant Python docs`_).
 
     :param str importer: A module name.
     :param str imported: A module name.
@@ -165,6 +168,8 @@ Methods for analysing direct imports
 
     :return: The number of direct imports in the graph.
     :rtype: Integer.
+
+.. _relevant Python docs: https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING
 
 Methods for analysing import chains
 -----------------------------------

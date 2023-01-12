@@ -75,6 +75,7 @@ You may now use the graph object to analyse the package. Some examples::
             'imported': 'somepackage.baz',
             'line_number': 5,
             'line_contents': 'from . import baz',
+            'type_checking': False
         },
     ]
 
