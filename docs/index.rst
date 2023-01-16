@@ -8,6 +8,7 @@ Contents
    readme
    installation
    usage
+   caching
    networkx
    contributing
    authors
