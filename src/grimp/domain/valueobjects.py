@@ -6,7 +6,7 @@ class ValueObject:
         return "<{}: {}>".format(self.__class__.__name__, self)
 
     def __eq__(self, other: Any) -> bool:
-        if isinstance(other, self.__class__):
+        if isinstance(other, type(self)) or isinstance(self, type(other)):
             return hash(self) == hash(other)
         else:
             return False
