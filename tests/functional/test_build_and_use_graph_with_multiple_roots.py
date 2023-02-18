@@ -25,7 +25,7 @@ PACKAGES_IN_DIFFERENT_ORDERS = (
 @pytest.mark.parametrize("root_packages", PACKAGES_IN_DIFFERENT_ORDERS)
 class TestBuildGraph:
     def test_graph_has_correct_modules_regardless_of_package_order(self, root_packages):
-        graph = build_graph(*root_packages)
+        graph = build_graph(*root_packages, cache_dir=None)
 
         assert graph.modules == {
             "rootpackageblue",
@@ -39,7 +39,7 @@ class TestBuildGraph:
         }
 
     def test_stores_import_within_package(self, root_packages):
-        graph = build_graph(*root_packages)
+        graph = build_graph(*root_packages, cache_dir=None)
 
         assert [
             {
@@ -53,7 +53,7 @@ class TestBuildGraph:
         )
 
     def test_stores_import_between_root_packages(self, root_packages):
-        graph = build_graph(*root_packages)
+        graph = build_graph(*root_packages, cache_dir=None)
 
         assert [
             {

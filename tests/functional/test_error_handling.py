@@ -13,7 +13,7 @@ def test_syntax_error_includes_module():
     )
 
     with pytest.raises(exceptions.SourceSyntaxError) as excinfo:
-        build_graph("syntaxerrorpackage")
+        build_graph("syntaxerrorpackage", cache_dir=None)
 
     expected_exception = exceptions.SourceSyntaxError(
         filename=filename, lineno=5, text="fromb . import two\n"
@@ -30,4 +30,4 @@ def test_missing_root_init_file():
             "using namespace packages, adding an __init__.py file should fix the problem."
         ),
     ):
-        build_graph("missingrootinitpackage")
+        build_graph("missingrootinitpackage", cache_dir=None)

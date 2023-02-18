@@ -96,7 +96,7 @@ class FakeFileSystem(AbstractFileSystem):
                 )
 
     def join(self, *components: str) -> str:
-        return "/".join(components)
+        return self.sep.join(c.rstrip(self.sep) for c in components)
 
     def split(self, file_name: str) -> Tuple[str, str]:
         components = file_name.split("/")

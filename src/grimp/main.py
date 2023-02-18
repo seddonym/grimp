@@ -1,13 +1,13 @@
 __all__ = ["build_graph"]
 
-from .application.usecases import build_graph
-from .application.config import settings
-from .adaptors.importscanner import ImportScanner
-from .adaptors.modulefinder import ModuleFinder
+from .adaptors.caching import Cache
 from .adaptors.filesystem import FileSystem
 from .adaptors.graph import ImportGraph
+from .adaptors.importscanner import ImportScanner
+from .adaptors.modulefinder import ModuleFinder
 from .adaptors.packagefinder import ImportLibPackageFinder
-
+from .application.config import settings
+from .application.usecases import build_graph
 
 settings.configure(
     MODULE_FINDER=ModuleFinder(),
@@ -15,4 +15,5 @@ settings.configure(
     IMPORT_SCANNER_CLASS=ImportScanner,
     IMPORT_GRAPH_CLASS=ImportGraph,
     PACKAGE_FINDER=ImportLibPackageFinder(),
+    CACHE_CLASS=Cache,
 )

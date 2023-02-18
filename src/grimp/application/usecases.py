@@ -1,8 +1,9 @@
 """
 Use cases handle application logic.
 """
-from typing import Dict, Sequence, Set, cast
+from typing import Dict, Sequence, Set, Type, Union, cast
 
+from ..application.ports import caching
 from ..application.ports.filesystem import AbstractFileSystem
 from ..application.ports.graph import AbstractImportGraph
 from ..application.ports.importscanner import AbstractImportScanner
@@ -12,8 +13,15 @@ from ..domain.valueobjects import DirectImport, Module
 from .config import settings
 
 
+class NotSupplied:
+    pass
+
+
 def build_graph(
-    package_name, *additional_package_names, include_external_packages: bool = False
+    package_name,
+    *additional_package_names,
+    include_external_packages: bool = False,
+    cache_dir: Union[str, Type[NotSupplied], None] = NotSupplied,
 ) -> AbstractImportGraph:
     """
     Build and return an import graph for the supplied package name(s).
@@ -45,11 +53,9 @@ def build_graph(
 
     imports_by_module = _scan_packages(
         found_packages=found_packages,
-        import_scanner=settings.IMPORT_SCANNER_CLASS(
-            file_system=file_system,
-            found_packages=found_packages,
-            include_external_packages=include_external_packages,
-        ),
+        file_system=file_system,
+        include_external_packages=include_external_packages,
+        cache_dir=cache_dir,
     )
 
     graph = _assemble_graph(found_packages, imports_by_module)
@@ -92,13 +98,42 @@ def _validate_package_names_are_strings(
 
 
 def _scan_packages(
-    found_packages: Set[FoundPackage], import_scanner: AbstractImportScanner
+    found_packages: Set[FoundPackage],
+    file_system: AbstractFileSystem,
+    include_external_packages: bool,
+    cache_dir: Union[str, Type[NotSupplied], None],
 ) -> Dict[Module, Set[DirectImport]]:
     imports_by_module: Dict[Module, Set[DirectImport]] = {}
+    if cache_dir is not None:
+        cache_dir_if_supplied = (
+            cache_dir if cache_dir != NotSupplied else None
+        )
+        cache: caching.Cache = settings.CACHE_CLASS.setup(
+            file_system=file_system,
+            found_packages=found_packages,
+            include_external_packages=include_external_packages,
+            cache_dir=cache_dir_if_supplied,
+        )
+    import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
+        file_system=file_system,
+        found_packages=found_packages,
+        include_external_packages=include_external_packages,
+    )
+
     for found_package in found_packages:
-        for module in found_package.modules:
-            direct_imports = import_scanner.scan_for_imports(module)
+        for module_file in found_package.module_files:
+            module = module_file.module
+            try:
+                if cache_dir is None:
+                    raise caching.CacheMiss
+                direct_imports = cache.read_imports(module_file)
+            except caching.CacheMiss:
+                direct_imports = import_scanner.scan_for_imports(module)
             imports_by_module[module] = direct_imports
+
+    if cache_dir is not None:
+        cache.write(imports_by_module)
+
     return imports_by_module
 
 
