@@ -1,5 +1,5 @@
-from typing import Iterator, List, Tuple
 import abc
+from typing import Iterator, List, Tuple
 
 
 class AbstractFileSystem(abc.ABC):
@@ -62,5 +62,21 @@ class AbstractFileSystem(abc.ABC):
     def exists(self, file_name: str) -> bool:
         """
         Return whether a file exists.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_mtime(self, file_name: str) -> float:
+        """
+        Return the mtime of a file.
+
+        Raises FileNotFoundError if the file does not exist.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def write(self, file_name: str, contents: str) -> None:
+        """
+        Write the contents to a file.
         """
         raise NotImplementedError

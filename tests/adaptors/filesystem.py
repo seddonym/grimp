@@ -1,13 +1,18 @@
-from typing import List, Tuple, Any, Dict, Optional, Generator
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import yaml
 
 from grimp.application.ports.filesystem import AbstractFileSystem
 
+DEFAULT_MTIME = 10000.0
+
 
 class FakeFileSystem(AbstractFileSystem):
     def __init__(
-        self, contents: Optional[str] = None, content_map: Optional[Dict[str, str]] = None
+        self,
+        contents: Optional[str] = None,
+        content_map: Optional[Dict[str, str]] = None,
+        mtime_map: Optional[Dict[str, float]] = None,
     ) -> None:
         """
         Files can be declared as existing in the file system in two different ways, either
@@ -34,9 +39,12 @@ class FakeFileSystem(AbstractFileSystem):
                 {
                     '/path/to/foo/__init__.py': "from . import one",
                 }
+            mtime_map: A dictionary keyed with filenames, with values that are the mtimes
+                       i.e. last modified times.
         """
         self.contents = self._parse_contents(contents)
         self.content_map = content_map if content_map else {}
+        self.mtime_map: Dict[str, float] = mtime_map if mtime_map else {}
 
     @property
     def sep(self) -> str:
@@ -172,3 +180,12 @@ class FakeFileSystem(AbstractFileSystem):
             except KeyError:
                 return False
         return True
+
+    def get_mtime(self, file_name: str) -> float:
+        if not self.exists(file_name):
+            raise FileNotFoundError(f"{file_name} does not exist.")
+        return self.mtime_map.get(file_name, DEFAULT_MTIME)
+
+    def write(self, file_name: str, contents: str) -> None:
+        self.content_map[file_name] = contents
+        self.mtime_map[file_name] = DEFAULT_MTIME
