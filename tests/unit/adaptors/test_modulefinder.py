@@ -1,12 +1,12 @@
 from grimp.adaptors.modulefinder import ModuleFinder
-from grimp.application.ports.modulefinder import FoundPackage
+from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.domain.valueobjects import Module
-from tests.adaptors.filesystem import FakeFileSystem
+from tests.adaptors.filesystem import DEFAULT_MTIME, FakeFileSystem
 
 
 def test_happy_path():
     module_finder = ModuleFinder()
-
+    SOME_MTIME = 12340000.3
     file_system = FakeFileSystem(
         contents="""
         /path/to/mypackage/
@@ -20,7 +20,10 @@ def test_happy_path():
                     __init__.py
                     green.py
                     blue.py
-        """
+        """,
+        mtime_map={
+            "/path/to/mypackage/foo/one.py": SOME_MTIME,
+        },
     )
 
     result = module_finder.find_package(
@@ -32,14 +35,18 @@ def test_happy_path():
     assert result == FoundPackage(
         name="mypackage",
         directory="/path/to/mypackage",
-        modules=frozenset(
+        module_files=frozenset(
             {
-                Module("mypackage"),
-                Module("mypackage.foo"),
-                Module("mypackage.foo.one"),
-                Module("mypackage.foo.two"),
-                Module("mypackage.foo.two.green"),
-                Module("mypackage.foo.two.blue"),
+                ModuleFile(module=Module("mypackage"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("mypackage.foo"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("mypackage.foo.one"), mtime=SOME_MTIME),
+                ModuleFile(module=Module("mypackage.foo.two"), mtime=DEFAULT_MTIME),
+                ModuleFile(
+                    module=Module("mypackage.foo.two.green"), mtime=DEFAULT_MTIME
+                ),
+                ModuleFile(
+                    module=Module("mypackage.foo.two.blue"), mtime=DEFAULT_MTIME
+                ),
             }
         ),
     )
@@ -70,13 +77,21 @@ def test_namespaced_packages():
     assert result == FoundPackage(
         name="somenamespace.foo",
         directory="/path/to/somenamespace/foo",
-        modules=frozenset(
+        module_files=frozenset(
             {
-                Module("somenamespace.foo"),
-                Module("somenamespace.foo.blue"),
-                Module("somenamespace.foo.green"),
-                Module("somenamespace.foo.green.one"),
-                Module("somenamespace.foo.green.two"),
+                ModuleFile(module=Module("somenamespace.foo"), mtime=DEFAULT_MTIME),
+                ModuleFile(
+                    module=Module("somenamespace.foo.blue"), mtime=DEFAULT_MTIME
+                ),
+                ModuleFile(
+                    module=Module("somenamespace.foo.green"), mtime=DEFAULT_MTIME
+                ),
+                ModuleFile(
+                    module=Module("somenamespace.foo.green.one"), mtime=DEFAULT_MTIME
+                ),
+                ModuleFile(
+                    module=Module("somenamespace.foo.green.two"), mtime=DEFAULT_MTIME
+                ),
             }
         ),
     )
@@ -110,11 +125,11 @@ def test_ignores_orphaned_python_files():
     assert result == FoundPackage(
         name="mypackage",
         directory="/path/to/mypackage",
-        modules=frozenset(
+        module_files=frozenset(
             {
-                Module("mypackage"),
-                Module("mypackage.two"),
-                Module("mypackage.two.green"),
+                ModuleFile(module=Module("mypackage"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("mypackage.two"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("mypackage.two.green"), mtime=DEFAULT_MTIME),
             }
         ),
     )
@@ -147,11 +162,11 @@ def test_ignores_hidden_directories():
     assert result == FoundPackage(
         name="mypackage",
         directory="/path/to/mypackage",
-        modules=frozenset(
+        module_files=frozenset(
             {
-                Module("mypackage"),
-                Module("mypackage.two"),
-                Module("mypackage.two.green"),
+                ModuleFile(Module("mypackage"), mtime=DEFAULT_MTIME),
+                ModuleFile(Module("mypackage.two"), mtime=DEFAULT_MTIME),
+                ModuleFile(Module("mypackage.two.green"), mtime=DEFAULT_MTIME),
             }
         ),
     )
