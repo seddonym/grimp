@@ -8,6 +8,7 @@ TEST_ASSETS = (
     ASSETS_PATH / "multipleroots",
     ASSETS_PATH / "namespacepackages" / "locationone",
     ASSETS_PATH / "namespacepackages" / "locationtwo",
+    ASSETS_PATH / "caching",
 )
 
 # Add test assets to the Python path.
