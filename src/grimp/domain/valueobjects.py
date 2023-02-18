@@ -19,6 +19,7 @@ class Module(ValueObject):
     """
     A Python module.
     """
+    __slots__ = ("name",)
 
     def __init__(self, name: str) -> None:
         """
@@ -26,10 +27,13 @@ class Module(ValueObject):
             name: The fully qualified name of a Python module, e.g. 'package.foo.bar'.
         """
         self.name = name
-        self.package_name = name.split(".")[0]
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def package_name(self) -> str:
+        return self.name.split(".")[0]
 
     @property
     def root(self) -> "Module":
