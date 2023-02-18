@@ -20,7 +20,7 @@ nestednamespace.foo.alpha.green.one:
 
 def test_build_graph_for_namespace():
     with pytest.raises(exceptions.NamespacePackageEncountered):
-        build_graph("mynamespace")
+        build_graph("mynamespace", cache_dir=None)
 
 
 GREEN_MODULES = {"mynamespace.green", "mynamespace.green.alpha"}
@@ -41,13 +41,13 @@ BLUE_MODULES = {"mynamespace.blue", "mynamespace.blue.alpha", "mynamespace.blue.
     ),
 )
 def test_modules_for_namespace_child(package, expected_modules):
-    graph = build_graph(package)
+    graph = build_graph(package, cache_dir=None)
 
     assert graph.modules == expected_modules
 
 
 def test_modules_for_multiple_namespace_children():
-    graph = build_graph("mynamespace.green", "mynamespace.blue")
+    graph = build_graph("mynamespace.green", "mynamespace.blue", cache_dir=None)
 
     assert graph.modules == GREEN_MODULES | BLUE_MODULES
 
@@ -72,15 +72,17 @@ def test_modules_for_multiple_namespace_children():
         ),
     ),
 )
-def test_external_packages_handling(packages, expected_internal_modules, expected_external_modules):
-    graph = build_graph(*packages, include_external_packages=True)
+def test_external_packages_handling(
+    packages, expected_internal_modules, expected_external_modules
+):
+    graph = build_graph(*packages, include_external_packages=True, cache_dir=None)
 
     assert graph.modules == expected_internal_modules | expected_external_modules
     assert all(graph.is_module_squashed(m) for m in expected_external_modules)
 
 
 def test_import_within_namespace_child():
-    graph = build_graph("mynamespace.blue")
+    graph = build_graph("mynamespace.blue", cache_dir=None)
 
     assert graph.direct_import_exists(
         importer="mynamespace.blue.alpha", imported="mynamespace.blue.beta"
@@ -88,7 +90,7 @@ def test_import_within_namespace_child():
 
 
 def test_import_between_namespace_children():
-    graph = build_graph("mynamespace.blue", "mynamespace.green")
+    graph = build_graph("mynamespace.blue", "mynamespace.green", cache_dir=None)
 
     assert graph.direct_import_exists(
         importer="mynamespace.blue.alpha", imported="mynamespace.green.alpha"
@@ -104,7 +106,7 @@ def test_import_between_namespace_children():
 )
 def test_build_graph_for_nested_namespace(package_name):
     with pytest.raises(exceptions.NamespacePackageEncountered):
-        build_graph(package_name)
+        build_graph(package_name, cache_dir=None)
 
 
 @pytest.mark.parametrize(
@@ -133,7 +135,7 @@ def test_build_graph_for_nested_namespace(package_name):
     ),
 )
 def test_modules_for_nested_namespace_child(package, expected_modules):
-    graph = build_graph(package)
+    graph = build_graph(package, cache_dir=None)
 
     assert graph.modules == expected_modules
 
@@ -141,6 +143,7 @@ def test_modules_for_nested_namespace_child(package, expected_modules):
 def test_import_within_nested_namespace_child():
     graph = build_graph(
         "nestednamespace.foo.alpha.blue",
+        cache_dir=None,
     )
 
     assert graph.direct_import_exists(
@@ -154,6 +157,7 @@ def test_import_between_nested_namespace_children():
         "nestednamespace.foo.alpha.blue",
         "nestednamespace.foo.alpha.green",
         "nestednamespace.bar.beta",
+        cache_dir=None,
     )
 
     assert graph.direct_import_exists(
@@ -202,7 +206,7 @@ def test_import_between_nested_namespace_children():
 def test_external_packages_handling_for_nested_namespaces(
     packages, expected_internal_modules, expected_external_modules
 ):
-    graph = build_graph(*packages, include_external_packages=True)
+    graph = build_graph(*packages, include_external_packages=True, cache_dir=None)
 
     assert graph.modules == expected_internal_modules | expected_external_modules
     assert all(graph.is_module_squashed(m) for m in expected_external_modules)

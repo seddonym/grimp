@@ -41,10 +41,11 @@ class TestFakeFileSystem:
         file_system = FakeFileSystem()
         assert "/path/to" == file_system.dirname("/path/to/file.txt")
 
-    def test_join(self):
+    @pytest.mark.parametrize("path", ("/path/to", "/path/to/"))
+    def test_join(self, path):
         file_system = FakeFileSystem()
         assert "/path/to/mypackage/file.py" == file_system.join(
-            "/path/to", "mypackage", "file.py"
+            path, "mypackage", "file.py"
         )
 
     def test_split(self):

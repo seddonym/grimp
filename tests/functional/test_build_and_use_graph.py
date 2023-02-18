@@ -23,7 +23,7 @@ testpackage.utils: testpackage.one, testpackage.two.alpha
 
 
 def test_modules():
-    graph = build_graph("testpackage")
+    graph = build_graph("testpackage", cache_dir=None)
 
     assert graph.modules == {
         "testpackage",
@@ -42,7 +42,7 @@ def test_modules():
 
 
 def test_add_module():
-    graph = build_graph("testpackage")
+    graph = build_graph("testpackage", cache_dir=None)
     number_of_modules = len(graph.modules)
 
     graph.add_module("foo")
@@ -51,7 +51,7 @@ def test_add_module():
 
 
 def test_remove_module():
-    graph = build_graph("testpackage")
+    graph = build_graph("testpackage", cache_dir=None)
     number_of_modules = len(graph.modules)
 
     graph.remove_module("testpackage.two.alpha")
@@ -60,7 +60,7 @@ def test_remove_module():
 
 
 def test_add_and_remove_import():
-    graph = build_graph("testpackage")
+    graph = build_graph("testpackage", cache_dir=None)
     a = "testpackage.one.delta.blue"
     b = "testpackage.two.alpha"
 
@@ -80,7 +80,7 @@ def test_add_and_remove_import():
 
 
 def test_find_children():
-    graph = build_graph("testpackage")
+    graph = build_graph("testpackage", cache_dir=None)
 
     assert graph.find_children("testpackage.one") == {
         "testpackage.one.alpha",
@@ -91,7 +91,7 @@ def test_find_children():
 
 
 def test_find_descendants():
-    graph = build_graph("testpackage")
+    graph = build_graph("testpackage", cache_dir=None)
 
     assert graph.find_descendants("testpackage.one") == {
         "testpackage.one.alpha",
@@ -107,7 +107,7 @@ def test_find_descendants():
 
 
 def test_find_modules_directly_imported_by():
-    graph = build_graph("testpackage")
+    graph = build_graph("testpackage", cache_dir=None)
 
     result = graph.find_modules_directly_imported_by("testpackage.utils")
 
@@ -115,7 +115,7 @@ def test_find_modules_directly_imported_by():
 
 
 def test_find_modules_that_directly_import():
-    graph = build_graph("testpackage")
+    graph = build_graph("testpackage", cache_dir=None)
 
     result = graph.find_modules_that_directly_import("testpackage.one.alpha")
 
@@ -127,7 +127,7 @@ def test_find_modules_that_directly_import():
 
 
 def test_direct_import_exists():
-    graph = build_graph("testpackage")
+    graph = build_graph("testpackage", cache_dir=None)
 
     assert False is graph.direct_import_exists(
         importer="testpackage.one.alpha", imported="testpackage.two.alpha"
@@ -138,7 +138,7 @@ def test_direct_import_exists():
 
 
 def test_get_import_details():
-    graph = build_graph("testpackage")
+    graph = build_graph("testpackage", cache_dir=None)
 
     assert [
         {
@@ -158,7 +158,7 @@ def test_get_import_details():
 
 class TestPathExists:
     def test_as_packages_false(self):
-        graph = build_graph("testpackage")
+        graph = build_graph("testpackage", cache_dir=None)
 
         assert not graph.chain_exists(
             imported="testpackage.utils", importer="testpackage.one.alpha"
@@ -169,7 +169,7 @@ class TestPathExists:
         )
 
     def test_as_packages_true(self):
-        graph = build_graph("testpackage")
+        graph = build_graph("testpackage", cache_dir=None)
 
         assert graph.chain_exists(
             imported="testpackage.one", importer="testpackage.utils", as_packages=True
@@ -181,7 +181,7 @@ class TestPathExists:
 
 
 def test_find_shortest_chain():
-    graph = build_graph("testpackage")
+    graph = build_graph("testpackage", cache_dir=None)
 
     assert (
         "testpackage.utils",
@@ -193,7 +193,7 @@ def test_find_shortest_chain():
 
 
 def test_find_shortest_chains():
-    graph = build_graph("testpackage")
+    graph = build_graph("testpackage", cache_dir=None)
 
     assert {
         ("testpackage.two.alpha", "testpackage.one.alpha"),
@@ -206,7 +206,7 @@ def test_find_shortest_chains():
 
 class TestFindDownstreamModules:
     def test_as_package_false(self):
-        graph = build_graph("testpackage")
+        graph = build_graph("testpackage", cache_dir=None)
 
         result = graph.find_downstream_modules("testpackage.one.alpha")
 
@@ -220,7 +220,7 @@ class TestFindDownstreamModules:
         } == result
 
     def test_as_package_true(self):
-        graph = build_graph("testpackage")
+        graph = build_graph("testpackage", cache_dir=None)
 
         result = graph.find_downstream_modules("testpackage.one", as_package=True)
 
@@ -234,7 +234,7 @@ class TestFindDownstreamModules:
 
 class TestFindUpstreamModules:
     def test_as_package_false(self):
-        graph = build_graph("testpackage")
+        graph = build_graph("testpackage", cache_dir=None)
 
         assert graph.find_upstream_modules("testpackage.one.alpha") == set()
 
@@ -245,7 +245,7 @@ class TestFindUpstreamModules:
         }
 
     def test_as_package_true(self):
-        graph = build_graph("testpackage")
+        graph = build_graph("testpackage", cache_dir=None)
 
         assert graph.find_upstream_modules("testpackage.two", as_package=True) == {
             "testpackage.one.alpha",

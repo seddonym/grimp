@@ -33,7 +33,7 @@ class AbstractImportScanner(abc.ABC):
         # Flatten all the modules into a set.
         self.modules: Set[Module] = set()
         for package in self.found_packages:
-            self.modules |= package.modules
+            self.modules |= {mf.module for mf in package.module_files}
 
     @abc.abstractmethod
     def scan_for_imports(self, module: Module) -> Set[DirectImport]:

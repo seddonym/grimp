@@ -1,6 +1,12 @@
+from typing import Dict, Optional, Set
+from unittest.mock import sentinel
+
 import pytest  # type: ignore
 
 from grimp.application import usecases
+from grimp.application.ports.caching import Cache
+from grimp.application.ports.modulefinder import ModuleFile
+from grimp.domain.valueobjects import DirectImport, Module
 from tests.adaptors.filesystem import FakeFileSystem
 from tests.adaptors.packagefinder import BaseFakePackageFinder
 from tests.config import override_settings
@@ -77,3 +83,57 @@ class TestBuildGraph:
         """
         with pytest.raises(TypeError, match="Package names must be strings, got bool."):
             usecases.build_graph("mypackage", True)
+
+    @pytest.mark.parametrize(
+        "supplied_cache_dir", ("/path/to/somewhere", None, sentinel.not_supplied)
+    )
+    def test_build_graph_respects_cache_dir(self, supplied_cache_dir):
+        file_system = FakeFileSystem()
+
+        class FakePackageFinder(BaseFakePackageFinder):
+            directory_map = {"mypackage": "/path/to/mypackage"}
+
+        SOME_DEFAULT_CACHE_DIR = ".some_default"
+
+        class AssertingCache(Cache):
+            @classmethod
+            def cache_dir_or_default(cls, cache_dir: Optional[str]) -> str:
+                return cache_dir or SOME_DEFAULT_CACHE_DIR
+
+            def __init__(self, *args, **kwargs) -> None:
+                super().__init__(*args, **kwargs)
+
+                # Assertions.
+
+                if supplied_cache_dir is None:
+                    raise RuntimeError(
+                        "Cache should not be instantiated if caching is disabled."
+                    )
+
+                expected_cache_dir = (
+                    SOME_DEFAULT_CACHE_DIR
+                    if supplied_cache_dir is sentinel.not_supplied
+                    else supplied_cache_dir
+                )
+                assert self.cache_dir == expected_cache_dir
+
+            def read_imports(self, module_file: ModuleFile) -> Set[DirectImport]:
+                return set()
+
+            def write(
+                self,
+                imports_by_module: Dict[Module, Set[DirectImport]],
+            ) -> None:
+                pass
+
+        with override_settings(
+            FILE_SYSTEM=file_system,
+            PACKAGE_FINDER=FakePackageFinder(),
+            CACHE_CLASS=AssertingCache,
+        ):
+            kwargs = dict(
+                include_external_packages=True,
+            )
+            if supplied_cache_dir is not sentinel.not_supplied:
+                kwargs["cache_dir"] = supplied_cache_dir
+            usecases.build_graph("mypackage", **kwargs)

@@ -1,6 +1,6 @@
 import ast
 import logging
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 from grimp import exceptions
 from grimp.application.ports.importscanner import AbstractImportScanner
@@ -15,6 +15,15 @@ class NotAnImport(Exception):
 
 
 class ImportScanner(AbstractImportScanner):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self._found_packages_by_module: Dict[Module, FoundPackage] = {
+            module_file.module: package
+            for package in self.found_packages
+            for module_file in package.module_files
+        }
+
     def scan_for_imports(self, module: Module) -> Set[DirectImport]:
         """
         Note: this method only analyses the module in question and will not load any other
@@ -61,6 +70,7 @@ class ImportScanner(AbstractImportScanner):
                 module=module,
                 found_package=found_package,
                 found_packages=self.found_packages,
+                found_packages_by_module=self._found_packages_by_module,
                 is_package=is_package,
             )
         except NotAnImport:
@@ -107,10 +117,10 @@ class ImportScanner(AbstractImportScanner):
         raise FileNotFoundError(f"Could not find module {module}.")
 
     def _found_package_for_module(self, module: Module) -> FoundPackage:
-        for package in self.found_packages:
-            if module in package.modules:
-                return package
-        raise ValueError(f"No found package for module {module}.")
+        try:
+            return self._found_packages_by_module[module]
+        except KeyError:
+            raise ValueError(f"No found package for module {module}.")
 
     def _read_module_contents(self, module_filename: str) -> str:
         """
@@ -136,6 +146,7 @@ class _BaseNodeParser:
         module: Module,
         found_package: FoundPackage,
         found_packages: Set[FoundPackage],
+        found_packages_by_module: Dict[Module, FoundPackage],
         is_package: bool,
     ) -> None:
         self.node = node
@@ -143,6 +154,7 @@ class _BaseNodeParser:
         self.found_package = found_package
         self.found_packages = found_packages
         self.module_is_package = is_package
+        self.found_packages_by_module = found_packages_by_module
 
     def determine_imported_modules(
         self, include_external_packages: bool
@@ -153,9 +165,7 @@ class _BaseNodeParser:
         raise NotImplementedError
 
     def _is_internal_module(self, module: Module) -> bool:
-        return any(
-            module in found_package.modules for found_package in self.found_packages
-        )
+        return module in self.found_packages_by_module
 
     def _is_internal_object(self, full_object_name: str) -> bool:
         # Build a Module that may or may not exist.
@@ -376,6 +386,7 @@ def _get_node_parser(
     module: Module,
     found_package: FoundPackage,
     found_packages: Set[FoundPackage],
+    found_packages_by_module: Dict[Module, FoundPackage],
     is_package: bool,
 ) -> _BaseNodeParser:
     """
@@ -395,5 +406,6 @@ def _get_node_parser(
                 found_package=found_package,
                 found_packages=found_packages,
                 is_package=is_package,
+                found_packages_by_module=found_packages_by_module,
             )
     raise NotAnImport
