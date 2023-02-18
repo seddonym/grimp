@@ -8,6 +8,12 @@ from .filesystem import AbstractFileSystem
 
 
 @dataclass(frozen=True)
+class ModuleFile:
+    module: Module
+    mtime: float
+
+
+@dataclass(frozen=True)
 class FoundPackage:
     """
     Set of modules found under a single package, together with metadata.
@@ -15,7 +21,7 @@ class FoundPackage:
 
     name: str
     directory: str
-    modules: FrozenSet[Module]
+    module_files: FrozenSet[ModuleFile]
 
 
 class AbstractModuleFinder(abc.ABC):

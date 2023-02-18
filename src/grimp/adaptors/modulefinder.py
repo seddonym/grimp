@@ -14,18 +14,21 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
     ) -> modulefinder.FoundPackage:
         self.file_system = file_system
 
-        modules: List[Module] = []
+        module_files: List[modulefinder.ModuleFile] = []
 
         for module_filename in self._get_python_files_inside_package(package_directory):
             module_name = self._module_name_from_filename(
                 package_name, module_filename, package_directory
             )
-            modules.append(Module(module_name))
+            module_mtime = self.file_system.get_mtime(module_filename)
+            module_files.append(
+                modulefinder.ModuleFile(module=Module(module_name), mtime=module_mtime)
+            )
 
         return modulefinder.FoundPackage(
             name=package_name,
             directory=package_directory,
-            modules=frozenset(modules),
+            module_files=frozenset(module_files),
         )
 
     def _get_python_files_inside_package(self, directory: str) -> Iterable[str]:
