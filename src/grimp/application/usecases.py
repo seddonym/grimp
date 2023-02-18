@@ -1,14 +1,14 @@
 """
 Use cases handle application logic.
 """
-from typing import List, Set
+from typing import Dict, Sequence, Set, cast
 
 from ..application.ports.filesystem import AbstractFileSystem
 from ..application.ports.graph import AbstractImportGraph
 from ..application.ports.importscanner import AbstractImportScanner
 from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage
 from ..application.ports.packagefinder import AbstractPackageFinder
-from ..domain.valueobjects import Module
+from ..domain.valueobjects import DirectImport, Module
 from .config import settings
 
 
@@ -35,14 +35,37 @@ def build_graph(
             "mypackage", "anotherpackage", "onemore", include_external_packages=True,
         )
     """
-    module_finder: AbstractModuleFinder = settings.MODULE_FINDER
+
     file_system: AbstractFileSystem = settings.FILE_SYSTEM
+
+    found_packages = _find_packages(
+        file_system=file_system,
+        package_names=[package_name] + list(additional_package_names),
+    )
+
+    imports_by_module = _scan_packages(
+        found_packages=found_packages,
+        import_scanner=settings.IMPORT_SCANNER_CLASS(
+            file_system=file_system,
+            found_packages=found_packages,
+            include_external_packages=include_external_packages,
+        ),
+    )
+
+    graph = _assemble_graph(found_packages, imports_by_module)
+
+    return graph
+
+
+def _find_packages(
+    file_system: AbstractFileSystem, package_names: Sequence[object]
+) -> Set[FoundPackage]:
+    package_names = _validate_package_names_are_strings(package_names)
+
+    module_finder: AbstractModuleFinder = settings.MODULE_FINDER
     package_finder: AbstractPackageFinder = settings.PACKAGE_FINDER
 
-    package_names = [package_name] + list(additional_package_names)
-    modules: List[Module] = []
     found_packages: Set[FoundPackage] = set()
-    _validate_package_names_are_strings(package_names)
 
     for package_name in package_names:
         package_directory = package_finder.determine_package_directory(
@@ -54,19 +77,39 @@ def build_graph(
             file_system=file_system,
         )
         found_packages.add(found_package)
-        modules.extend(found_package.modules)
+    return found_packages
 
-    import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
-        file_system=file_system,
-        found_packages=found_packages,
-        include_external_packages=include_external_packages,
-    )
+
+def _validate_package_names_are_strings(
+    package_names: Sequence[object],
+) -> Sequence[str]:
+    for name in package_names:
+        if not isinstance(name, str):
+            raise TypeError(
+                f"Package names must be strings, got {name.__class__.__name__}."
+            )
+    return cast(Sequence[str], package_names)
+
+
+def _scan_packages(
+    found_packages: Set[FoundPackage], import_scanner: AbstractImportScanner
+) -> Dict[Module, Set[DirectImport]]:
+    imports_by_module: Dict[Module, Set[DirectImport]] = {}
+    for found_package in found_packages:
+        for module in found_package.modules:
+            direct_imports = import_scanner.scan_for_imports(module)
+            imports_by_module[module] = direct_imports
+    return imports_by_module
+
+
+def _assemble_graph(
+    found_packages: Set[FoundPackage],
+    imports_by_module: Dict[Module, Set[DirectImport]],
+) -> AbstractImportGraph:
     graph: AbstractImportGraph = settings.IMPORT_GRAPH_CLASS()
-
-    # Scan each module for imports and add them to the graph.
-    for module in modules:
+    for module, direct_imports in imports_by_module.items():
         graph.add_module(module.name)
-        for direct_import in import_scanner.scan_for_imports(module):
+        for direct_import in direct_imports:
             # Before we add the import, check to see if the imported module is in fact an
             # external module, and if so, tell the graph that it is a squashed module.
             graph.add_module(
@@ -80,16 +123,7 @@ def build_graph(
                 line_number=direct_import.line_number,
                 line_contents=direct_import.line_contents,
             )
-
     return graph
-
-
-def _validate_package_names_are_strings(package_names: List[str]) -> None:
-    for name in package_names:
-        if not isinstance(name, str):
-            raise TypeError(
-                f"Package names must be strings, got {name.__class__.__name__}."
-            )
 
 
 def _is_external(module: Module, found_packages: Set[FoundPackage]) -> bool:
