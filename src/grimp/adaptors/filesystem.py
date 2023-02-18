@@ -34,3 +34,13 @@ class FileSystem(AbstractFileSystem):
 
     def exists(self, file_name: str) -> bool:
         return os.path.isfile(file_name)
+
+    def get_mtime(self, file_name: str) -> float:
+        return os.path.getmtime(file_name)
+
+    def write(self, file_name: str, contents: str) -> None:
+        dirname = os.path.dirname(file_name)
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        with open(file_name, "w") as file:
+            print(contents, file=file)
