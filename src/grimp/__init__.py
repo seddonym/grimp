@@ -1,4 +1,4 @@
-__version__ = "2.2"
+__version__ = "2.3"
 
 from .domain.valueobjects import Module, DirectImport
 from .application.ports.graph import DetailedImport
