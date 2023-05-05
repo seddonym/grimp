@@ -6,6 +6,7 @@ latest
 ------
 
 * Change cache filename scheme to use a hash.
+* Ignore modules with dots in the filename.
 
 2.3 (2023-3-3)
 --------------
