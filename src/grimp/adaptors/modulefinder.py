@@ -51,7 +51,7 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
                 dirs.remove(d)
 
             for filename in files:
-                if self._is_python_file(filename):
+                if self._is_python_file(filename, dirpath):
                     yield self.file_system.join(dirpath, filename)
 
     def _should_ignore_dir(self, directory: str) -> bool:
@@ -59,16 +59,30 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         # Skip adding directories that are hidden.
         return directory.startswith(".")
 
-    def _is_python_file(self, filename: str) -> bool:
+    def _is_python_file(self, filename: str, dirpath: str) -> bool:
         """
         Given a filename, return whether it's a Python file.
+
+        Files with extra dots in the name won't be treated as Python files.
 
         Args:
             filename (str): the filename, excluding the path.
         Returns:
             bool: whether it's a Python file.
         """
-        return not filename.startswith(".") and filename.endswith(".py")
+        # Ignore hidden files.
+        if filename.startswith("."):
+            return False
+
+        # Ignore files like some.module.py.
+        if filename.count(".") > 1:
+            logger.warning(
+                "Warning: skipping module with too many dots in the name: "
+                f"{dirpath}{self.file_system.sep}{filename}"
+            )
+            return False
+
+        return filename.endswith(".py")
 
     def _module_name_from_filename(
         self, package_name: str, filename_and_path: str, package_directory: str

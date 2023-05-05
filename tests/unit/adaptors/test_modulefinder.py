@@ -135,6 +135,46 @@ def test_ignores_orphaned_python_files():
     )
 
 
+def test_ignores_dotted_python_files(caplog):
+    # Python files containing dots (other than the one before .py) should not be discovered.
+    module_finder = ModuleFinder()
+
+    file_system = FakeFileSystem(
+        contents="""
+            /path/to/mypackage/
+                __init__.py
+                foo.py
+                bar/
+                    __init__.py
+                    baz.dotted.py
+            """
+    )
+
+    result = module_finder.find_package(
+        package_name="mypackage",
+        package_directory="/path/to/mypackage",
+        file_system=file_system,
+    )
+
+    assert result == FoundPackage(
+        name="mypackage",
+        directory="/path/to/mypackage",
+        module_files=frozenset(
+            {
+                ModuleFile(module=Module("mypackage"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("mypackage.foo"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("mypackage.bar"), mtime=DEFAULT_MTIME),
+            }
+        ),
+    )
+    assert caplog.messages == [
+        (
+            "Warning: skipping module with too many dots in the name: "
+            "/path/to/mypackage/bar/baz.dotted.py"
+        )
+    ]
+
+
 def test_ignores_hidden_directories():
     module_finder = ModuleFinder()
 
