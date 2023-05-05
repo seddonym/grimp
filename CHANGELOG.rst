@@ -2,6 +2,11 @@
 Changelog
 =========
 
+latest
+------
+
+* Change cache filename scheme to use a hash.
+
 2.3 (2023-3-3)
 --------------
 

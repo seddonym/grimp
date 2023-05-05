@@ -1,4 +1,4 @@
-import base64
+import hashlib
 import json
 from typing import Dict, List, Optional, Set, Tuple, Type
 
@@ -26,13 +26,10 @@ class CacheFileNamer:
         )
 
         bytes_identifier = identifier.encode()
-        base64_bytes_identifier = base64.urlsafe_b64encode(bytes_identifier)
-        base64_unicode_identifier = base64_bytes_identifier.decode()
-
-        # Change '=' padding characters to hyphens, just to avoid
-        # special characters in a filename.
-        safe_unicode_identifier = base64_unicode_identifier.replace("=", "-")
-
+        # Use a hash algorithm with a limited size to avoid cache filenames that are too long
+        # the filesystem, which can happen if there are more than a few root packages
+        # being analyzed.
+        safe_unicode_identifier = hashlib.blake2b(bytes_identifier, digest_size=20).hexdigest()
         return f"{safe_unicode_identifier}.data.json"
 
     @classmethod

@@ -62,7 +62,8 @@ def test_build_graph_uses_cache(copied_cachingpackage):
         )
 
         meta_file = Path(cache_dir) / "cachingpackage.meta.json"
-        data_file = Path(cache_dir) / "Y2FjaGluZ3BhY2thZ2U-.data.json"
+        # Blake2B 20-character hash of "cachingpackage".
+        data_file = Path(cache_dir) / "27aa562ad2a4745eb20ecf156430dbfeb0e90610.data.json"
 
         assert meta_file.exists()
         assert data_file.exists()

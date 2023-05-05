@@ -42,12 +42,12 @@ class TestCacheFileNamer:
     @pytest.mark.parametrize(
         "include_external_packages, expected",
         (
-            # URL safe base64 hash of "hyphenated-package,underscore_package".
-            (False, "aHlwaGVuYXRlZC1wYWNrYWdlLHVuZGVyc2NvcmVfcGFja2FnZQ--.data.json"),
-            # URL safe base64 hash of "hyphenated-package,underscore_package:external".
+            # Blake2B 20-character hash of "hyphenated-package,underscore_package".
+            (False, "a857d066514de048b7f94fa8d385e8bd7b048406.data.json"),
+            # Blake2B 20-character hash "hyphenated-package,underscore_package:external".
             (
                 True,
-                "aHlwaGVuYXRlZC1wYWNrYWdlLHVuZGVyc2NvcmVfcGFja2FnZTpleHRlcm5hbA--.data.json",
+                "021977b6de56b09810ae52f5c9d067622c1ea30f.data.json",
             ),
         ),
     )
