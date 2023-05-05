@@ -2,8 +2,8 @@
 Changelog
 =========
 
-latest
-------
+2.4 (2023-5-5)
+--------------
 
 * Change cache filename scheme to use a hash.
 * Ignore modules with dots in the filename.
