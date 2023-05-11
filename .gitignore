@@ -21,6 +21,7 @@ lib
 lib64
 venv*/
 pyvenv*/
+target
 
 # Installer logs
 pip-log.txt
@@ -68,3 +69,4 @@ docs/_build
 .mypy_cache/
 
 .python-version
+.venv

@@ -292,6 +292,12 @@ class ImportGraph(graph.AbstractImportGraph):
 
         return self._find_shortest_chain(importer=importer, imported=imported)
 
+    def find_shortest_chain_turbo(
+        self, importer: str, imported: str
+    ) -> Optional[Tuple[str, ...]]:
+        return self._find_shortest_chain(importer=importer, imported=imported, turbo=True)
+
+
     def find_shortest_chains(
         self, importer: str, imported: str
     ) -> Set[Tuple[str, ...]]:
@@ -451,16 +457,26 @@ class ImportGraph(graph.AbstractImportGraph):
             self._importers_by_imported[imported].add(importer)
 
     def _find_shortest_chain(
-        self, importer: str, imported: str
+        self, importer: str, imported: str, turbo: bool = False
     ) -> Optional[Tuple[str, ...]]:
         # Similar to find_shortest_chain but without bothering to check if the modules are
         # in the graph first.
-        return bidirectional_shortest_path(
-            importers_by_imported=self._importers_by_imported,
-            importeds_by_importer=self._importeds_by_importer,
-            importer=importer,
-            imported=imported,
-        )
+        if turbo:
+            import _grimp_rust as rust
+            path = rust.bidirectional_shortest_path(
+                importers_by_imported=self._importers_by_imported,
+                importeds_by_importer=self._importeds_by_importer,
+                importer=importer,
+                imported=imported,
+            )
+            return tuple(path) if path else None
+        else:
+            return bidirectional_shortest_path(
+                importers_by_imported=self._importers_by_imported,
+                importeds_by_importer=self._importeds_by_importer,
+                importer=importer,
+                imported=imported,
+            )
 
 
 _StringSet = Set[str]
