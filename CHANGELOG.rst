@@ -2,6 +2,11 @@
 Changelog
 =========
 
+latest
+------
+
+* Log cache activity.
+
 2.4 (2023-5-5)
 --------------
 
