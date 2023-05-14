@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 from typing import Dict, List, Optional, Set, Tuple, Type
 
 from grimp.application.ports.filesystem import AbstractFileSystem
@@ -9,6 +10,7 @@ from grimp.domain.valueobjects import DirectImport, Module
 from ..application.ports.caching import Cache as AbstractCache
 from ..application.ports.caching import CacheMiss
 
+logger = logging.getLogger(__name__)
 PrimitiveFormat = Dict[str, List[Tuple[str, Optional[int], str]]]
 
 
@@ -29,7 +31,9 @@ class CacheFileNamer:
         # Use a hash algorithm with a limited size to avoid cache filenames that are too long
         # the filesystem, which can happen if there are more than a few root packages
         # being analyzed.
-        safe_unicode_identifier = hashlib.blake2b(bytes_identifier, digest_size=20).hexdigest()
+        safe_unicode_identifier = hashlib.blake2b(
+            bytes_identifier, digest_size=20
+        ).hexdigest()
         return f"{safe_unicode_identifier}.data.json"
 
     @classmethod
@@ -106,7 +110,6 @@ class Cache(AbstractCache):
         imports_by_module: Dict[Module, Set[DirectImport]],
     ) -> None:
         self._write_marker_files_if_not_already_there()
-
         # Write data file.
         primitives_map: PrimitiveFormat = {}
         for found_package in self.found_packages:
@@ -132,6 +135,7 @@ class Cache(AbstractCache):
             ),
         )
         self.file_system.write(data_cache_filename, serialized)
+        logger.info(f"Wrote data cache file {data_cache_filename}.")
 
         # Write meta files.
         for found_package in self.found_packages:
@@ -144,6 +148,7 @@ class Cache(AbstractCache):
             }
             serialized_meta = json.dumps(mtime_map)
             self.file_system.write(meta_filename, serialized_meta)
+            logger.info(f"Wrote meta cache file {meta_filename}.")
 
     def _build_mtime_map(self) -> None:
         self._mtime_map = self._read_mtime_map_files()
