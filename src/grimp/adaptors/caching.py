@@ -166,10 +166,14 @@ class Cache(AbstractCache):
         try:
             serialized = self.file_system.read(meta_cache_filename)
         except FileNotFoundError:
+            logger.info(f"No cache file: {meta_cache_filename}.")
             return {}
         try:
-            return json.loads(serialized)
+            deserialized = json.loads(serialized)
+            logger.info(f"Used cache meta file {meta_cache_filename}.")
+            return deserialized
         except json.JSONDecodeError:
+            logger.warning(f"Could not use corrupt cache file {meta_cache_filename}.")
             return {}
 
     def _build_data_map(self) -> None:
@@ -186,12 +190,15 @@ class Cache(AbstractCache):
         try:
             serialized = self.file_system.read(data_cache_filename)
         except FileNotFoundError:
+            logger.info(f"No cache file: {data_cache_filename}.")
             return {}
 
         # Deserialize to primitives.
         try:
             deserialized_json = json.loads(serialized)
+            logger.info(f"Used cache data file {data_cache_filename}.")
         except json.JSONDecodeError:
+            logger.warning(f"Could not use corrupt cache file {data_cache_filename}.")
             return {}
 
         primitives_map: PrimitiveFormat = self._to_primitives_data_map(

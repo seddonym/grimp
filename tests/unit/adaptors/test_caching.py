@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Set
 
 import pytest  # type: ignore
@@ -8,7 +9,7 @@ from grimp.application.ports.caching import CacheMiss
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.domain.valueobjects import DirectImport, Module
 from tests.adaptors.filesystem import FakeFileSystem
-import logging
+
 
 class SimplisticFileNamer(CacheFileNamer):
     """
@@ -195,6 +196,103 @@ class TestCache:
             ),
         ),
     }
+
+    @pytest.mark.parametrize(
+        "include_external_packages, expected_data_file",
+        (
+            (True, ".grimp_cache/mypackage:external.data.json"),
+            (False, ".grimp_cache/mypackage.data.json"),
+        ),
+    )
+    def test_logs_successful_cache_file_reading(
+        self, include_external_packages: bool, expected_data_file: str, caplog
+    ):
+        caplog.set_level(logging.INFO, logger=Cache.__module__)
+
+        Cache.setup(
+            file_system=self.FILE_SYSTEM,
+            found_packages=self.FOUND_PACKAGES,
+            include_external_packages=include_external_packages,
+            namer=SimplisticFileNamer,
+        )
+
+        assert caplog.messages == [
+            "Used cache meta file .grimp_cache/mypackage.meta.json.",
+            f"Used cache data file {expected_data_file}.",
+        ]
+
+    def test_logs_missing_cache_files(self, caplog):
+        caplog.set_level(logging.INFO, logger=Cache.__module__)
+
+        Cache.setup(
+            file_system=FakeFileSystem(),  # No cache files.
+            found_packages=self.FOUND_PACKAGES,
+            namer=SimplisticFileNamer,
+            include_external_packages=False,
+        )
+
+        assert caplog.messages == [
+            "No cache file: .grimp_cache/mypackage.meta.json.",
+            "No cache file: .grimp_cache/mypackage.data.json.",
+        ]
+
+    @pytest.mark.parametrize("serialized_mtime", ("INVALID_JSON", '["wrong", "type"]'))
+    def test_logs_corrupt_cache_meta_file_reading(self, serialized_mtime: str, caplog):
+        caplog.set_level(logging.WARNING, logger=Cache.__module__)
+
+        file_system = FakeFileSystem(
+            contents="""
+                .grimp_cache/
+                    mypackage.meta.json
+                    mypackage.data.json
+                /path/to/mypackage.py
+            """,
+            content_map={
+                ".grimp_cache/mypackage.meta.json": f"""{{
+                    "mypackage.foo.modified": {serialized_mtime},
+                }}""",
+                ".grimp_cache/mypackage.data.json": "{}",
+            },
+        )
+        Cache.setup(
+            file_system=file_system,
+            found_packages=self.FOUND_PACKAGES,
+            namer=SimplisticFileNamer,
+            include_external_packages=False,
+        )
+
+        assert caplog.messages == [
+            "Could not use corrupt cache file .grimp_cache/mypackage.meta.json.",
+        ]
+
+    def test_logs_corrupt_cache_data_file_reading(self, caplog):
+        caplog.set_level(logging.WARNING, logger=Cache.__module__)
+
+        file_system = FakeFileSystem(
+            contents="""
+                    .grimp_cache/
+                        mypackage.meta.json
+                        mypackage.data.json
+                    /path/to/mypackage.py
+                """,
+            content_map={
+                ".grimp_cache/mypackage.meta.json": f"""{{
+                    "mypackage.foo.modified": {self.SOME_MTIME - 1}
+                }}""",
+                ".grimp_cache/mypackage.data.json": "INVALID JSON",
+            },
+        )
+
+        Cache.setup(
+            file_system=file_system,
+            found_packages=self.FOUND_PACKAGES,
+            namer=SimplisticFileNamer,
+            include_external_packages=False,
+        )
+
+        assert caplog.messages == [
+            "Could not use corrupt cache file .grimp_cache/mypackage.data.json.",
+        ]
 
     @pytest.mark.parametrize("include_external_packages", (True, False))
     def test_raises_cache_miss_for_module_with_different_mtime(
@@ -523,6 +621,9 @@ class TestCache:
             cache_dir.rstrip(file_system.sep) if cache_dir else ".grimp_cache"
         )
         assert set(caplog.messages) == {
+            f"No cache file: {expected_cache_dir}/{expected_data_file_name}.",
+            f"No cache file: {expected_cache_dir}/blue.meta.json.",
+            f"No cache file: {expected_cache_dir}/green.meta.json.",
             f"Wrote data cache file {expected_cache_dir}/{expected_data_file_name}.",
             f"Wrote meta cache file {expected_cache_dir}/blue.meta.json.",
             f"Wrote meta cache file {expected_cache_dir}/green.meta.json.",
