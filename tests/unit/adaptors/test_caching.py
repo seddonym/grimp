@@ -8,7 +8,7 @@ from grimp.application.ports.caching import CacheMiss
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.domain.valueobjects import DirectImport, Module
 from tests.adaptors.filesystem import FakeFileSystem
-
+import logging
 
 class SimplisticFileNamer(CacheFileNamer):
     """
@@ -446,8 +446,9 @@ class TestCache:
         ),
     )
     def test_write_to_cache(
-        self, include_external_packages, expected_data_file_name, cache_dir
+        self, include_external_packages, expected_data_file_name, cache_dir, caplog
     ):
+        caplog.set_level(logging.INFO, logger=Cache.__module__)
         file_system = FakeFileSystem()
         blue_one = Module(name="blue.one")
         blue_two = Module(name="blue.two")
@@ -521,6 +522,11 @@ class TestCache:
         expected_cache_dir = (
             cache_dir.rstrip(file_system.sep) if cache_dir else ".grimp_cache"
         )
+        assert set(caplog.messages) == {
+            f"Wrote data cache file {expected_cache_dir}/{expected_data_file_name}.",
+            f"Wrote meta cache file {expected_cache_dir}/blue.meta.json.",
+            f"Wrote meta cache file {expected_cache_dir}/green.meta.json.",
+        }
         expected = {
             f"{expected_cache_dir}/blue.meta.json": {
                 blue_one.name: mtimes[blue_one],
