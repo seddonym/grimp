@@ -274,6 +274,43 @@ class AbstractImportGraph(abc.ABC):
         """
         raise NotImplementedError
 
+    # Checking
+    # --------
+
+    def get_cyclic_modules(
+        self,
+        container_modules: Set[str],
+        depth: int,
+        exclude_modules: Set[str],
+        ignore_imports: Set[Tuple[str, str], ...],
+    ) -> Tuple[Tuple[str, str], ...]:
+        """
+        Return modules whose children have import cycles.
+
+        A module is cyclic if, after each of its children is squashed, there exist import cycles between those children.
+        In the interests of speed, indirect imports are not considered, only the imports between the children (and,
+        because they are squashed, all of their descendants).
+
+        Here is an example import cycle for the module mypackage.foo:
+
+            - mypackage.foo.blue.alpha -> mypackage.foo.green.beta
+            - mypackage.foo.green.gamma -> mypackage.foo.blue.delta.
+
+        The cycle exists between mypackage.foo.blue and mypackage.foo.green, so mypackage.foo is cyclic.
+
+        The minimum set of modules to check for cycles is the container modules. The depth argument controls how many
+        generations of descendants to check from the container modules. For example, a container module of foo and a
+        depth of 2 would mean that foo's children and grandchildren are also checked for cycles.
+
+        Modules provided in exclude_modules will not be checked for cycles.
+
+        Additional arguments:
+
+        - ignore_imports: a set of imports in the form (importer, imported) that will be trimmed from the graph
+          before checking.
+        """
+        raise NotImplementedError
+
     def __repr__(self) -> str:
         """
         Display the instance in one of the following ways:
