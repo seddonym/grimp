@@ -13,6 +13,12 @@ class ModuleNotPresent(GrimpException):
     """
 
 
+class NoSuchContainer(GrimpException):
+    """
+    Indicates that a passed container was not found as a module in the graph.
+    """
+
+
 class NamespacePackageEncountered(GrimpException):
     """
     Indicates that there was no __init__.py at the top level.

@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import abc
 from typing import Iterator, List, Optional, Set, Tuple
 
 from typing_extensions import TypedDict
+
+from grimp.domain.analysis import PackageDependency
 
 
 class DetailedImport(TypedDict):
@@ -271,6 +275,39 @@ class ImportGraph(abc.ABC):
                          or as packages (including any descendants, if there are any). If
                          treating them as subpackages, all descendants of the supplied modules
                          will be checked too.
+        """
+        raise NotImplementedError
+
+    # High level analysis
+    # -------------------
+
+    def find_illegal_dependencies_for_layers(
+        self,
+        layers: Tuple[str, ...],
+        containers: Optional[Set[str]] = None,
+    ) -> frozenset[PackageDependency]:
+        """
+        Find dependencies that don't conform to the supplied layered architecture.
+
+        'Layers' is an architectural pattern in which a list of sibling modules/packages
+        have a dependency direction from high to low. In other words, a higher layer would
+        be allowed to import a lower layer, but not the other way around.
+
+        Arguments:
+
+        - layers:     The name of each layer module. If containers are also specified,
+                      then these names must be relative to the container. The order is from
+                      higher to lower level layers. Any layers that don't exist in the graph
+                      will be ignored.
+        - containers: The parent modules of the layers, as absolute names that you could import,
+                      such as "mypackage.foo". (Optional.)
+
+        Returns the illegal dependencies in the form of a set of PackageDependency objects.
+        Each package dependency is for a different permutation of two layers for which there
+        is a violation, and contains information about the illegal chains of imports from the
+        lower layer (the 'upstream') to the higher layer (the 'downstream').
+
+        Raises NoSuchContainer if the container is not a module in the graph.
         """
         raise NotImplementedError
 

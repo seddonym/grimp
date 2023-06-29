@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from copy import copy
 from typing import Dict, List, Optional, Set, Tuple, cast
 
 from grimp.algorithms.shortest_path import bidirectional_shortest_path
 from grimp.application.ports import graph
+from grimp.domain.analysis import PackageDependency
 from grimp.domain.valueobjects import Module
 from grimp.exceptions import ModuleNotPresent
 
@@ -371,6 +374,15 @@ class ImportGraph(graph.ImportGraph):
                     return True
 
         return False
+
+    # High level analysis
+
+    def find_illegal_dependencies_for_layers(
+        self,
+        layers: Tuple[str, ...],
+        containers: Optional[Set[str]] = None,
+    ) -> frozenset[PackageDependency]:
+        return frozenset()
 
     # Private methods
 
