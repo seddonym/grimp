@@ -7,6 +7,7 @@ latest
 
 * Log cache activity.
 * Drop support for Python 3.7.
+* Add find_illegal_dependencies_for_layers method.
 
 2.4 (2023-5-5)
 --------------

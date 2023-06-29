@@ -188,11 +188,11 @@ Methods for analysing import chains
     Examples::
 
         # Returns the modules downstream of mypackage.foo.
-        import_graph.find_downstream_modules('mypackage.foo')
+        graph.find_downstream_modules('mypackage.foo')
 
         # Returns the modules downstream of mypackage.foo, mypackage.foo.one and
         # mypackage.foo.two.
-        import_graph.find_downstream_modules('mypackage.foo', as_package=True)
+        graph.find_downstream_modules('mypackage.foo', as_package=True)
 
 .. py:function:: ImportGraph.find_upstream_modules(module, as_package=False)
 
@@ -232,6 +232,116 @@ Methods for analysing import chains
     :return:  Return whether any chain of imports exists between ``importer`` and ``imported``,
         even indirectly; in other words, does ``importer`` depend on ``imported``?
     :rtype: bool
+
+Higher level analysis
+---------------------
+
+.. py:function:: ImportGraph.find_illegal_dependencies_for_layers(layers, containers=None)
+
+    Find dependencies that don't conform to the supplied layered architecture.
+
+    'Layers' is a software architecture pattern in which a list of sibling modules/packages have a dependency direction
+    from high to low. In other words, a higher layer would be allowed to import a lower layer, but not the other way
+    around.
+
+    Note: each returned :class:`.PackageDependency` does not include all possible illegal :class:`.Route` objects.
+    Instead, once an illegal :class:`.Route` is found, the algorithm will temporarily remove it from the graph before continuing
+    with its search. As a result, any illegal Routes that have sections in common with other illegal Routes may not
+    be returned.
+
+    Example::
+
+        dependencies = graph.find_illegal_dependencies_for_layers(
+            layers=(
+                "mypackage.high",
+                "mypackage.medium",
+                "mypackage.low",
+            ),
+        )
+
+    Example with containers::
+
+        dependencies = graph.find_illegal_dependencies_for_layers(
+            layers=(
+                "high",
+                "medium",
+                "low",
+            ),
+            containers=(
+                "mypackage.foo",
+                "mypackage.bar",
+            ),
+        )
+
+    :param tuple[str, ...] layers: The name of each layer module. If ``containers`` are also specified,
+        then these names must be relative to the container. The order is from higher to lower level layers.
+        *Any layers that don't exist in the graph will be ignored.*
+    :param tuple[str, ...] containers: The parent modules of the layers, as absolute names that you could
+        import, such as ``mypackage.foo``. (Optional.)
+    :return: The illegal dependencies in the form of a set of :class:`.PackageDependency` objects. Each package
+             dependency is for a different permutation of two layers for which there is a violation, and contains
+             information about the illegal chains of imports from the lower layer (the 'upstream') to the higher layer
+             (the 'downstream').
+    :rtype: ``frozenset[PackageDependency]``.
+    :raises grimp.exceptions.NoSuchContainer: if a container is not a module in the graph.
+
+    .. class:: PackageDependency
+
+      A collection of import dependencies from one Python package to another.
+
+      .. attribute:: upstream
+
+        ``str``: The full name of the package within which all the routes start, e.g. "mypackage.foo".
+
+      .. attribute:: downstream
+
+        ``str``: The full name of the package within which all the routes end, e.g. "mypackage.bar".
+
+      .. attribute:: routes
+
+        ``frozenset[grimp.Route]``: A set of :class:`.Route` objects from upstream to downstream.
+
+    .. class:: Route
+
+      A set of import chains that share the same middle.
+
+      The route fans in at the head and out at the tail, but the middle of the chain just links
+      individual modules.
+
+      Example: the following Route represents a chain of imports from
+      ``mypackage.orange -> mypackage.utils -> mypackage.helpers -> mypackage.green``, plus an import from
+      ``mypackage.red`` to ``mypackage.utils``, and an import from ``mypackage.helpers`` to ``mypackage.blue``::
+
+        Route(
+            heads=frozenset(
+                {
+                    "mypackage.orange",
+                    "mypackage.red",
+                }
+            ),
+            middle=(
+                "mypackage.utils",
+                "mypackage.helpers",
+            ),
+            tails=frozenset(
+                {
+                    "mypackage.green",
+                    "mypackage.blue",
+                }
+            ),
+        )
+
+    .. attribute:: heads
+
+        ``frozenset[str]``: The importer modules at the start of the chain.
+
+    .. attribute:: middle
+
+        ``tuple[str]``: A sequence of imports that link the head modules to the tail modules.
+
+    .. attribute:: tails
+
+        ``frozenset[str]``:  Imported modules at the end of the chain.
 
 Methods for manipulating the graph
 ----------------------------------
