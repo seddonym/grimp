@@ -6,6 +6,7 @@ latest
 ------
 
 * Log cache activity.
+* Drop support for Python 3.7.
 
 2.4 (2023-5-5)
 --------------

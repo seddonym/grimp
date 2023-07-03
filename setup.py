@@ -47,7 +47,6 @@ setup(
         'Operating System :: POSIX',
         'Operating System :: Microsoft :: Windows',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
@@ -55,7 +54,7 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
         'Topic :: Utilities',
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     install_requires=[
         "typing-extensions>=3.10.0.0",
     ],
