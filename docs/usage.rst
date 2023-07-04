@@ -267,22 +267,22 @@ Higher level analysis
                 "medium",
                 "low",
             ),
-            containers=(
+            containers={
                 "mypackage.foo",
                 "mypackage.bar",
-            ),
+            },
         )
 
-    :param tuple[str, ...] layers: The name of each layer module. If ``containers`` are also specified,
+    :param Sequence[str] layers: The name of each layer module. If ``containers`` are also specified,
         then these names must be relative to the container. The order is from higher to lower level layers.
         *Any layers that don't exist in the graph will be ignored.*
-    :param tuple[str, ...] containers: The parent modules of the layers, as absolute names that you could
+    :param set[str] containers: The parent modules of the layers, as absolute names that you could
         import, such as ``mypackage.foo``. (Optional.)
     :return: The illegal dependencies in the form of a set of :class:`.PackageDependency` objects. Each package
              dependency is for a different permutation of two layers for which there is a violation, and contains
              information about the illegal chains of imports from the lower layer (the 'upstream') to the higher layer
              (the 'downstream').
-    :rtype: ``frozenset[PackageDependency]``.
+    :rtype: ``set[PackageDependency]``.
     :raises grimp.exceptions.NoSuchContainer: if a container is not a module in the graph.
 
     .. class:: PackageDependency
