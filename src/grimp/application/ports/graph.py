@@ -221,7 +221,7 @@ class ImportGraph(abc.ABC):
     @abc.abstractmethod
     def find_shortest_chain(
         self, importer: str, imported: str
-    ) -> Optional[Tuple[str, ...]]:
+    ) -> tuple[str, ...] | None:
         """
         Attempt to find the shortest chain of imports between two modules, in the direction
         of importer to imported.
