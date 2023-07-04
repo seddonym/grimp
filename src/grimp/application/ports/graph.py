@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Iterator, List, Optional, Set, Tuple
+from typing import Iterator, List, Optional, Sequence, Set, Tuple
 
 from typing_extensions import TypedDict
 
@@ -283,9 +283,9 @@ class ImportGraph(abc.ABC):
 
     def find_illegal_dependencies_for_layers(
         self,
-        layers: Tuple[str, ...],
+        layers: Sequence[str],
         containers: Optional[Set[str]] = None,
-    ) -> frozenset[PackageDependency]:
+    ) -> set[PackageDependency]:
         """
         Find dependencies that don't conform to the supplied layered architecture.
 

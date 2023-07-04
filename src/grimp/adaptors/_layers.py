@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any, Iterator, Sequence
 
 from grimp import Route
 from grimp.application.config import settings
@@ -16,9 +16,9 @@ logger = logging.getLogger("grimp")
 
 def find_illegal_dependencies(
     graph: ImportGraph,
-    layers: tuple[str, ...],
+    layers: Sequence[str],
     containers: set[str],
-) -> frozenset[PackageDependency]:
+) -> set[PackageDependency]:
     """
     Find dependencies that don't conform to the supplied layered architecture.
 
@@ -54,7 +54,7 @@ def find_illegal_dependencies(
 
         _log_illegal_route_count(dependency_or_none, duration_in_s=timer.duration_in_s)
 
-    return frozenset(package_dependencies)
+    return package_dependencies
 
 
 class _Module:
@@ -105,7 +105,7 @@ def _check_containers_exist(graph: ImportGraph, containers: set[str]) -> None:
 
 def _generate_module_permutations(
     graph: ImportGraph,
-    layers: tuple[str, ...],
+    layers: Sequence[str],
     containers: set[str],
 ) -> Iterator[tuple[_Module, _Module, str | None]]:
     """
@@ -149,7 +149,7 @@ def _module_from_layer(layer: str, container: str | None = None) -> _Module:
 def _search_for_package_dependency(
     higher_layer_package: _Module,
     lower_layer_package: _Module,
-    layers: tuple[str, ...],
+    layers: Sequence[str],
     container: str | None,
     graph: ImportGraph,
 ) -> PackageDependency | None:
@@ -224,7 +224,7 @@ def _get_indirect_routes(
 
 def _remove_other_layers(
     graph: ImportGraph,
-    layers: tuple[str, ...],
+    layers: Sequence[str],
     container: str | None,
     layers_to_preserve: tuple[_Module, ...],
 ) -> None:

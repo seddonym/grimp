@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import copy
-from typing import Dict, List, Optional, Set, Tuple, cast
+from typing import Dict, List, Optional, Sequence, Set, Tuple, cast
 
 from grimp.algorithms.shortest_path import bidirectional_shortest_path
 from grimp.application.ports import graph
@@ -381,9 +381,9 @@ class ImportGraph(graph.ImportGraph):
 
     def find_illegal_dependencies_for_layers(
         self,
-        layers: Tuple[str, ...],
+        layers: Sequence[str],
         containers: Optional[Set[str]] = None,
-    ) -> frozenset[PackageDependency]:
+    ) -> set[PackageDependency]:
         return _layers.find_illegal_dependencies(
             graph=self, layers=layers, containers=containers or set()
         )

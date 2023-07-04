@@ -19,7 +19,7 @@ class TestSingleOrNoContainer:
 
         result = self._analyze(graph, specify_container=specify_container)
 
-        assert result == frozenset()
+        assert result == set()
 
     @pytest.mark.parametrize("specify_container", (True, False))
     @pytest.mark.parametrize(
@@ -38,15 +38,13 @@ class TestSingleOrNoContainer:
 
         result = self._analyze(graph, specify_container=specify_container)
 
-        assert result == frozenset(
-            {
-                PackageDependency.new(
-                    upstream="mypackage.medium",
-                    downstream="mypackage.high",
-                    routes={Route.single_chained(importer, imported)},
-                ),
-            }
-        )
+        assert result == {
+            PackageDependency.new(
+                upstream="mypackage.medium",
+                downstream="mypackage.high",
+                routes={Route.single_chained(importer, imported)},
+            ),
+        }
 
     @pytest.mark.parametrize("specify_container", (True, False))
     @pytest.mark.parametrize(
@@ -85,21 +83,19 @@ class TestSingleOrNoContainer:
 
         result = self._analyze(graph, specify_container=specify_container)
 
-        assert result == frozenset(
-            {
-                PackageDependency.new(
-                    upstream="mypackage.medium",
-                    downstream="mypackage.high",
-                    routes={
-                        Route.new(
-                            heads={start},
-                            middle=route_middle,
-                            tails={end},
-                        ),
-                    },
-                )
-            }
-        )
+        assert result == {
+            PackageDependency.new(
+                upstream="mypackage.medium",
+                downstream="mypackage.high",
+                routes={
+                    Route.new(
+                        heads={start},
+                        middle=route_middle,
+                        tails={end},
+                    ),
+                },
+            )
+        }
 
     def test_two_package_dependencies(self):
         graph = self._build_legal_graph()
@@ -112,28 +108,26 @@ class TestSingleOrNoContainer:
 
         result = self._analyze(graph)
 
-        assert result == frozenset(
-            {
-                PackageDependency.new(
-                    upstream="mypackage.low",
-                    downstream="mypackage.medium",
-                    routes={
-                        Route.single_chained(
-                            "mypackage.low.white", "mypackage.medium.orange.beta"
-                        ),
-                    },
-                ),
-                PackageDependency.new(
-                    upstream="mypackage.medium",
-                    downstream="mypackage.high",
-                    routes={
-                        Route.single_chained(
-                            "mypackage.medium.orange", "mypackage.high.green"
-                        ),
-                    },
-                ),
-            }
-        )
+        assert result == {
+            PackageDependency.new(
+                upstream="mypackage.low",
+                downstream="mypackage.medium",
+                routes={
+                    Route.single_chained(
+                        "mypackage.low.white", "mypackage.medium.orange.beta"
+                    ),
+                },
+            ),
+            PackageDependency.new(
+                upstream="mypackage.medium",
+                downstream="mypackage.high",
+                routes={
+                    Route.single_chained(
+                        "mypackage.medium.orange", "mypackage.high.green"
+                    ),
+                },
+            ),
+        }
 
     def test_multiple_illegal_routes_same_ends(self):
         graph = self._build_legal_graph()
@@ -153,27 +147,25 @@ class TestSingleOrNoContainer:
 
         result = self._analyze(graph)
 
-        assert result == frozenset(
-            {
-                PackageDependency.new(
-                    upstream="mypackage.medium",
-                    downstream="mypackage.high",
-                    routes={
-                        Route.single_chained(
-                            "mypackage.medium.orange",
-                            "mypackage.tungsten",
-                            "mypackage.copper",
-                            "mypackage.high.green",
-                        ),
-                        Route.single_chained(
-                            "mypackage.medium.orange",
-                            "mypackage.gold.delta",
-                            "mypackage.high.green",
-                        ),
-                    },
-                ),
-            }
-        )
+        assert result == {
+            PackageDependency.new(
+                upstream="mypackage.medium",
+                downstream="mypackage.high",
+                routes={
+                    Route.single_chained(
+                        "mypackage.medium.orange",
+                        "mypackage.tungsten",
+                        "mypackage.copper",
+                        "mypackage.high.green",
+                    ),
+                    Route.single_chained(
+                        "mypackage.medium.orange",
+                        "mypackage.gold.delta",
+                        "mypackage.high.green",
+                    ),
+                },
+            ),
+        }
 
     def test_multiple_illegal_routes_different_ends_in_same_layer(self):
         graph = self._build_legal_graph()
@@ -193,27 +185,25 @@ class TestSingleOrNoContainer:
 
         result = self._analyze(graph)
 
-        assert result == frozenset(
-            {
-                PackageDependency.new(
-                    upstream="mypackage.medium",
-                    downstream="mypackage.high",
-                    routes={
-                        Route.single_chained(
-                            "mypackage.medium.orange",
-                            "mypackage.tungsten",
-                            "mypackage.copper",
-                            "mypackage.high.green",
-                        ),
-                        Route.single_chained(
-                            "mypackage.medium.orange.beta",
-                            "mypackage.gold.delta",
-                            "mypackage.high.yellow",
-                        ),
-                    },
-                ),
-            }
-        )
+        assert result == {
+            PackageDependency.new(
+                upstream="mypackage.medium",
+                downstream="mypackage.high",
+                routes={
+                    Route.single_chained(
+                        "mypackage.medium.orange",
+                        "mypackage.tungsten",
+                        "mypackage.copper",
+                        "mypackage.high.green",
+                    ),
+                    Route.single_chained(
+                        "mypackage.medium.orange.beta",
+                        "mypackage.gold.delta",
+                        "mypackage.high.yellow",
+                    ),
+                },
+            ),
+        }
 
     def test_illegal_route_with_extra_ends(self):
         graph = self._build_legal_graph()
@@ -236,32 +226,30 @@ class TestSingleOrNoContainer:
 
         result = self._analyze(graph)
 
-        assert result == frozenset(
-            {
-                PackageDependency.new(
-                    upstream="mypackage.medium",
-                    downstream="mypackage.high",
-                    routes={
-                        Route.new(
-                            heads={
-                                "mypackage.medium.orange",
-                                "mypackage.medium.orange.beta",
-                                "mypackage.medium.red",
-                            },
-                            middle=(
-                                "mypackage.tungsten",
-                                "mypackage.copper",
-                            ),
-                            tails={
-                                "mypackage.high.green",
-                                "mypackage.high",
-                                "mypackage.high.yellow.alpha",
-                            },
+        assert result == {
+            PackageDependency.new(
+                upstream="mypackage.medium",
+                downstream="mypackage.high",
+                routes={
+                    Route.new(
+                        heads={
+                            "mypackage.medium.orange",
+                            "mypackage.medium.orange.beta",
+                            "mypackage.medium.red",
+                        },
+                        middle=(
+                            "mypackage.tungsten",
+                            "mypackage.copper",
                         ),
-                    },
-                ),
-            }
-        )
+                        tails={
+                            "mypackage.high.green",
+                            "mypackage.high",
+                            "mypackage.high.yellow.alpha",
+                        },
+                    ),
+                },
+            ),
+        }
 
     def test_finds_two_equal_routes(self):
         graph = ImportGraph()
@@ -286,18 +274,16 @@ class TestSingleOrNoContainer:
             layers=("high", "low"),
         )
 
-        assert result == frozenset(
-            {
-                PackageDependency.new(
-                    upstream="low",
-                    downstream="high",
-                    routes={
-                        Route.single_chained(source, a, b, destination),
-                        Route.single_chained(source, c, d, destination),
-                    },
-                ),
-            }
-        )
+        assert result == {
+            PackageDependency.new(
+                upstream="low",
+                downstream="high",
+                routes={
+                    Route.single_chained(source, a, b, destination),
+                    Route.single_chained(source, c, d, destination),
+                },
+            ),
+        }
 
     def test_longer_forked_routes_dont_appear(self):
         graph = ImportGraph()
@@ -321,17 +307,15 @@ class TestSingleOrNoContainer:
             layers=("high", "low"),
         )
 
-        assert result == frozenset(
-            {
-                PackageDependency.new(
-                    upstream="low",
-                    downstream="high",
-                    routes={
-                        Route.single_chained(source, a, b, destination),
-                    },
-                ),
-            }
-        )
+        assert result == {
+            PackageDependency.new(
+                upstream="low",
+                downstream="high",
+                routes={
+                    Route.single_chained(source, a, b, destination),
+                },
+            ),
+        }
 
     def test_demonstrate_nondeterminism_with_equal_length_forked_routes(self):
         """
@@ -358,28 +342,26 @@ class TestSingleOrNoContainer:
             layers=("high", "low"),
         )
 
-        first_option = frozenset(
-            {
-                PackageDependency.new(
-                    upstream="low",
-                    downstream="high",
-                    routes={
-                        Route.single_chained(source, a, b, destination),
-                    },
-                ),
-            }
-        )
-        second_option = frozenset(
-            {
-                PackageDependency.new(
-                    upstream="low",
-                    downstream="high",
-                    routes={
-                        Route.single_chained(source, a, c, destination),
-                    },
-                ),
-            }
-        )
+        first_option = {
+            PackageDependency.new(
+                upstream="low",
+                downstream="high",
+                routes={
+                    Route.single_chained(source, a, b, destination),
+                },
+            ),
+        }
+
+        second_option = {
+            PackageDependency.new(
+                upstream="low",
+                downstream="high",
+                routes={
+                    Route.single_chained(source, a, c, destination),
+                },
+            ),
+        }
+
         assert (result == first_option) or (result == second_option)
 
     def _build_legal_graph(self):
@@ -419,7 +401,7 @@ class TestSingleOrNoContainer:
 
     def _analyze(
         self, graph: ImportGraph, specify_container: bool = False
-    ) -> frozenset[PackageDependency]:
+    ) -> set[PackageDependency]:
         if specify_container:
             return graph.find_illegal_dependencies_for_layers(
                 layers=("high", "medium", "low"),
@@ -446,15 +428,13 @@ class TestMultiplePackages:
 
         result = self._analyze(graph)
 
-        assert result == frozenset(
-            {
-                PackageDependency.new(
-                    upstream="medium",
-                    downstream="high",
-                    routes={Route.single_chained(importer, imported)},
-                ),
-            }
-        )
+        assert result == {
+            PackageDependency.new(
+                upstream="medium",
+                downstream="high",
+                routes={Route.single_chained(importer, imported)},
+            ),
+        }
 
     @pytest.mark.parametrize(
         "start",
@@ -492,21 +472,19 @@ class TestMultiplePackages:
 
         result = self._analyze(graph)
 
-        assert result == frozenset(
-            {
-                PackageDependency.new(
-                    upstream="medium",
-                    downstream="high",
-                    routes={
-                        Route.new(
-                            heads={start},
-                            middle=route_middle,
-                            tails={end},
-                        ),
-                    },
-                )
-            }
-        )
+        assert result == {
+            PackageDependency.new(
+                upstream="medium",
+                downstream="high",
+                routes={
+                    Route.new(
+                        heads={start},
+                        middle=route_middle,
+                        tails={end},
+                    ),
+                },
+            )
+        }
 
     def _build_legal_graph(self):
         graph = ImportGraph()
@@ -536,7 +514,7 @@ class TestMultiplePackages:
 
         return graph
 
-    def _analyze(self, graph: ImportGraph) -> frozenset[PackageDependency]:
+    def _analyze(self, graph: ImportGraph) -> set[PackageDependency]:
         return graph.find_illegal_dependencies_for_layers(
             layers=("high", "medium", "low"),
         )
@@ -548,7 +526,7 @@ class TestMultipleContainers:
 
         result = self._analyze(graph)
 
-        assert result == frozenset()
+        assert result == set()
 
     def test_multiple_illegal_imports(self):
         graph = self._build_legal_graph()
@@ -568,34 +546,32 @@ class TestMultipleContainers:
 
         result = self._analyze(graph)
 
-        assert result == frozenset(
-            {
-                PackageDependency.new(
-                    upstream="one.low",
-                    downstream="one.high",
-                    routes={
-                        Route.single_chained("one.low.white", "one.high.green"),
-                        Route.single_chained("one.low.white", "one.high.brown"),
-                        Route.new(
-                            heads={"one.low.white"},
-                            middle=("two.medium.pink",),
-                            # N.B. two.medium.pink ->  one.high.blue is in the
-                            # legal imports added in _build_legal_graph.
-                            tails={"one.high.green", "one.high.blue"},
-                        ),
-                    },
-                ),
-                PackageDependency.new(
-                    upstream="two.medium",
-                    downstream="two.high",
-                    routes={
-                        Route.single_chained(
-                            "two.medium.pink.delta", "two.high.yellow.gamma"
-                        ),
-                    },
-                ),
-            }
-        )
+        assert result == {
+            PackageDependency.new(
+                upstream="one.low",
+                downstream="one.high",
+                routes={
+                    Route.single_chained("one.low.white", "one.high.green"),
+                    Route.single_chained("one.low.white", "one.high.brown"),
+                    Route.new(
+                        heads={"one.low.white"},
+                        middle=("two.medium.pink",),
+                        # N.B. two.medium.pink ->  one.high.blue is in the
+                        # legal imports added in _build_legal_graph.
+                        tails={"one.high.green", "one.high.blue"},
+                    ),
+                },
+            ),
+            PackageDependency.new(
+                upstream="two.medium",
+                downstream="two.high",
+                routes={
+                    Route.single_chained(
+                        "two.medium.pink.delta", "two.high.yellow.gamma"
+                    ),
+                },
+            ),
+        }
 
     def _build_legal_graph(self):
         graph = ImportGraph()
@@ -641,7 +617,7 @@ class TestMultipleContainers:
 
         return graph
 
-    def _analyze(self, graph: ImportGraph) -> frozenset[PackageDependency]:
+    def _analyze(self, graph: ImportGraph) -> set[PackageDependency]:
         return graph.find_illegal_dependencies_for_layers(
             layers=("high", "medium", "low"),
             containers={"one", "two"},
@@ -746,19 +722,17 @@ class TestMissingLayers:
                 layers=("mypackage.high", "mypackage.medium", "mypackage.low"),
             )
 
-        assert result == frozenset(
-            {
-                PackageDependency.new(
-                    upstream="mypackage.medium",
-                    downstream="mypackage.high",
-                    routes={
-                        Route.single_chained(
-                            "mypackage.medium.blue", "mypackage.high.green"
-                        )
-                    },
-                )
-            }
-        )
+        assert result == {
+            PackageDependency.new(
+                upstream="mypackage.medium",
+                downstream="mypackage.high",
+                routes={
+                    Route.single_chained(
+                        "mypackage.medium.blue", "mypackage.high.green"
+                    )
+                },
+            )
+        }
 
     def test_missing_layer_is_ignored_with_multiple_containers(self):
         graph = ImportGraph()
@@ -776,15 +750,13 @@ class TestMissingLayers:
             containers=containers,
         )
 
-        assert result == frozenset(
-            {
-                PackageDependency.new(
-                    upstream="two.medium",
-                    downstream="two.high",
-                    routes={Route.single_chained("two.medium.blue", "two.high.green")},
-                )
-            }
-        )
+        assert result == {
+            PackageDependency.new(
+                upstream="two.medium",
+                downstream="two.high",
+                routes={Route.single_chained("two.medium.blue", "two.high.green")},
+            )
+        }
 
 
 def _pairwise(iterable):
