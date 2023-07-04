@@ -9,6 +9,8 @@ from grimp.domain.analysis import PackageDependency
 from grimp.domain.valueobjects import Module
 from grimp.exceptions import ModuleNotPresent
 
+from . import _layers
+
 
 class ImportGraph(graph.ImportGraph):
     """
@@ -382,7 +384,9 @@ class ImportGraph(graph.ImportGraph):
         layers: Tuple[str, ...],
         containers: Optional[Set[str]] = None,
     ) -> frozenset[PackageDependency]:
-        return frozenset()
+        return _layers.find_illegal_dependencies(
+            graph=self, layers=layers, containers=containers or set()
+        )
 
     # Private methods
 
