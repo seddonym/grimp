@@ -12,14 +12,6 @@ from grimp.exceptions import NoSuchContainer
 from tests.adaptors.timing import FakeTimer
 
 
-def _single_chain_route(*modules: str) -> Route:
-    return Route(
-        heads=frozenset({modules[0]}),
-        middle=tuple(modules[1:-1]),
-        tails=frozenset({modules[-1]}),
-    )
-
-
 class TestSingleOrNoContainer:
     @pytest.mark.parametrize("specify_container", (True, False))
     def test_no_illegal_imports(self, specify_container: bool):
@@ -48,14 +40,10 @@ class TestSingleOrNoContainer:
 
         assert result == frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="mypackage.medium",
                     downstream="mypackage.high",
-                    routes=frozenset(
-                        {
-                            _single_chain_route(importer, imported),
-                        }
-                    ),
+                    routes={Route.single_chained(importer, imported)},
                 ),
             }
         )
@@ -99,18 +87,16 @@ class TestSingleOrNoContainer:
 
         assert result == frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="mypackage.medium",
                     downstream="mypackage.high",
-                    routes=frozenset(
-                        {
-                            Route(
-                                heads=frozenset({start}),
-                                middle=tuple(route_middle),
-                                tails=frozenset({end}),
-                            ),
-                        }
-                    ),
+                    routes={
+                        Route.new(
+                            heads={start},
+                            middle=route_middle,
+                            tails={end},
+                        ),
+                    },
                 )
             }
         )
@@ -128,27 +114,23 @@ class TestSingleOrNoContainer:
 
         assert result == frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="mypackage.low",
                     downstream="mypackage.medium",
-                    routes=frozenset(
-                        {
-                            _single_chain_route(
-                                "mypackage.low.white", "mypackage.medium.orange.beta"
-                            ),
-                        }
-                    ),
+                    routes={
+                        Route.single_chained(
+                            "mypackage.low.white", "mypackage.medium.orange.beta"
+                        ),
+                    },
                 ),
-                PackageDependency(
+                PackageDependency.new(
                     upstream="mypackage.medium",
                     downstream="mypackage.high",
-                    routes=frozenset(
-                        {
-                            _single_chain_route(
-                                "mypackage.medium.orange", "mypackage.high.green"
-                            ),
-                        }
-                    ),
+                    routes={
+                        Route.single_chained(
+                            "mypackage.medium.orange", "mypackage.high.green"
+                        ),
+                    },
                 ),
             }
         )
@@ -173,24 +155,22 @@ class TestSingleOrNoContainer:
 
         assert result == frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="mypackage.medium",
                     downstream="mypackage.high",
-                    routes=frozenset(
-                        {
-                            _single_chain_route(
-                                "mypackage.medium.orange",
-                                "mypackage.tungsten",
-                                "mypackage.copper",
-                                "mypackage.high.green",
-                            ),
-                            _single_chain_route(
-                                "mypackage.medium.orange",
-                                "mypackage.gold.delta",
-                                "mypackage.high.green",
-                            ),
-                        }
-                    ),
+                    routes={
+                        Route.single_chained(
+                            "mypackage.medium.orange",
+                            "mypackage.tungsten",
+                            "mypackage.copper",
+                            "mypackage.high.green",
+                        ),
+                        Route.single_chained(
+                            "mypackage.medium.orange",
+                            "mypackage.gold.delta",
+                            "mypackage.high.green",
+                        ),
+                    },
                 ),
             }
         )
@@ -215,24 +195,22 @@ class TestSingleOrNoContainer:
 
         assert result == frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="mypackage.medium",
                     downstream="mypackage.high",
-                    routes=frozenset(
-                        {
-                            _single_chain_route(
-                                "mypackage.medium.orange",
-                                "mypackage.tungsten",
-                                "mypackage.copper",
-                                "mypackage.high.green",
-                            ),
-                            _single_chain_route(
-                                "mypackage.medium.orange.beta",
-                                "mypackage.gold.delta",
-                                "mypackage.high.yellow",
-                            ),
-                        }
-                    ),
+                    routes={
+                        Route.single_chained(
+                            "mypackage.medium.orange",
+                            "mypackage.tungsten",
+                            "mypackage.copper",
+                            "mypackage.high.green",
+                        ),
+                        Route.single_chained(
+                            "mypackage.medium.orange.beta",
+                            "mypackage.gold.delta",
+                            "mypackage.high.yellow",
+                        ),
+                    },
                 ),
             }
         )
@@ -260,33 +238,27 @@ class TestSingleOrNoContainer:
 
         assert result == frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="mypackage.medium",
                     downstream="mypackage.high",
-                    routes=frozenset(
-                        {
-                            Route(
-                                heads=frozenset(
-                                    {
-                                        "mypackage.medium.orange",
-                                        "mypackage.medium.orange.beta",
-                                        "mypackage.medium.red",
-                                    }
-                                ),
-                                middle=(
-                                    "mypackage.tungsten",
-                                    "mypackage.copper",
-                                ),
-                                tails=frozenset(
-                                    {
-                                        "mypackage.high.green",
-                                        "mypackage.high",
-                                        "mypackage.high.yellow.alpha",
-                                    }
-                                ),
+                    routes={
+                        Route.new(
+                            heads={
+                                "mypackage.medium.orange",
+                                "mypackage.medium.orange.beta",
+                                "mypackage.medium.red",
+                            },
+                            middle=(
+                                "mypackage.tungsten",
+                                "mypackage.copper",
                             ),
-                        }
-                    ),
+                            tails={
+                                "mypackage.high.green",
+                                "mypackage.high",
+                                "mypackage.high.yellow.alpha",
+                            },
+                        ),
+                    },
                 ),
             }
         )
@@ -316,15 +288,13 @@ class TestSingleOrNoContainer:
 
         assert result == frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="low",
                     downstream="high",
-                    routes=frozenset(
-                        {
-                            _single_chain_route(source, a, b, destination),
-                            _single_chain_route(source, c, d, destination),
-                        }
-                    ),
+                    routes={
+                        Route.single_chained(source, a, b, destination),
+                        Route.single_chained(source, c, d, destination),
+                    },
                 ),
             }
         )
@@ -353,14 +323,12 @@ class TestSingleOrNoContainer:
 
         assert result == frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="low",
                     downstream="high",
-                    routes=frozenset(
-                        {
-                            _single_chain_route(source, a, b, destination),
-                        }
-                    ),
+                    routes={
+                        Route.single_chained(source, a, b, destination),
+                    },
                 ),
             }
         )
@@ -392,27 +360,23 @@ class TestSingleOrNoContainer:
 
         first_option = frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="low",
                     downstream="high",
-                    routes=frozenset(
-                        {
-                            _single_chain_route(source, a, b, destination),
-                        }
-                    ),
+                    routes={
+                        Route.single_chained(source, a, b, destination),
+                    },
                 ),
             }
         )
         second_option = frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="low",
                     downstream="high",
-                    routes=frozenset(
-                        {
-                            _single_chain_route(source, a, c, destination),
-                        }
-                    ),
+                    routes={
+                        Route.single_chained(source, a, c, destination),
+                    },
                 ),
             }
         )
@@ -484,14 +448,10 @@ class TestMultiplePackages:
 
         assert result == frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="medium",
                     downstream="high",
-                    routes=frozenset(
-                        {
-                            _single_chain_route(importer, imported),
-                        }
-                    ),
+                    routes={Route.single_chained(importer, imported)},
                 ),
             }
         )
@@ -534,18 +494,16 @@ class TestMultiplePackages:
 
         assert result == frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="medium",
                     downstream="high",
-                    routes=frozenset(
-                        {
-                            Route(
-                                heads=frozenset({start}),
-                                middle=tuple(route_middle),
-                                tails=frozenset({end}),
-                            ),
-                        }
-                    ),
+                    routes={
+                        Route.new(
+                            heads={start},
+                            middle=route_middle,
+                            tails={end},
+                        ),
+                    },
                 )
             }
         )
@@ -612,33 +570,29 @@ class TestMultipleContainers:
 
         assert result == frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="one.low",
                     downstream="one.high",
-                    routes=frozenset(
-                        {
-                            _single_chain_route("one.low.white", "one.high.green"),
-                            _single_chain_route("one.low.white", "one.high.brown"),
-                            Route(
-                                heads=frozenset({"one.low.white"}),
-                                middle=("two.medium.pink",),
-                                # N.B. two.medium.pink ->  one.high.blue is in the
-                                # legal imports added in _build_legal_graph.
-                                tails=frozenset({"one.high.green", "one.high.blue"}),
-                            ),
-                        }
-                    ),
+                    routes={
+                        Route.single_chained("one.low.white", "one.high.green"),
+                        Route.single_chained("one.low.white", "one.high.brown"),
+                        Route.new(
+                            heads={"one.low.white"},
+                            middle=("two.medium.pink",),
+                            # N.B. two.medium.pink ->  one.high.blue is in the
+                            # legal imports added in _build_legal_graph.
+                            tails={"one.high.green", "one.high.blue"},
+                        ),
+                    },
                 ),
-                PackageDependency(
+                PackageDependency.new(
                     upstream="two.medium",
                     downstream="two.high",
-                    routes=frozenset(
-                        {
-                            _single_chain_route(
-                                "two.medium.pink.delta", "two.high.yellow.gamma"
-                            ),
-                        }
-                    ),
+                    routes={
+                        Route.single_chained(
+                            "two.medium.pink.delta", "two.high.yellow.gamma"
+                        ),
+                    },
                 ),
             }
         )
@@ -794,16 +748,14 @@ class TestMissingLayers:
 
         assert result == frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="mypackage.medium",
                     downstream="mypackage.high",
-                    routes=frozenset(
-                        {
-                            _single_chain_route(
-                                "mypackage.medium.blue", "mypackage.high.green"
-                            )
-                        }
-                    ),
+                    routes={
+                        Route.single_chained(
+                            "mypackage.medium.blue", "mypackage.high.green"
+                        )
+                    },
                 )
             }
         )
@@ -826,12 +778,10 @@ class TestMissingLayers:
 
         assert result == frozenset(
             {
-                PackageDependency(
+                PackageDependency.new(
                     upstream="two.medium",
                     downstream="two.high",
-                    routes=frozenset(
-                        {_single_chain_route("two.medium.blue", "two.high.green")}
-                    ),
+                    routes={Route.single_chained("two.medium.blue", "two.high.green")},
                 )
             }
         )

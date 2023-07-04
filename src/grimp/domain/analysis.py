@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Iterable, Sequence
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,47 @@ class Route:
     middle: tuple[str, ...]
     tails: frozenset[str]  # Imported modules at the end of the chain.
 
+    @classmethod
+    def new(
+        cls,
+        heads: Iterable[str],
+        tails: Iterable[str],
+        middle: Sequence[str] | None = None,
+    ) -> Route:
+        """
+        Optional constructor for a Route with more permissive input types.
+
+        Example:
+
+            Route.new(
+                heads={"foo"},
+                middle=["bar", "baz"],
+                tails={"foobar"},
+            )
+
+        """
+        return cls(
+            heads=frozenset(heads),
+            middle=tuple(middle) if middle else (),
+            tails=frozenset(tails),
+        )
+
+    @classmethod
+    def single_chained(cls, *modules: str) -> Route:
+        """
+        Optional constructor for a Route with a single chain.
+
+        Example:
+
+            Route.single_chained("foo", "bar", "baz")
+
+        """
+        return Route.new(
+            heads={modules[0]},
+            middle=tuple(modules[1:-1]),
+            tails={modules[-1]},
+        )
+
 
 @dataclass(frozen=True)
 class PackageDependency:
@@ -31,3 +73,24 @@ class PackageDependency:
     # The full name of the package from which all the routes end.
     downstream: str
     routes: frozenset[Route]
+
+    @classmethod
+    def new(
+        cls,
+        upstream: str,
+        downstream: str,
+        routes: Iterable[Route],
+    ) -> PackageDependency:
+        """
+        Optional constructor for a PackageDependency with more permissive input types.
+
+        Example:
+
+            PackageDependency.new(
+                upstream="foo",
+                downstream="bar",
+                routes={Route.single_chained("foo", "bar")},
+            )
+
+        """
+        return cls(upstream=upstream, downstream=downstream, routes=frozenset(routes))
