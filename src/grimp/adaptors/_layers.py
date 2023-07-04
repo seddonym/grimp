@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import copy
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Iterator
 
 from grimp import Route
+from grimp.application.config import settings
 from grimp.application.ports.graph import ImportGraph
 from grimp.domain.analysis import PackageDependency
 from grimp.exceptions import NoSuchContainer
+
+logger = logging.getLogger("grimp")
 
 
 def find_illegal_dependencies(
@@ -32,17 +36,23 @@ def find_illegal_dependencies(
         lower_layer_package,
         container,
     ) in _generate_module_permutations(graph, layers, containers):
-
-        dependency_or_none = _search_for_package_dependency(
-            higher_layer_package=higher_layer_package,
-            lower_layer_package=lower_layer_package,
-            layers=layers,
-            container=container,
-            graph=graph,
+        logger.info(
+            "Searching for import chains from "
+            f"{lower_layer_package} to {higher_layer_package}...",
         )
+        with settings.TIMER as timer:
+            dependency_or_none = _search_for_package_dependency(
+                higher_layer_package=higher_layer_package,
+                lower_layer_package=lower_layer_package,
+                layers=layers,
+                container=container,
+                graph=graph,
+            )
 
-        if dependency_or_none:
-            package_dependencies.add(dependency_or_none)
+            if dependency_or_none:
+                package_dependencies.add(dependency_or_none)
+
+        _log_illegal_route_count(dependency_or_none, duration_in_s=timer.duration_in_s)
 
     return frozenset(package_dependencies)
 
@@ -341,3 +351,13 @@ def _pop_shortest_chains(
             for index in range(len(chain) - 1):
                 graph.remove_import(importer=chain[index], imported=chain[index + 1])
             yield chain
+
+
+def _log_illegal_route_count(
+    dependency_or_none: PackageDependency | None, duration_in_s: int
+) -> None:
+    route_count = len(dependency_or_none.routes) if dependency_or_none else 0
+    pluralized = "s" if route_count != 1 else ""
+    logger.info(
+        f"Found {route_count} illegal route{pluralized} " f"in {duration_in_s}s.",
+    )
