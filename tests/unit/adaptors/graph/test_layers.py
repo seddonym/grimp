@@ -291,6 +291,133 @@ class TestSingleOrNoContainer:
             }
         )
 
+    def test_finds_two_equal_routes(self):
+        graph = ImportGraph()
+        graph.add_module("low")
+        graph.add_module("high")
+
+        source, destination = "low.blue", "high.green"
+        a, b = "a", "b"
+        c, d = "c", "d"
+
+        # Add first chain.
+        graph.add_import(importer=source, imported=a)
+        graph.add_import(importer=a, imported=b)
+        graph.add_import(importer=b, imported=destination)
+
+        # Add a second chain of equal length.
+        graph.add_import(importer=source, imported=c)
+        graph.add_import(importer=c, imported=d)
+        graph.add_import(importer=d, imported=destination)
+
+        result = graph.find_illegal_dependencies_for_layers(
+            layers=("high", "low"),
+        )
+
+        assert result == frozenset(
+            {
+                PackageDependency(
+                    upstream="low",
+                    downstream="high",
+                    routes=frozenset(
+                        {
+                            _single_chain_route(source, a, b, destination),
+                            _single_chain_route(source, c, d, destination),
+                        }
+                    ),
+                ),
+            }
+        )
+
+    def test_longer_forked_routes_dont_appear(self):
+        graph = ImportGraph()
+        graph.add_module("low")
+        graph.add_module("high")
+
+        source, destination = "low.blue", "high.green"
+        a, b, c, d = "a", "b", "c", "d"
+
+        # Add first chain.
+        graph.add_import(importer=source, imported=a)
+        graph.add_import(importer=a, imported=b)
+        graph.add_import(importer=b, imported=destination)
+
+        # Fork the chain, with a longer journey to the destination.
+        graph.add_import(importer=a, imported=c)
+        graph.add_import(importer=c, imported=d)
+        graph.add_import(importer=d, imported="high.green")
+
+        result = graph.find_illegal_dependencies_for_layers(
+            layers=("high", "low"),
+        )
+
+        assert result == frozenset(
+            {
+                PackageDependency(
+                    upstream="low",
+                    downstream="high",
+                    routes=frozenset(
+                        {
+                            _single_chain_route(source, a, b, destination),
+                        }
+                    ),
+                ),
+            }
+        )
+
+    def test_demonstrate_nondeterminism_with_equal_length_forked_routes(self):
+        """
+        This test demonstrates that the result is unfortunately nondeterministic
+        when there are two equal-length forked chains.
+        """
+        graph = ImportGraph()
+        graph.add_module("low")
+        graph.add_module("high")
+
+        source, destination = "low.blue", "high.green"
+        a, b, c = "a", "b", "c"
+
+        # Add first chain.
+        graph.add_import(importer=source, imported=a)
+        graph.add_import(importer=a, imported=b)
+        graph.add_import(importer=b, imported=destination)
+
+        # Fork the chain, with an equal length to the destination.
+        graph.add_import(importer=a, imported=c)
+        graph.add_import(importer=c, imported=destination)
+
+        result = graph.find_illegal_dependencies_for_layers(
+            layers=("high", "low"),
+        )
+
+        first_option = frozenset(
+            {
+                PackageDependency(
+                    upstream="low",
+                    downstream="high",
+                    routes=frozenset(
+                        {
+                            _single_chain_route(source, a, b, destination),
+                        }
+                    ),
+                ),
+            }
+        )
+        second_option = frozenset(
+            {
+                PackageDependency(
+                    upstream="low",
+                    downstream="high",
+                    routes=frozenset(
+                        {
+                            _single_chain_route(source, a, c, destination),
+                        }
+                    ),
+                ),
+            }
+        )
+        assert (result == first_option) or (result == second_option)
+
     def _build_legal_graph(self):
         graph = ImportGraph()
         for module in (
