@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import itertools
+import logging
 
 import pytest  # type: ignore
 
 from grimp import PackageDependency, Route
 from grimp.adaptors.graph import ImportGraph
+from grimp.application.config import settings
 from grimp.exceptions import NoSuchContainer
+from tests.adaptors.timing import FakeTimer
 
 
 def _single_chain_route(*modules: str) -> Route:
@@ -580,6 +583,61 @@ class TestInvalidContainers:
                 layers=("high", "medium", "low"),
                 containers=containers,
             )
+
+
+class TestLogging:
+    def test_permutation_logging(self, caplog):
+        caplog.set_level(logging.INFO)
+        timer = FakeTimer()
+        timer.setup(tick_duration=10, increment=0)
+        settings.configure(TIMER=timer)
+        graph = ImportGraph()
+        for module in (
+            "mypackage.one",
+            "mypackage.one.high",
+            "mypackage.one.medium",
+            "mypackage.one.low",
+            "mypackage.two",
+            "mypackage.two.high",
+            "mypackage.two.medium",
+            "mypackage.two.low",
+        ):
+            graph.add_module(module)
+        # Add some illegal imports.
+        graph.add_import(
+            importer="mypackage.one.low.blue.gamma",
+            imported="mypackage.one.medium.orange",
+        )
+        graph.add_import(
+            importer="mypackage.two.medium.green.beta",
+            imported="mypackage.two.high.red",
+        )
+        graph.add_import(
+            importer="mypackage.two.medium.green", imported="mypackage.one.low.white"
+        )
+        graph.add_import(
+            importer="mypackage.one.low.white", imported="mypackage.two.high.red"
+        )
+
+        graph.find_illegal_dependencies_for_layers(
+            layers=("high", "medium", "low"),
+            containers={"mypackage.one", "mypackage.two"},
+        )
+
+        assert set(caplog.messages) == {
+            "Searching for import chains from mypackage.one.medium to mypackage.one.high...",
+            "Found 0 illegal routes in 10s.",
+            "Searching for import chains from mypackage.one.low to mypackage.one.high...",
+            "Found 0 illegal routes in 10s.",
+            "Searching for import chains from mypackage.one.low to mypackage.one.medium...",
+            "Found 1 illegal route in 10s.",
+            "Searching for import chains from mypackage.two.medium to mypackage.two.high...",
+            "Found 2 illegal routes in 10s.",
+            "Searching for import chains from mypackage.two.low to mypackage.two.high...",
+            "Found 0 illegal routes in 10s.",
+            "Searching for import chains from mypackage.two.low to mypackage.two.medium...",
+            "Found 0 illegal routes in 10s.",
+        }
 
 
 class TestMissingLayers:
