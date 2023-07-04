@@ -138,6 +138,35 @@ class TestFindShortestChain:
 
         assert (a, b, c, d, e) == graph.find_shortest_chain(importer=a, imported=e)
 
+    def test_demonstrate_nondeterminism_of_equal_chains(self):
+        """
+        This test demonstrates that, unfortunately, find_shortest_chain
+        does not have deterministic behaviour when two chains of equal
+        length exist in the graph.
+        """
+        graph = ImportGraph()
+        source, destination = "source", "destination"
+        a, b, c = "a", "b", "c"
+        d, e, f = "d", "e", "f"
+
+        # Add first chain.
+        graph.add_import(importer=source, imported=a)
+        graph.add_import(importer=a, imported=b)
+        graph.add_import(importer=b, imported=c)
+        graph.add_import(importer=c, imported=destination)
+
+        # Add a second chain of equal length.
+        graph.add_import(importer=source, imported=d)
+        graph.add_import(importer=d, imported=e)
+        graph.add_import(importer=e, imported=f)
+        graph.add_import(importer=f, imported=destination)
+
+        result = graph.find_shortest_chain(importer=source, imported=destination)
+
+        one_chain = (source, a, b, c, destination)
+        other_chain = (source, d, e, f, destination)
+        assert (result == one_chain) or (result == other_chain)
+
 
 class TestFindShortestChains:
     def test_top_level_import(self):
