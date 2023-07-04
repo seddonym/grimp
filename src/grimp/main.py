@@ -6,6 +6,7 @@ from .adaptors.graph import ImportGraph
 from .adaptors.importscanner import ImportScanner
 from .adaptors.modulefinder import ModuleFinder
 from .adaptors.packagefinder import ImportLibPackageFinder
+from .adaptors.timing import SystemClockTimer
 from .application.config import settings
 from .application.usecases import build_graph
 
@@ -16,4 +17,5 @@ settings.configure(
     IMPORT_GRAPH_CLASS=ImportGraph,
     PACKAGE_FINDER=ImportLibPackageFinder(),
     CACHE_CLASS=Cache,
+    TIMER=SystemClockTimer(),
 )
