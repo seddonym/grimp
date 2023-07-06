@@ -7,7 +7,7 @@ from grimp.domain.valueobjects import Module
 from grimp.exceptions import ModuleNotPresent
 
 
-class ImportGraph(graph.AbstractImportGraph):
+class ImportGraph(graph.ImportGraph):
     """
     Pure Python implementation of the ImportGraph.
     """

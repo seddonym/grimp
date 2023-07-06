@@ -11,7 +11,7 @@ class DetailedImport(TypedDict):
     line_contents: str
 
 
-class AbstractImportGraph(abc.ABC):
+class ImportGraph(abc.ABC):
     """
     A Directed Graph of imports between Python modules.
     """
