@@ -249,6 +249,10 @@ Higher level analysis
     with its search. As a result, any illegal Routes that have sections in common with other illegal Routes may not
     be returned.
 
+    Additionally, unfortunately the Routes included in the PackageDependencies are not, currently, completely
+    deterministic. If there are multiple illegal Routes of the same length, it is not predictable which one will be
+    found first. This means that the PackageDependencies returned can vary for the same graph.
+
     Example::
 
         dependencies = graph.find_illegal_dependencies_for_layers(
