@@ -2,8 +2,8 @@
 Changelog
 =========
 
-latest
-------
+2.5 (2023-7-6)
+--------------
 
 * Log cache activity.
 * Drop support for Python 3.7.
