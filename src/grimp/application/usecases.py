@@ -5,7 +5,7 @@ from typing import Dict, Sequence, Set, Type, Union, cast
 
 from ..application.ports import caching
 from ..application.ports.filesystem import AbstractFileSystem
-from ..application.ports.graph import AbstractImportGraph
+from ..application.ports.graph import ImportGraph
 from ..application.ports.importscanner import AbstractImportScanner
 from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage
 from ..application.ports.packagefinder import AbstractPackageFinder
@@ -22,7 +22,7 @@ def build_graph(
     *additional_package_names,
     include_external_packages: bool = False,
     cache_dir: Union[str, Type[NotSupplied], None] = NotSupplied,
-) -> AbstractImportGraph:
+) -> ImportGraph:
     """
     Build and return an import graph for the supplied package name(s).
 
@@ -140,8 +140,8 @@ def _scan_packages(
 def _assemble_graph(
     found_packages: Set[FoundPackage],
     imports_by_module: Dict[Module, Set[DirectImport]],
-) -> AbstractImportGraph:
-    graph: AbstractImportGraph = settings.IMPORT_GRAPH_CLASS()
+) -> ImportGraph:
+    graph: ImportGraph = settings.IMPORT_GRAPH_CLASS()
     for module, direct_imports in imports_by_module.items():
         graph.add_module(module.name)
         for direct_import in direct_imports:
