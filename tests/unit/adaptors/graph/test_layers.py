@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import itertools
 import logging
+import re
 
 import pytest  # type: ignore
 
 from grimp import PackageDependency, Route
 from grimp.adaptors.graph import ImportGraph
-from grimp.application.config import settings
 from grimp.exceptions import NoSuchContainer
-from tests.adaptors.timing import FakeTimer
 
 
 class TestSingleOrNoContainer:
@@ -21,7 +20,13 @@ class TestSingleOrNoContainer:
 
         assert result == set()
 
-    @pytest.mark.parametrize("specify_container", (True, False))
+    @pytest.mark.parametrize(
+        "specify_container",
+        (
+            True,
+            False,
+        ),
+    )
     @pytest.mark.parametrize(
         "importer",
         ("mypackage.medium", "mypackage.medium.orange", "mypackage.medium.orange.beta"),
@@ -98,12 +103,8 @@ class TestSingleOrNoContainer:
 
     def test_two_package_dependencies(self):
         graph = self._build_legal_graph()
-        graph.add_import(
-            importer="mypackage.low.white", imported="mypackage.medium.orange.beta"
-        )
-        graph.add_import(
-            importer="mypackage.medium.orange", imported="mypackage.high.green"
-        )
+        graph.add_import(importer="mypackage.low.white", imported="mypackage.medium.orange.beta")
+        graph.add_import(importer="mypackage.medium.orange", imported="mypackage.high.green")
 
         result = self._analyze(graph)
 
@@ -112,18 +113,14 @@ class TestSingleOrNoContainer:
                 importer="mypackage.low",
                 imported="mypackage.medium",
                 routes={
-                    Route.single_chained(
-                        "mypackage.low.white", "mypackage.medium.orange.beta"
-                    ),
+                    Route.single_chained("mypackage.low.white", "mypackage.medium.orange.beta"),
                 },
             ),
             PackageDependency.new(
                 importer="mypackage.medium",
                 imported="mypackage.high",
                 routes={
-                    Route.single_chained(
-                        "mypackage.medium.orange", "mypackage.high.green"
-                    ),
+                    Route.single_chained("mypackage.medium.orange", "mypackage.high.green"),
                 },
             ),
         }
@@ -131,18 +128,12 @@ class TestSingleOrNoContainer:
     def test_multiple_illegal_routes_same_ends(self):
         graph = self._build_legal_graph()
         # Route 1.
-        graph.add_import(
-            importer="mypackage.medium.orange", imported="mypackage.tungsten"
-        )
+        graph.add_import(importer="mypackage.medium.orange", imported="mypackage.tungsten")
         graph.add_import(importer="mypackage.tungsten", imported="mypackage.copper")
         graph.add_import(importer="mypackage.copper", imported="mypackage.high.green")
         # Route 2.
-        graph.add_import(
-            importer="mypackage.medium.orange", imported="mypackage.gold.delta"
-        )
-        graph.add_import(
-            importer="mypackage.gold.delta", imported="mypackage.high.green"
-        )
+        graph.add_import(importer="mypackage.medium.orange", imported="mypackage.gold.delta")
+        graph.add_import(importer="mypackage.gold.delta", imported="mypackage.high.green")
 
         result = self._analyze(graph)
 
@@ -169,18 +160,12 @@ class TestSingleOrNoContainer:
     def test_multiple_illegal_routes_different_ends_in_same_layer(self):
         graph = self._build_legal_graph()
         # Route 1.
-        graph.add_import(
-            importer="mypackage.medium.orange", imported="mypackage.tungsten"
-        )
+        graph.add_import(importer="mypackage.medium.orange", imported="mypackage.tungsten")
         graph.add_import(importer="mypackage.tungsten", imported="mypackage.copper")
         graph.add_import(importer="mypackage.copper", imported="mypackage.high.green")
         # Route 2.
-        graph.add_import(
-            importer="mypackage.medium.orange.beta", imported="mypackage.gold.delta"
-        )
-        graph.add_import(
-            importer="mypackage.gold.delta", imported="mypackage.high.yellow"
-        )
+        graph.add_import(importer="mypackage.medium.orange.beta", imported="mypackage.gold.delta")
+        graph.add_import(importer="mypackage.gold.delta", imported="mypackage.high.yellow")
 
         result = self._analyze(graph)
 
@@ -207,21 +192,15 @@ class TestSingleOrNoContainer:
     def test_illegal_route_with_extra_ends(self):
         graph = self._build_legal_graph()
         # Route 1.
-        graph.add_import(
-            importer="mypackage.medium.orange", imported="mypackage.tungsten"
-        )
+        graph.add_import(importer="mypackage.medium.orange", imported="mypackage.tungsten")
         graph.add_import(importer="mypackage.tungsten", imported="mypackage.copper")
         graph.add_import(importer="mypackage.copper", imported="mypackage.high.green")
         # Extra firsts.
-        graph.add_import(
-            importer="mypackage.medium.orange.beta", imported="mypackage.tungsten"
-        )
+        graph.add_import(importer="mypackage.medium.orange.beta", imported="mypackage.tungsten")
         graph.add_import(importer="mypackage.medium.red", imported="mypackage.tungsten")
         # Extra lasts.
         graph.add_import(importer="mypackage.copper", imported="mypackage.high")
-        graph.add_import(
-            importer="mypackage.copper", imported="mypackage.high.yellow.alpha"
-        )
+        graph.add_import(importer="mypackage.copper", imported="mypackage.high.yellow.alpha")
 
         result = self._analyze(graph)
 
@@ -384,15 +363,9 @@ class TestSingleOrNoContainer:
             graph.add_module(module)
 
         # Add some 'legal' imports.
-        graph.add_import(
-            importer="mypackage.high.green", imported="mypackage.medium.orange"
-        )
-        graph.add_import(
-            importer="mypackage.high.green", imported="mypackage.low.white.gamma"
-        )
-        graph.add_import(
-            importer="mypackage.medium.orange", imported="mypackage.low.white"
-        )
+        graph.add_import(importer="mypackage.high.green", imported="mypackage.medium.orange")
+        graph.add_import(importer="mypackage.high.green", imported="mypackage.low.white.gamma")
+        graph.add_import(importer="mypackage.medium.orange", imported="mypackage.low.white")
         graph.add_import(importer="mypackage.high.blue", imported="mypackage.utils")
         graph.add_import(importer="mypackage.utils", imported="mypackage.medium.red")
 
@@ -539,9 +512,7 @@ class TestMultipleContainers:
             imported="one.high.green",
         )
         graph.add_import(importer="one.low.white", imported="one.high.brown")
-        graph.add_import(
-            importer="two.medium.pink.delta", imported="two.high.yellow.gamma"
-        )
+        graph.add_import(importer="two.medium.pink.delta", imported="two.high.yellow.gamma")
 
         result = self._analyze(graph)
 
@@ -565,9 +536,7 @@ class TestMultipleContainers:
                 importer="two.medium",
                 imported="two.high",
                 routes={
-                    Route.single_chained(
-                        "two.medium.pink.delta", "two.high.yellow.gamma"
-                    ),
+                    Route.single_chained("two.medium.pink.delta", "two.high.yellow.gamma"),
                 },
             ),
         }
@@ -641,12 +610,11 @@ class TestInvalidContainers:
             )
 
 
+# TODO: move test to within Rust.
+@pytest.mark.skip(reason="This only passes if run on its own, due to pyo3_log caching.")
 class TestLogging:
     def test_permutation_logging(self, caplog):
         caplog.set_level(logging.INFO)
-        timer = FakeTimer()
-        timer.setup(tick_duration=10, increment=0)
-        settings.configure(TIMER=timer)
         graph = ImportGraph()
         for module in (
             "mypackage.one",
@@ -668,48 +636,45 @@ class TestLogging:
             importer="mypackage.two.medium.green.beta",
             imported="mypackage.two.high.red",
         )
-        graph.add_import(
-            importer="mypackage.two.medium.green", imported="mypackage.one.low.white"
-        )
-        graph.add_import(
-            importer="mypackage.one.low.white", imported="mypackage.two.high.red"
-        )
+        graph.add_import(importer="mypackage.two.medium.green", imported="mypackage.one.low.white")
+        graph.add_import(importer="mypackage.one.low.white", imported="mypackage.two.high.red")
 
         graph.find_illegal_dependencies_for_layers(
             layers=("high", "medium", "low"),
             containers={"mypackage.one", "mypackage.two"},
         )
 
-        assert set(caplog.messages) == {
+        without_timing_regex = re.compile(r"in (\d*)s")
+        log_messages_without_timing = {
+            re.sub(without_timing_regex, "in <time>s", m) for m in caplog.messages
+        }
+        assert set(log_messages_without_timing) == {
+            "Using Rust to find illegal dependencies.",
             "Searching for import chains from mypackage.one.medium to mypackage.one.high...",
-            "Found 0 illegal routes in 10s.",
+            "Found 0 illegal routes in <time>s.",
             "Searching for import chains from mypackage.one.low to mypackage.one.high...",
-            "Found 0 illegal routes in 10s.",
+            "Found 0 illegal routes in <time>s.",
             "Searching for import chains from mypackage.one.low to mypackage.one.medium...",
-            "Found 1 illegal route in 10s.",
+            "Found 1 illegal route in <time>s.",
             "Searching for import chains from mypackage.two.medium to mypackage.two.high...",
-            "Found 2 illegal routes in 10s.",
+            "Found 2 illegal routes in <time>s.",
             "Searching for import chains from mypackage.two.low to mypackage.two.high...",
-            "Found 0 illegal routes in 10s.",
+            "Found 0 illegal routes in <time>s.",
             "Searching for import chains from mypackage.two.low to mypackage.two.medium...",
-            "Found 0 illegal routes in 10s.",
+            "Found 0 illegal routes in <time>s.",
         }
 
 
 class TestMissingLayers:
     @pytest.mark.parametrize("specify_container", (True, False))
-    def test_missing_layer_is_ignored_with_single_or_no_container(
-        self, specify_container: bool
-    ):
+    def test_missing_layer_is_ignored_with_single_or_no_container(self, specify_container: bool):
         graph = ImportGraph()
 
         # Add an import, but the rest of the layers don't exist.
         graph.add_module("mypackage")
         graph.add_module("mypackage.medium")
         graph.add_module("mypackage.high")
-        graph.add_import(
-            importer="mypackage.medium.blue", imported="mypackage.high.green"
-        )
+        graph.add_import(importer="mypackage.medium.blue", imported="mypackage.high.green")
 
         if specify_container:
             result = graph.find_illegal_dependencies_for_layers(
@@ -725,11 +690,7 @@ class TestMissingLayers:
             PackageDependency.new(
                 importer="mypackage.medium",
                 imported="mypackage.high",
-                routes={
-                    Route.single_chained(
-                        "mypackage.medium.blue", "mypackage.high.green"
-                    )
-                },
+                routes={Route.single_chained("mypackage.medium.blue", "mypackage.high.green")},
             )
         }
 

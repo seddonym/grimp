@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import copy
-import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterator, Sequence
+from typing import TYPE_CHECKING, Any, Iterator, Sequence, TypedDict
 
 from grimp import Route
-from grimp.application.config import settings
-from grimp.application.ports.graph import ImportGraph
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
+
+if TYPE_CHECKING:
+    from grimp.adaptors.graph import ImportGraph
+
 from grimp.domain.analysis import PackageDependency
 from grimp.exceptions import NoSuchContainer
-
-logger = logging.getLogger("grimp")
 
 
 def find_illegal_dependencies(
@@ -27,34 +27,51 @@ def find_illegal_dependencies(
     The only difference between this and the method is that the containers passed in
     is already a (potentially empty) set.
     """
-    _check_containers_exist(graph, containers)
-
-    package_dependencies = set()
-
-    for (
-        higher_layer_package,
-        lower_layer_package,
-        container,
-    ) in _generate_module_permutations(graph, layers, containers):
-        logger.info(
-            "Searching for import chains from "
-            f"{lower_layer_package} to {higher_layer_package}...",
+    try:
+        rust_package_dependency_tuple = rust.find_illegal_dependencies(
+            layers=tuple(layers),
+            containers=set(containers),
+            importeds_by_importer=graph._importeds_by_importer,
         )
-        with settings.TIMER as timer:
-            dependency_or_none = _search_for_package_dependency(
-                higher_layer_package=higher_layer_package,
-                lower_layer_package=lower_layer_package,
-                layers=layers,
-                container=container,
-                graph=graph,
-            )
+    except rust.NoSuchContainer as e:
+        raise NoSuchContainer(str(e))
 
-            if dependency_or_none:
-                package_dependencies.add(dependency_or_none)
+    rust_package_dependencies = _dependencies_from_tuple(rust_package_dependency_tuple)
+    return rust_package_dependencies
 
-        _log_illegal_route_count(dependency_or_none, duration_in_s=timer.duration_in_s)
 
-    return package_dependencies
+class _RustRoute(TypedDict):
+    heads: frozenset[str]
+    middle: tuple[str, ...]
+    tails: frozenset[str]
+
+
+class _RustPackageDependency(TypedDict):
+    importer: str
+    imported: str
+    routes: tuple[_RustRoute, ...]
+
+
+def _dependencies_from_tuple(
+    rust_package_dependency_tuple: tuple[_RustPackageDependency, ...]
+) -> set[PackageDependency]:
+    return {
+        PackageDependency(
+            imported=dep_dict["imported"],
+            importer=dep_dict["importer"],
+            routes=frozenset(
+                {
+                    Route(
+                        heads=route_dict["heads"],
+                        middle=route_dict["middle"],
+                        tails=route_dict["tails"],
+                    )
+                    for route_dict in dep_dict["routes"]
+                }
+            ),
+        )
+        for dep_dict in rust_package_dependency_tuple
+    }
 
 
 class _Module:
@@ -95,12 +112,6 @@ class _Link:
 if TYPE_CHECKING:
     # TODO: remove TYPE_CHECKING conditional once on Python 3.9.
     _Chain = tuple[str, ...]
-
-
-def _check_containers_exist(graph: ImportGraph, containers: set[str]) -> None:
-    for container in containers:
-        if container not in graph.modules:
-            raise NoSuchContainer(f"Container {container} does not exist.")
 
 
 def _generate_module_permutations(
@@ -217,9 +228,7 @@ def _get_indirect_routes(
         importer=importer_package,
         imported=imported_package,
     )
-    return _middles_to_routes(
-        graph, middles, importer=importer_package, imported=imported_package
-    )
+    return _middles_to_routes(graph, middles, importer=importer_package, imported=imported_package)
 
 
 def _remove_other_layers(
@@ -230,10 +239,7 @@ def _remove_other_layers(
 ) -> None:
     for index, layer in enumerate(layers):  # type: ignore
         candidate_layer = _module_from_layer(layer, container)
-        if (
-            candidate_layer.name in graph.modules
-            and candidate_layer not in layers_to_preserve
-        ):
+        if candidate_layer.name in graph.modules and candidate_layer not in layers_to_preserve:
             _remove_layer(graph, layer_package=candidate_layer)
 
 
@@ -252,9 +258,7 @@ def _pop_direct_imports(
         lower_layer_package.name
     )
     for lower_layer_module in lower_layer_modules:
-        imported_modules = graph.find_modules_directly_imported_by(
-            lower_layer_module
-        ).copy()
+        imported_modules = graph.find_modules_directly_imported_by(lower_layer_module).copy()
         for imported_module in imported_modules:
             if _Module(imported_module) == higher_layer_package or _Module(
                 imported_module
@@ -268,23 +272,17 @@ def _pop_direct_imports(
                     }
                 )
                 import_details_set.add(import_details)
-                graph.remove_import(
-                    importer=lower_layer_module, imported=imported_module
-                )
+                graph.remove_import(importer=lower_layer_module, imported=imported_module)
     return import_details_set
 
 
-def _find_middles(
-    graph: ImportGraph, importer: _Module, imported: _Module
-) -> set[_Chain]:
+def _find_middles(graph: ImportGraph, importer: _Module, imported: _Module) -> set[_Chain]:
     """
     Return set of headless and tailless chains.
     """
     middles: set[_Chain] = set()
 
-    for chain in _pop_shortest_chains(
-        graph, importer=importer.name, imported=imported.name
-    ):
+    for chain in _pop_shortest_chains(graph, importer=importer.name, imported=imported.name):
         if len(chain) == 2:
             raise ValueError("Direct chain found - these should have been removed.")
         middles.add(chain[1:-1])
@@ -307,9 +305,7 @@ def _middles_to_routes(
     for middle in middles:
         heads: set[str] = set()
         imported_module = middle[0]
-        candidate_modules = sorted(
-            graph.find_modules_that_directly_import(imported_module)
-        )
+        candidate_modules = sorted(graph.find_modules_that_directly_import(imported_module))
         for module in [
             m
             for m in candidate_modules
@@ -319,9 +315,7 @@ def _middles_to_routes(
 
         tails: set[str] = set()
         importer_module = middle[-1]
-        candidate_modules = sorted(
-            graph.find_modules_directly_imported_by(importer_module)
-        )
+        candidate_modules = sorted(graph.find_modules_directly_imported_by(importer_module))
         for module in [
             m
             for m in candidate_modules
@@ -351,13 +345,3 @@ def _pop_shortest_chains(
             for index in range(len(chain) - 1):
                 graph.remove_import(importer=chain[index], imported=chain[index + 1])
             yield chain
-
-
-def _log_illegal_route_count(
-    dependency_or_none: PackageDependency | None, duration_in_s: int
-) -> None:
-    route_count = len(dependency_or_none.routes) if dependency_or_none else 0
-    pluralized = "s" if route_count != 1 else ""
-    logger.info(
-        f"Found {route_count} illegal route{pluralized} " f"in {duration_in_s}s.",
-    )

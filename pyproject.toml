@@ -1,6 +1,10 @@
 [build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "grimp._rustgrimp"
 
 [project]
 name = "grimp"
@@ -27,6 +31,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
     "Topic :: Utilities",
 ]
 dynamic = ["readme"]
