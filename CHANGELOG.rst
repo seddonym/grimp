@@ -2,6 +2,11 @@
 Changelog
 =========
 
+latest
+------
+
+* Correct error in find_illegal_dependencies_for_layers where upstream/downstream were reversed.
+
 2.5 (2023-7-6)
 --------------
 

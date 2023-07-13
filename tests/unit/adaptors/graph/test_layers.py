@@ -37,11 +37,10 @@ class TestSingleOrNoContainer:
         graph.add_import(importer=importer, imported=imported)
 
         result = self._analyze(graph, specify_container=specify_container)
-
         assert result == {
             PackageDependency.new(
-                upstream="mypackage.medium",
-                downstream="mypackage.high",
+                downstream="mypackage.medium",
+                upstream="mypackage.high",
                 routes={Route.single_chained(importer, imported)},
             ),
         }
@@ -85,8 +84,8 @@ class TestSingleOrNoContainer:
 
         assert result == {
             PackageDependency.new(
-                upstream="mypackage.medium",
-                downstream="mypackage.high",
+                downstream="mypackage.medium",
+                upstream="mypackage.high",
                 routes={
                     Route.new(
                         heads={start},
@@ -110,8 +109,8 @@ class TestSingleOrNoContainer:
 
         assert result == {
             PackageDependency.new(
-                upstream="mypackage.low",
-                downstream="mypackage.medium",
+                downstream="mypackage.low",
+                upstream="mypackage.medium",
                 routes={
                     Route.single_chained(
                         "mypackage.low.white", "mypackage.medium.orange.beta"
@@ -119,8 +118,8 @@ class TestSingleOrNoContainer:
                 },
             ),
             PackageDependency.new(
-                upstream="mypackage.medium",
-                downstream="mypackage.high",
+                downstream="mypackage.medium",
+                upstream="mypackage.high",
                 routes={
                     Route.single_chained(
                         "mypackage.medium.orange", "mypackage.high.green"
@@ -149,8 +148,8 @@ class TestSingleOrNoContainer:
 
         assert result == {
             PackageDependency.new(
-                upstream="mypackage.medium",
-                downstream="mypackage.high",
+                downstream="mypackage.medium",
+                upstream="mypackage.high",
                 routes={
                     Route.single_chained(
                         "mypackage.medium.orange",
@@ -187,8 +186,8 @@ class TestSingleOrNoContainer:
 
         assert result == {
             PackageDependency.new(
-                upstream="mypackage.medium",
-                downstream="mypackage.high",
+                downstream="mypackage.medium",
+                upstream="mypackage.high",
                 routes={
                     Route.single_chained(
                         "mypackage.medium.orange",
@@ -228,8 +227,8 @@ class TestSingleOrNoContainer:
 
         assert result == {
             PackageDependency.new(
-                upstream="mypackage.medium",
-                downstream="mypackage.high",
+                downstream="mypackage.medium",
+                upstream="mypackage.high",
                 routes={
                     Route.new(
                         heads={
@@ -276,8 +275,8 @@ class TestSingleOrNoContainer:
 
         assert result == {
             PackageDependency.new(
-                upstream="low",
-                downstream="high",
+                downstream="low",
+                upstream="high",
                 routes={
                     Route.single_chained(source, a, b, destination),
                     Route.single_chained(source, c, d, destination),
@@ -309,8 +308,8 @@ class TestSingleOrNoContainer:
 
         assert result == {
             PackageDependency.new(
-                upstream="low",
-                downstream="high",
+                downstream="low",
+                upstream="high",
                 routes={
                     Route.single_chained(source, a, b, destination),
                 },
@@ -344,8 +343,8 @@ class TestSingleOrNoContainer:
 
         first_option = {
             PackageDependency.new(
-                upstream="low",
-                downstream="high",
+                downstream="low",
+                upstream="high",
                 routes={
                     Route.single_chained(source, a, b, destination),
                 },
@@ -354,8 +353,8 @@ class TestSingleOrNoContainer:
 
         second_option = {
             PackageDependency.new(
-                upstream="low",
-                downstream="high",
+                downstream="low",
+                upstream="high",
                 routes={
                     Route.single_chained(source, a, c, destination),
                 },
@@ -430,8 +429,8 @@ class TestMultiplePackages:
 
         assert result == {
             PackageDependency.new(
-                upstream="medium",
-                downstream="high",
+                downstream="medium",
+                upstream="high",
                 routes={Route.single_chained(importer, imported)},
             ),
         }
@@ -474,8 +473,8 @@ class TestMultiplePackages:
 
         assert result == {
             PackageDependency.new(
-                upstream="medium",
-                downstream="high",
+                downstream="medium",
+                upstream="high",
                 routes={
                     Route.new(
                         heads={start},
@@ -548,8 +547,8 @@ class TestMultipleContainers:
 
         assert result == {
             PackageDependency.new(
-                upstream="one.low",
-                downstream="one.high",
+                downstream="one.low",
+                upstream="one.high",
                 routes={
                     Route.single_chained("one.low.white", "one.high.green"),
                     Route.single_chained("one.low.white", "one.high.brown"),
@@ -563,8 +562,8 @@ class TestMultipleContainers:
                 },
             ),
             PackageDependency.new(
-                upstream="two.medium",
-                downstream="two.high",
+                downstream="two.medium",
+                upstream="two.high",
                 routes={
                     Route.single_chained(
                         "two.medium.pink.delta", "two.high.yellow.gamma"
@@ -724,8 +723,8 @@ class TestMissingLayers:
 
         assert result == {
             PackageDependency.new(
-                upstream="mypackage.medium",
-                downstream="mypackage.high",
+                downstream="mypackage.medium",
+                upstream="mypackage.high",
                 routes={
                     Route.single_chained(
                         "mypackage.medium.blue", "mypackage.high.green"
@@ -752,8 +751,8 @@ class TestMissingLayers:
 
         assert result == {
             PackageDependency.new(
-                upstream="two.medium",
-                downstream="two.high",
+                downstream="two.medium",
+                upstream="two.high",
                 routes={Route.single_chained("two.medium.blue", "two.high.green")},
             )
         }
