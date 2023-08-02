@@ -156,6 +156,51 @@ class ImportGraph(graph.ImportGraph):
         self._importeds_by_importer.setdefault(imported, set())
         self._importers_by_imported.setdefault(importer, set())
 
+    def add_conditional_import(
+        self,
+        *,
+        importer: str,
+        imported: str,
+        line_number: Optional[int] = None,
+        line_contents: Optional[str] = None,
+        should_import: str | None = True,
+    ) -> None:
+        """
+        Add an import of the following form.
+
+        if condition:
+            from package import module
+
+        Args:
+            should_import (str | None, optional): Mark whether this import should be added
+            to the final import graph. Useful for testing negative cases. Defaults to True.
+
+        Raises:
+            ValueError: Line number and contents must be provided together, or not at all.
+        """
+        if any((line_number, line_contents)):
+            if not all((line_number, line_contents)):
+                raise ValueError(
+                    "Line number and contents must be provided together, or not at all."
+                )
+            self._import_details.setdefault(importer, [])
+
+            if should_import:
+                # The import is indented and one line below the if statement
+                line_number = line_number + 1
+                line_contents = (
+                    f"    {line_contents}"  # TODO: accomodate \t characters?
+                )
+
+            self._import_details[importer].append(
+                {
+                    "importer": importer,
+                    "imported": imported,
+                    "line_number": line_number,
+                    "line_contents": line_contents,
+                }
+            )
+
     def remove_import(self, *, importer: str, imported: str) -> None:
         if imported in self._importeds_by_importer[importer]:
             self._importeds_by_importer[importer].remove(imported)

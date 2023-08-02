@@ -202,6 +202,20 @@ class TestCountImports:
 
         assert graph.count_imports() == 3
 
+    @pytest.mark.parametrize("should_import, total_count", [(True, 1), (False, 0)])
+    def test_count_conditional_imports(self, should_import, total_count):
+        """
+        if should_import:
+            import foo.two
+        """
+        graph = ImportGraph()
+
+        graph.add_conditional_import(
+            importer="foo.one", imported="foo.two", should_import=should_import
+        )
+
+        assert graph.count_imports() == total_count
+
 
 class TestGetImportDetails:
     def test_happy_path(self):
