@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grimp"
+version = "2.5"
+license = {text = "BSD 2-Clause License"}
+description = "Builds a queryable graph of the imports within one or more Python packages."
+authors = [
+    {name = "David Seddon", email = "david@seddonym.me"},
+]
+requires-python = ">=3.8"
+dependencies = [
+    "typing-extensions>=3.10.0.0",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: Unix",
+    "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Utilities",
+]
+dynamic = ["readme"]
+
+[project.urls]
+Documentation = "https://grimp.readthedocs.io/"
+Source-code = "https://github.com/seddonym/grimp/"
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.dynamic]
+readme = {file = "README.rst"}
+
+[tool.setuptools.package-data]
+grimp = ["py.typed"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.black]
+line-length = 99
