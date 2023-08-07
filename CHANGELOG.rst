@@ -2,6 +2,12 @@
 Changelog
 =========
 
+latest
+------
+
+* Rename upstream/downstream in find_illegal_dependencies_for_layers to importer/imported.
+  The original names were accidentally used in reverse; the new names have less potential for confusion.
+
 2.5 (2023-7-6)
 --------------
 
