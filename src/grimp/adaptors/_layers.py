@@ -191,8 +191,8 @@ def _search_for_package_dependency(
 
     if routes:
         return PackageDependency(
-            upstream=lower_layer_package.name,
-            downstream=higher_layer_package.name,
+            importer=lower_layer_package.name,
+            imported=higher_layer_package.name,
             routes=frozenset(routes),
         )
     else:

@@ -284,8 +284,8 @@ Higher level analysis
         import, such as ``mypackage.foo``. (Optional.)
     :return: The illegal dependencies in the form of a set of :class:`.PackageDependency` objects. Each package
              dependency is for a different permutation of two layers for which there is a violation, and contains
-             information about the illegal chains of imports from the lower layer (the 'upstream') to the higher layer
-             (the 'downstream').
+             information about the illegal chains of imports from the lower layer (the 'importer') to the higher layer
+             (the 'imported').
     :rtype: ``set[PackageDependency]``.
     :raises grimp.exceptions.NoSuchContainer: if a container is not a module in the graph.
 
@@ -293,17 +293,19 @@ Higher level analysis
 
       A collection of import dependencies from one Python package to another.
 
-      .. attribute:: upstream
+      .. attribute:: importer
 
-        ``str``: The full name of the package within which all the routes start, e.g. "mypackage.foo".
+        ``str``: The full name of the package within which all the routes start; the downstream package.
+           E.g. "mypackage.foo".
 
-      .. attribute:: downstream
+      .. attribute:: imported
 
-        ``str``: The full name of the package within which all the routes end, e.g. "mypackage.bar".
+        ``str``: The full name of the package within which all the routes end; the upstream package.
+            E.g. "mypackage.bar".
 
       .. attribute:: routes
 
-        ``frozenset[grimp.Route]``: A set of :class:`.Route` objects from upstream to downstream.
+        ``frozenset[grimp.Route]``: A set of :class:`.Route` objects from importer to imported.
 
     .. class:: Route
 

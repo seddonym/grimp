@@ -9,7 +9,8 @@ class Route:
     """
     A set of 'chains' that share the same middle.
 
-    A chain is a sequence of modules linked by imports, for example:
+    A chain is a sequence of modules linked by imports, from importer to imported,
+    for example:
     mypackage.foo -> mypackage.bar -> mypackage.baz.
 
     The route fans in at the head and out at the tail, but the middle of the chain just links
@@ -68,17 +69,20 @@ class PackageDependency:
     Dependencies from one package to another.
     """
 
-    # The full name of the package from which all the routes start.
-    upstream: str
-    # The full name of the package from which all the routes end.
-    downstream: str
+    # The full name of the package from which all the routes start;
+    # the downstream package.
+    importer: str
+    # The full name of the package from which all the routes end;
+    # the upstream package.
+    imported: str
+
     routes: frozenset[Route]
 
     @classmethod
     def new(
         cls,
-        upstream: str,
-        downstream: str,
+        importer: str,
+        imported: str,
         routes: Iterable[Route],
     ) -> PackageDependency:
         """
@@ -87,10 +91,10 @@ class PackageDependency:
         Example:
 
             PackageDependency.new(
-                upstream="foo",
-                downstream="bar",
+                importer="foo",
+                imported="bar",
                 routes={Route.single_chained("foo", "bar")},
             )
 
         """
-        return cls(upstream=upstream, downstream=downstream, routes=frozenset(routes))
+        return cls(importer=importer, imported=imported, routes=frozenset(routes))
