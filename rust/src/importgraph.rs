@@ -132,6 +132,7 @@ impl<'a> ImportGraph<'a> {
         for descendant_id in self.get_descendant_ids(module_name) {
             self.remove_module_by_id(descendant_id);
         }
+        self.remove_module_by_id(self.ids_by_name[&module_name]);
     }
 
     pub fn squash_module(&mut self, module_name: &str) {

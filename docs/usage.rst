@@ -244,6 +244,10 @@ Higher level analysis
     from high to low. In other words, a higher layer would be allowed to import a lower layer, but not the other way
     around.
 
+    Additionally, multiple layers can be grouped together at the same level; for example ``mypackage.utils`` and
+    ``mypackage.logging`` might sit at the bottom, so they cannot import from any other layers. Layers at the same level
+    must be *independent*: any dependencies in either direction are treated as illegal.
+
     Note: each returned :class:`.PackageDependency` does not include all possible illegal :class:`.Route` objects.
     Instead, once an illegal :class:`.Route` is found, the algorithm will temporarily remove it from the graph before continuing
     with its search. As a result, any illegal Routes that have sections in common with other illegal Routes may not
@@ -263,6 +267,16 @@ Higher level analysis
             ),
         )
 
+    Example with sibling layers::
+
+        dependencies = graph.find_illegal_dependencies_for_layers(
+            layers=(
+                "red",
+                {"green", "blue"},  # Green and blue should be independent.
+                "yellow",
+            ),
+        )
+
     Example with containers::
 
         dependencies = graph.find_illegal_dependencies_for_layers(
@@ -277,7 +291,8 @@ Higher level analysis
             },
         )
 
-    :param Sequence[str] layers: The name of each layer module. If ``containers`` are also specified,
+    :param Sequence[str | set[str]] layers: A sequence, each element of which consists either of the name of a layer
+        module, or a set of sibling layers that at the same level. If ``containers`` are also specified,
         then these names must be relative to the container. The order is from higher to lower level layers.
         *Any layers that don't exist in the graph will be ignored.*
     :param set[str] containers: The parent modules of the layers, as absolute names that you could

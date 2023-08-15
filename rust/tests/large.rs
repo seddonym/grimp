@@ -1,8 +1,8 @@
-use _rustgrimp::layers::find_illegal_dependencies;
-use std::fs;
-use serde_json::{Value, Map};
 use _rustgrimp::importgraph::ImportGraph;
+use _rustgrimp::layers::{find_illegal_dependencies, Level};
+use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
+use std::fs;
 
 #[test]
 fn test_large_graph() {
@@ -19,8 +19,24 @@ fn test_large_graph() {
     }
     let graph = ImportGraph::new(importeds_by_importer);
 
-    let layers = vec!["plugins", "interfaces", "application", "domain", "data"];
+    let levels = vec![
+        Level {
+            layers: vec!["plugins"],
+        },
+        Level {
+            layers: vec!["interfaces"],
+        },
+        Level {
+            layers: vec!["application"],
+        },
+        Level {
+            layers: vec!["domain"],
+        },
+        Level {
+            layers: vec!["data"],
+        },
+    ];
     let containers = HashSet::from(["mypackage"]);
 
-    find_illegal_dependencies(&graph, &layers, &containers);
+    find_illegal_dependencies(&graph, &levels, &containers);
 }
