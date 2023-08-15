@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import copy
-from typing import Dict, List, Optional, Sequence, Set, Tuple, cast
+from typing import Dict, List, Optional, Sequence, Set, Tuple, Union, cast
 
 from grimp.algorithms.shortest_path import bidirectional_shortest_path
 from grimp.application.ports import graph
@@ -224,9 +224,7 @@ class ImportGraph(graph.ImportGraph):
 
         # Return True as soon as we find a path between any of the modules in the subpackages.
         for candidate_importer in importer_modules:
-            imported_by_importer = self.find_modules_directly_imported_by(
-                candidate_importer
-            )
+            imported_by_importer = self.find_modules_directly_imported_by(candidate_importer)
             for candidate_imported in imported_modules:
                 if candidate_imported in imported_by_importer:
                     return True
@@ -238,23 +236,17 @@ class ImportGraph(graph.ImportGraph):
     def find_modules_that_directly_import(self, module: str) -> Set[str]:
         return self._importers_by_imported[module]
 
-    def get_import_details(
-        self, *, importer: str, imported: str
-    ) -> List[graph.DetailedImport]:
+    def get_import_details(self, *, importer: str, imported: str) -> List[graph.DetailedImport]:
         import_details_for_importer = self._import_details.get(importer, [])
         # Only include the details for the imported module.
         # Note: we copy each details dictionary at this point, as our deepcopying
         # only copies the dictionaries by reference.
-        return [
-            i.copy() for i in import_details_for_importer if i["imported"] == imported
-        ]
+        return [i.copy() for i in import_details_for_importer if i["imported"] == imported]
 
     # Indirect imports
     # ----------------
 
-    def find_downstream_modules(
-        self, module: str, as_package: bool = False
-    ) -> Set[str]:
+    def find_downstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
         # TODO optimise for as_package.
         if as_package:
             source_modules = self._all_modules_in_package(module)
@@ -288,18 +280,14 @@ class ImportGraph(graph.ImportGraph):
 
         return upstream_modules
 
-    def find_shortest_chain(
-        self, importer: str, imported: str
-    ) -> Optional[Tuple[str, ...]]:
+    def find_shortest_chain(self, importer: str, imported: str) -> Optional[Tuple[str, ...]]:
         for module in (importer, imported):
             if module not in self.modules:
                 raise ValueError(f"Module {module} is not present in the graph.")
 
         return self._find_shortest_chain(importer=importer, imported=imported)
 
-    def find_shortest_chains(
-        self, importer: str, imported: str
-    ) -> Set[Tuple[str, ...]]:
+    def find_shortest_chains(self, importer: str, imported: str) -> Set[Tuple[str, ...]]:
         """
         Find the shortest import chains that exist between the importer and imported, and
         between any modules contained within them. Only one chain per upstream/downstream pair
@@ -339,9 +327,7 @@ class ImportGraph(graph.ImportGraph):
             for downstream in downstream_modules:
                 imports_by_downstream_module = map_of_imports[downstream]
                 self._reveal_imports(imports_by_downstream_module)
-                shortest_chain = self._find_shortest_chain(
-                    imported=upstream, importer=downstream
-                )
+                shortest_chain = self._find_shortest_chain(imported=upstream, importer=downstream)
                 if shortest_chain:
                     shortest_chains.add(shortest_chain)
                 self._hide_any_existing_imports(imports_by_downstream_module)
@@ -354,9 +340,7 @@ class ImportGraph(graph.ImportGraph):
 
         return shortest_chains
 
-    def chain_exists(
-        self, importer: str, imported: str, as_packages: bool = False
-    ) -> bool:
+    def chain_exists(self, importer: str, imported: str, as_packages: bool = False) -> bool:
         if not as_packages:
             return bool(self._find_shortest_chain(importer=importer, imported=imported))
 
@@ -381,8 +365,8 @@ class ImportGraph(graph.ImportGraph):
 
     def find_illegal_dependencies_for_layers(
         self,
-        layers: Sequence[str],
-        containers: Optional[Set[str]] = None,
+        layers: Sequence[Union[str, set[str]]],
+        containers: Optional[set[str]] = None,
     ) -> set[PackageDependency]:
         return _layers.find_illegal_dependencies(
             graph=self, layers=layers, containers=containers or set()
@@ -423,9 +407,7 @@ class ImportGraph(graph.ImportGraph):
             importer_modules |= self.find_descendants(module)
         return importer_modules
 
-    def _find_all_imports_between_modules(
-        self, modules: Set[str]
-    ) -> Set[Tuple[str, str]]:
+    def _find_all_imports_between_modules(self, modules: Set[str]) -> Set[Tuple[str, str]]:
         """
         Return all the imports between the supplied set of modules.
 
@@ -466,9 +448,7 @@ class ImportGraph(graph.ImportGraph):
             self._importeds_by_importer[importer].add(imported)
             self._importers_by_imported[imported].add(importer)
 
-    def _find_shortest_chain(
-        self, importer: str, imported: str
-    ) -> Optional[Tuple[str, ...]]:
+    def _find_shortest_chain(self, importer: str, imported: str) -> Optional[Tuple[str, ...]]:
         # Similar to find_shortest_chain but without bothering to check if the modules are
         # in the graph first.
         return bidirectional_shortest_path(

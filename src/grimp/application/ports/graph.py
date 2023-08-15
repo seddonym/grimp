@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Iterator, List, Optional, Sequence, Set, Tuple
+from typing import Iterator, List, Optional, Sequence, Set, Tuple, Union
 
 from typing_extensions import TypedDict
 
@@ -155,9 +155,7 @@ class ImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_import_details(
-        self, *, importer: str, imported: str
-    ) -> List[DetailedImport]:
+    def get_import_details(self, *, importer: str, imported: str) -> List[DetailedImport]:
         """
         Return available metadata relating to the direct imports between two modules, in the form:
         [
@@ -182,9 +180,7 @@ class ImportGraph(abc.ABC):
     # ----------------
 
     @abc.abstractmethod
-    def find_downstream_modules(
-        self, module: str, as_package: bool = False
-    ) -> Set[str]:
+    def find_downstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
         """
         Return a set of the names of all the modules that import (even indirectly) the
         supplied module name.
@@ -223,9 +219,7 @@ class ImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def find_shortest_chain(
-        self, importer: str, imported: str
-    ) -> tuple[str, ...] | None:
+    def find_shortest_chain(self, importer: str, imported: str) -> tuple[str, ...] | None:
         """
         Attempt to find the shortest chain of imports between two modules, in the direction
         of importer to imported.
@@ -236,9 +230,7 @@ class ImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def find_shortest_chains(
-        self, importer: str, imported: str
-    ) -> Set[Tuple[str, ...]]:
+    def find_shortest_chains(self, importer: str, imported: str) -> Set[Tuple[str, ...]]:
         """
         Find the shortest import chains that exist between the importer and imported, and
         between any modules contained within them. Only one chain per upstream/downstream pair
@@ -250,9 +242,7 @@ class ImportGraph(abc.ABC):
         """
         raise NotImplementedError
 
-    def find_all_simple_chains(
-        self, importer: str, imported: str
-    ) -> Iterator[Tuple[str, ...]]:
+    def find_all_simple_chains(self, importer: str, imported: str) -> Iterator[Tuple[str, ...]]:
         """
         Generate all simple chains between the importer and the imported modules.
 
@@ -263,9 +253,7 @@ class ImportGraph(abc.ABC):
         )
 
     @abc.abstractmethod
-    def chain_exists(
-        self, importer: str, imported: str, as_packages: bool = False
-    ) -> bool:
+    def chain_exists(self, importer: str, imported: str, as_packages: bool = False) -> bool:
         """
         Return whether any chain of imports exists between the two modules, in the direction
         of importer to imported. In other words, does the importer depend on the imported?
@@ -283,8 +271,8 @@ class ImportGraph(abc.ABC):
 
     def find_illegal_dependencies_for_layers(
         self,
-        layers: Sequence[str],
-        containers: Optional[Set[str]] = None,
+        layers: Sequence[Union[str, set[str]]],
+        containers: Optional[set[str]] = None,
     ) -> set[PackageDependency]:
         """
         Find dependencies that don't conform to the supplied layered architecture.
@@ -293,12 +281,18 @@ class ImportGraph(abc.ABC):
         have a dependency direction from high to low. In other words, a higher layer would
         be allowed to import a lower layer, but not the other way around.
 
+        Additionally, multiple layers can be grouped together at the same level; for example
+        `mypackage.utils` and `mypackage.logging` might sit at the bottom, so they cannot
+        import from any other layers. Layers at the same level must be independent, so any
+        dependencies in either direction will be treated as illegal.
+
         Arguments:
 
-        - layers:     The name of each layer module. If containers are also specified,
-                      then these names must be relative to the container. The order is from
-                      higher to lower level layers. Any layers that don't exist in the graph
-                      will be ignored.
+        - layers:     A sequence, each element of which consists either of the name of a layer
+                      module, or a set of sibling layers that at the same level. If containers
+                      are also specified, then these names must be relative to the container.
+                      The order is from higher to lower level layers. Any layers that don't
+                      exist in the graph will be ignored.
         - containers: The parent modules of the layers, as absolute names that you could import,
                       such as "mypackage.foo". (Optional.)
 

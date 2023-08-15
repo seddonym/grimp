@@ -385,6 +385,219 @@ class TestSingleOrNoContainer:
             )
 
 
+class TestIndependentLayers:
+    @pytest.mark.parametrize("specify_container", (True, False))
+    def test_no_illegal_imports(self, specify_container: bool):
+        graph = self._build_legal_graph()
+
+        result = self._analyze(graph, specify_container=specify_container)
+
+        assert result == set()
+
+    @pytest.mark.parametrize(
+        "sequence_type",
+        (
+            set,
+            frozenset,
+            tuple,
+            list,
+        ),
+    )
+    @pytest.mark.parametrize(
+        "specify_container",
+        (
+            True,
+            False,
+        ),
+    )
+    @pytest.mark.parametrize(
+        "importer",
+        ("mypackage.foo", "mypackage.foo.orange", "mypackage.foo.orange.beta"),
+    )
+    @pytest.mark.parametrize(
+        "imported",
+        ("mypackage.bar", "mypackage.bar.brown", "mypackage.bar.brown.beta"),
+    )
+    def test_direct_illegal_between_sibling_layers(
+        self, sequence_type: type, specify_container: bool, importer: str, imported: str
+    ):
+        graph = self._build_legal_graph()
+        graph.add_import(importer=importer, imported=imported)
+
+        result = self._analyze(
+            graph, specify_container=specify_container, sequence_type=sequence_type
+        )
+        assert result == {
+            PackageDependency.new(
+                importer="mypackage.foo",
+                imported="mypackage.bar",
+                routes={Route.single_chained(importer, imported)},
+            ),
+        }
+
+    @pytest.mark.parametrize("specify_container", (True, False))
+    @pytest.mark.parametrize(
+        "start",
+        ("mypackage.foo", "mypackage.foo.orange", "mypackage.foo.orange.beta"),
+    )
+    @pytest.mark.parametrize(
+        "end",
+        ("mypackage.bar", "mypackage.bar.brown", "mypackage.bar.brown.beta"),
+    )
+    @pytest.mark.parametrize(
+        "route_middle",
+        [
+            ["mypackage.nickel"],
+            ["mypackage.bismuth", "mypackage.gold"],
+            [
+                "mypackage.iron",
+                "mypackage.gold.alpha",
+                "mypackage.plutonium.yellow.beta",
+            ],
+            [
+                "mypackage.boron.purple",
+                "mypackage.iron",
+                "mypackage.boron.green",
+                "mypackage.boron.green.gamma",
+            ],
+        ],
+    )
+    def test_indirect_illegal_within_one_package(
+        self, specify_container: bool, start: str, end: str, route_middle: list[str]
+    ):
+        graph = self._build_legal_graph()
+        import_pairs = _pairwise([start] + route_middle + [end])
+        for importer, imported in import_pairs:
+            graph.add_import(importer=importer, imported=imported)
+
+        result = self._analyze(graph, specify_container=specify_container)
+
+        assert result == {
+            PackageDependency.new(
+                importer="mypackage.foo",
+                imported="mypackage.bar",
+                routes={
+                    Route.new(
+                        heads={start},
+                        middle=route_middle,
+                        tails={end},
+                    ),
+                },
+            )
+        }
+
+    @pytest.mark.parametrize(
+        "blue_module",
+        ("mypackage.blue", "mypackage.blue.alpha"),
+    )
+    @pytest.mark.parametrize(
+        "green_module",
+        ("mypackage.green", "mypackage.green.beta"),
+    )
+    @pytest.mark.parametrize(
+        "yellow_module",
+        ("mypackage.yellow", "mypackage.yellow.gamma"),
+    )
+    def test_chains_via_other_independent_modules_are_not_included(
+        self, blue_module, green_module, yellow_module
+    ):
+        graph = ImportGraph()
+        for module in (
+            "mypackage",
+            "mypackage.high",
+            "mypackage.blue",
+            "mypackage.blue.alpha",
+            "mypackage.blue.beta",
+            "mypackage.blue.beta.foo",
+            "mypackage.green",
+            "mypackage.yellow",
+            "mypackage.yellow.gamma",
+            "mypackage.yellow.delta",
+            "mypackage.low",
+        ):
+            graph.add_module(module)
+        graph.add_import(
+            importer=blue_module,
+            imported=green_module,
+            line_number=10,
+            line_contents="-",
+        )
+        graph.add_import(
+            importer=yellow_module,
+            imported=blue_module,
+            line_number=11,
+            line_contents="-",
+        )
+
+        result = graph.find_illegal_dependencies_for_layers(
+            layers=("high", {"blue", "green", "yellow"}, "low"),
+            containers={"mypackage"},
+        )
+
+        assert result == {
+            PackageDependency.new(
+                importer="mypackage.blue",
+                imported="mypackage.green",
+                routes={
+                    Route.single_chained(blue_module, green_module),
+                },
+            ),
+            PackageDependency.new(
+                importer="mypackage.yellow",
+                imported="mypackage.blue",
+                routes={
+                    Route.single_chained(yellow_module, blue_module),
+                },
+            ),
+        }
+
+    def _build_legal_graph(self):
+        graph = ImportGraph()
+        for module in (
+            "mypackage",
+            "mypackage.high",
+            "mypackage.high.green",
+            "mypackage.high.blue",
+            "mypackage.high.yellow",
+            "mypackage.high.yellow.alpha",
+            "mypackage.foo",
+            "mypackage.foo.orange",
+            "mypackage.foo.orange.beta",
+            "mypackage.foo.red",
+            "mypackage.bar",
+            "mypackage.bar.brown",
+            "mypackage.bar.brown.beta",
+            "mypackage.low",
+            "mypackage.low.black",
+            "mypackage.low.white",
+            "mypackage.low.white.gamma",
+            "mypackage.utils",
+        ):
+            graph.add_module(module)
+
+        # Add some 'legal' imports.
+        graph.add_import(importer="mypackage.high.green", imported="mypackage.foo.orange")
+        graph.add_import(importer="mypackage.high.green", imported="mypackage.low.white.gamma")
+        graph.add_import(importer="mypackage.foo.orange", imported="mypackage.low.white")
+        graph.add_import(importer="mypackage.high.blue", imported="mypackage.utils")
+        graph.add_import(importer="mypackage.utils", imported="mypackage.bar.brown")
+
+        return graph
+
+    def _analyze(
+        self, graph: ImportGraph, specify_container: bool = False, sequence_type: type = set
+    ) -> set[PackageDependency]:
+        if specify_container:
+            return graph.find_illegal_dependencies_for_layers(
+                layers=("high", sequence_type({"foo", "bar"}), "low"),
+                containers={"mypackage"},
+            )
+        else:
+            return graph.find_illegal_dependencies_for_layers(
+                layers=("mypackage.high", {"mypackage.foo", "mypackage.bar"}, "mypackage.low"),
+            )
+
+
 class TestMultiplePackages:
     @pytest.mark.parametrize(
         "importer",

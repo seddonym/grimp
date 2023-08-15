@@ -7,12 +7,12 @@ pub mod layers;
 use crate::dependencies::PackageDependency;
 use containers::check_containers_exist;
 use importgraph::ImportGraph;
+use layers::Level;
+use log::info;
 use pyo3::create_exception;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyFrozenSet, PySet, PyString, PyTuple};
 use std::collections::HashSet;
-use log::info;
-
 
 #[pymodule]
 fn _rustgrimp(_py: Python, m: &PyModule) -> PyResult<()> {
@@ -28,22 +28,34 @@ create_exception!(_rustgrimp, NoSuchContainer, pyo3::exceptions::PyException);
 #[pyfunction]
 pub fn find_illegal_dependencies<'a>(
     py: Python<'a>,
-    layers: &'a PyTuple,
+    levels: &'a PyTuple,
     containers: &'a PySet,
     importeds_by_importer: &'a PyDict,
 ) -> PyResult<&'a PyTuple> {
     info!("Using Rust to find illegal dependencies.");
     let graph = ImportGraph::new(importeds_by_importer.extract()?);
-    let layers_rust: Vec<&str> = layers.extract()?;
+
+    let levels_rust = rustify_levels(levels);
     let containers_rust: HashSet<&str> = containers.extract()?;
 
     if let Err(err) = check_containers_exist(&graph, &containers_rust) {
         return Err(NoSuchContainer::new_err(err));
     }
 
-    let dependencies = layers::find_illegal_dependencies(&graph, &layers_rust, &containers_rust);
+    let dependencies = layers::find_illegal_dependencies(&graph, &levels_rust, &containers_rust);
 
     convert_dependencies_to_python(py, dependencies, &graph)
+}
+
+fn rustify_levels(levels_python: &PyTuple) -> Vec<Level> {
+    let mut rust_levels: Vec<Level> = vec![];
+    for level_python in levels_python.into_iter() {
+        let layers: HashSet<&str> = level_python.extract().unwrap();
+        rust_levels.push(Level {
+            layers: layers.into_iter().collect(),
+        });
+    }
+    rust_levels
 }
 
 fn convert_dependencies_to_python<'a>(
@@ -87,4 +99,79 @@ fn convert_dependencies_to_python<'a>(
     }
 
     Ok(PyTuple::new(py, python_dependencies))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pyo3::types::{PySet, PyTuple};
+
+    #[test]
+    fn test_rustify_levels_no_sibling_layers() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| -> PyResult<()> {
+            let elements: Vec<&PySet> = vec![
+                PySet::new(py, &vec!["high"]).unwrap(),
+                PySet::new(py, &vec!["medium"]).unwrap(),
+                PySet::new(py, &vec!["low"]).unwrap(),
+            ];
+            let python_levels: &PyTuple = PyTuple::new(py, elements);
+
+            let result = rustify_levels(python_levels);
+
+            assert_eq!(
+                result,
+                vec![
+                    Level {
+                        layers: vec!["high"]
+                    },
+                    Level {
+                        layers: vec!["medium"]
+                    },
+                    Level {
+                        layers: vec!["low"]
+                    }
+                ]
+            );
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_rustify_levels_sibling_layers() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| -> PyResult<()> {
+            let elements: Vec<&PySet> = vec![
+                PySet::new(py, &vec!["high"]).unwrap(),
+                PySet::new(py, &vec!["blue", "green", "orange"]).unwrap(),
+                PySet::new(py, &vec!["low"]).unwrap(),
+            ];
+            let python_levels: &PyTuple = PyTuple::new(py, elements);
+
+            let mut result = rustify_levels(python_levels);
+
+            for level in &mut result {
+                level.layers.sort();
+            }
+            assert_eq!(
+                result,
+                vec![
+                    Level {
+                        layers: vec!["high"]
+                    },
+                    Level {
+                        layers: vec!["blue", "green", "orange"]
+                    },
+                    Level {
+                        layers: vec!["low"]
+                    }
+                ]
+            );
+
+            Ok(())
+        })
+        .unwrap();
+    }
 }
