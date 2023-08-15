@@ -2,8 +2,8 @@
 Changelog
 =========
 
-3.0b1 (2023-8-15)
------------------
+3.0b1, 3.0b2 (2023-8-15)
+------------------------
 
 * Switch to pyproject.toml.
 * Rename upstream/downstream in find_illegal_dependencies_for_layers to importer/imported.

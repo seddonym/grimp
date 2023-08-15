@@ -8,7 +8,7 @@ module-name = "grimp._rustgrimp"
 
 [project]
 name = "grimp"
-version = "3.0b1"
+version = "3.0b2"
 license = {text = "BSD 2-Clause License"}
 description = "Builds a queryable graph of the imports within one or more Python packages."
 authors = [
@@ -34,7 +34,7 @@ classifiers = [
     "Programming Language :: Rust",
     "Topic :: Utilities",
 ]
-dynamic = ["readme"]
+readme = "README.rst"
 
 [project.urls]
 Documentation = "https://grimp.readthedocs.io/"
@@ -43,9 +43,6 @@ Source-code = "https://github.com/seddonym/grimp/"
 [tool.setuptools]
 include-package-data = true
 zip-safe = false
-
-[tool.setuptools.dynamic]
-readme = {file = "README.rst"}
 
 [tool.setuptools.package-data]
 grimp = ["py.typed"]
