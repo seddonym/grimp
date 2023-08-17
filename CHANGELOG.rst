@@ -2,8 +2,8 @@
 Changelog
 =========
 
-latest
-------
+3.0b3 (2023-8-17)
+-----------------
 
 * Support for independent layers in find_illegal_dependencies_for_layers.
 
