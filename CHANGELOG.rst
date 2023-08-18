@@ -2,6 +2,11 @@
 Changelog
 =========
 
+3.0 (2023-8-18)
+---------------
+
+* Stable release of functionality from 3.0b1-3.
+
 3.0b3 (2023-8-17)
 -----------------
 
