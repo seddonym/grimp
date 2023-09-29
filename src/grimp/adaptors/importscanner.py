@@ -11,10 +11,6 @@ from grimp.domain.valueobjects import DirectImport, Module
 logger = logging.getLogger(__name__)
 
 
-class NotAnImport(Exception):
-    pass
-
-
 class _BaseNodeParser:
     """
     Works out from an AST node what the imported modules are.
