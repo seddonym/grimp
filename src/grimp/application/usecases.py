@@ -21,6 +21,7 @@ def build_graph(
     package_name,
     *additional_package_names,
     include_external_packages: bool = False,
+    include_type_checking_imports: bool = True,
     cache_dir: Union[str, Type[NotSupplied], None] = NotSupplied,
 ) -> ImportGraph:
     """
@@ -30,6 +31,7 @@ def build_graph(
         - package_name: the name of the top level package for which to build the graph.
         - additional_package_names: tuple of the
         - include_external_packages: whether to include any external packages in the graph.
+        - include_type_checking_imports: whether to include imports made in type checking guards.
 
     Examples:
 
@@ -55,6 +57,7 @@ def build_graph(
         found_packages=found_packages,
         file_system=file_system,
         include_external_packages=include_external_packages,
+        include_type_checking_imports=include_type_checking_imports,
         cache_dir=cache_dir,
     )
 
@@ -91,9 +94,7 @@ def _validate_package_names_are_strings(
 ) -> Sequence[str]:
     for name in package_names:
         if not isinstance(name, str):
-            raise TypeError(
-                f"Package names must be strings, got {name.__class__.__name__}."
-            )
+            raise TypeError(f"Package names must be strings, got {name.__class__.__name__}.")
     return cast(Sequence[str], package_names)
 
 
@@ -101,13 +102,12 @@ def _scan_packages(
     found_packages: Set[FoundPackage],
     file_system: AbstractFileSystem,
     include_external_packages: bool,
+    include_type_checking_imports: bool,
     cache_dir: Union[str, Type[NotSupplied], None],
 ) -> Dict[Module, Set[DirectImport]]:
     imports_by_module: Dict[Module, Set[DirectImport]] = {}
     if cache_dir is not None:
-        cache_dir_if_supplied = (
-            cache_dir if cache_dir != NotSupplied else None
-        )
+        cache_dir_if_supplied = cache_dir if cache_dir != NotSupplied else None
         cache: caching.Cache = settings.CACHE_CLASS.setup(
             file_system=file_system,
             found_packages=found_packages,
@@ -118,6 +118,7 @@ def _scan_packages(
         file_system=file_system,
         found_packages=found_packages,
         include_external_packages=include_external_packages,
+        include_type_checking_imports=include_type_checking_imports
     )
 
     for found_package in found_packages:

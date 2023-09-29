@@ -2,6 +2,11 @@
 Changelog
 =========
 
+latest
+------
+
+* Add possibility to ignore type_checking imports when calling build_graph.
+
 3.0 (2023-8-18)
 ---------------
 

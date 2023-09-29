@@ -16,18 +16,21 @@ class AbstractImportScanner(abc.ABC):
         file_system: AbstractFileSystem,
         found_packages: Set[FoundPackage],
         include_external_packages: bool = False,
+        include_type_checking_imports: bool = True,
     ) -> None:
         """
         Args:
-            - found_packages:               Set of FoundPackages containing all the modules
-                                            for analysis.
-            - file_system:                  The file system interface to use.
-            - include_external_packages:    Whether to include imports of external modules (i.e.
-                                            modules not contained in modules_by_package_directory)
-                                            in the results.
+            - found_packages:                Set of FoundPackages containing all the modules
+                                             for analysis.
+            - file_system:                   The file system interface to use.
+            - include_external_packages:     Whether to include imports of external modules (i.e.
+                                             modules not contained in modules_by_package_directory)
+                                             in the results.
+            - include_type_checking_imports: Whether to include imports under a type check guard.
         """
         self.file_system = file_system
         self.include_external_packages = include_external_packages
+        self.include_type_checking_imports = include_type_checking_imports
         self.found_packages = found_packages
 
         # Flatten all the modules into a set.
