@@ -11,6 +11,110 @@ from grimp.domain.valueobjects import DirectImport, Module
 logger = logging.getLogger(__name__)
 
 
+class ImportScanner(AbstractImportScanner):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self._found_packages_by_module: Dict[Module, FoundPackage] = {
+            module_file.module: package
+            for package in self.found_packages
+            for module_file in package.module_files
+        }
+
+    def scan_for_imports(
+        self, module: Module, *, exclude_type_checking_imports: bool = False
+    ) -> Set[DirectImport]:
+        """
+        Note: this method only analyses the module in question and will not load any other
+        code, so it relies on self.modules to deduce which modules it imports. (This is
+        because you can't know whether "from foo.bar import baz" is importing a module
+        called  `baz`, or a function `baz` from the module `bar`.)
+        """
+        found_package = self._found_package_for_module(module)
+        module_filename = self._determine_module_filename(module, found_package)
+        is_package = self._module_is_package(module_filename)
+        module_contents = self._read_module_contents(module_filename)
+        module_lines = module_contents.splitlines()
+
+        try:
+            ast_tree = ast.parse(module_contents)
+        except SyntaxError as e:
+            raise exceptions.SourceSyntaxError(
+                filename=module_filename,
+                lineno=e.lineno,
+                text=e.text,
+            )
+
+        from_import_parser = _ImportFromNodeParser(
+            module=module,
+            found_package=found_package,
+            found_packages=self.found_packages,
+            found_packages_by_module=self._found_packages_by_module,
+            include_external_packages=self.include_external_packages,
+            is_package=is_package,
+        )
+
+        import_parser = _ImportNodeParser(
+            module=module,
+            found_package=found_package,
+            found_packages=self.found_packages,
+            found_packages_by_module=self._found_packages_by_module,
+            include_external_packages=self.include_external_packages,
+            is_package=is_package,
+        )
+
+        walker = _TreeWalker(
+            import_parser=import_parser,
+            from_import_parser=from_import_parser,
+            module=module,
+            module_lines=module_lines,
+            exclude_type_checking_imports=exclude_type_checking_imports,
+        )
+        walker.visit(ast_tree)
+
+        return walker.direct_imports
+
+    def _determine_module_filename(self, module: Module, found_package: FoundPackage) -> str:
+        """
+        Work out the full filename of the given module.
+
+        Any given module can either be a straight Python file (foo.py) or else a package
+        (in which case the file is an __init__.py within a directory).
+        """
+        top_level_components = found_package.name.split(".")
+        module_components = module.name.split(".")
+        leaf_components = module_components[len(top_level_components) :]
+        package_directory = found_package.directory
+
+        filename_root = self.file_system.join(package_directory, *leaf_components)
+        candidate_filenames = (
+            f"{filename_root}.py",
+            self.file_system.join(filename_root, "__init__.py"),
+        )
+        for candidate_filename in candidate_filenames:
+            if self.file_system.exists(candidate_filename):
+                return candidate_filename
+        raise FileNotFoundError(f"Could not find module {module}.")
+
+    def _found_package_for_module(self, module: Module) -> FoundPackage:
+        try:
+            return self._found_packages_by_module[module]
+        except KeyError:
+            raise ValueError(f"No found package for module {module}.")
+
+    def _read_module_contents(self, module_filename: str) -> str:
+        """
+        Read the file contents of the module.
+        """
+        return self.file_system.read(module_filename)
+
+    def _module_is_package(self, module_filename: str) -> bool:
+        """
+        Whether or not the supplied module filename is a package.
+        """
+        return self.file_system.split(module_filename)[-1] == "__init__.py"
+
+
 class _BaseNodeParser:
     """
     Works out from an AST node what the imported modules are.
@@ -242,11 +346,11 @@ class _TreeWalker(NodeVisitor):
         module: Module,
         module_lines: List[str],
         *,
-        include_type_checking_imports: bool,
+        exclude_type_checking_imports: bool,
     ) -> None:
         self.module = module
         self.module_lines = module_lines
-        self.include_type_checking_imports = include_type_checking_imports
+        self.exclude_type_checking_imports = exclude_type_checking_imports
         self.direct_imports: Set[DirectImport] = set()
         self.import_parser = import_parser
         self.from_import_parser = from_import_parser
@@ -259,7 +363,7 @@ class _TreeWalker(NodeVisitor):
         self._parse_direct_imports_from_node(node, self.from_import_parser)
 
     def visit_If(self, node: If) -> None:
-        if not self.include_type_checking_imports:
+        if self.exclude_type_checking_imports:
             # Case for "if TYPE_CHECKING:"
             if isinstance(node.test, Name) and node.test.id == "TYPE_CHECKING":
                 return  # Skip parsing
@@ -294,105 +398,3 @@ class _TreeWalker(NodeVisitor):
                     line_contents=self.module_lines[node.lineno - 1].strip(),
                 )
             )
-
-
-class ImportScanner(AbstractImportScanner):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-        self._found_packages_by_module: Dict[Module, FoundPackage] = {
-            module_file.module: package
-            for package in self.found_packages
-            for module_file in package.module_files
-        }
-
-    def scan_for_imports(self, module: Module) -> Set[DirectImport]:
-        """
-        Note: this method only analyses the module in question and will not load any other
-        code, so it relies on self.modules to deduce which modules it imports. (This is
-        because you can't know whether "from foo.bar import baz" is importing a module
-        called  `baz`, or a function `baz` from the module `bar`.)
-        """
-        found_package = self._found_package_for_module(module)
-        module_filename = self._determine_module_filename(module, found_package)
-        is_package = self._module_is_package(module_filename)
-        module_contents = self._read_module_contents(module_filename)
-        module_lines = module_contents.splitlines()
-
-        try:
-            ast_tree = ast.parse(module_contents)
-        except SyntaxError as e:
-            raise exceptions.SourceSyntaxError(
-                filename=module_filename,
-                lineno=e.lineno,
-                text=e.text,
-            )
-
-        from_import_parser = _ImportFromNodeParser(
-            module=module,
-            found_package=found_package,
-            found_packages=self.found_packages,
-            found_packages_by_module=self._found_packages_by_module,
-            include_external_packages=self.include_external_packages,
-            is_package=is_package,
-        )
-
-        import_parser = _ImportNodeParser(
-            module=module,
-            found_package=found_package,
-            found_packages=self.found_packages,
-            found_packages_by_module=self._found_packages_by_module,
-            include_external_packages=self.include_external_packages,
-            is_package=is_package,
-        )
-
-        walker = _TreeWalker(
-            import_parser,
-            from_import_parser,
-            module,
-            module_lines,
-            include_type_checking_imports=self.include_type_checking_imports,
-        )
-        walker.visit(ast_tree)
-
-        return walker.direct_imports
-
-    def _determine_module_filename(self, module: Module, found_package: FoundPackage) -> str:
-        """
-        Work out the full filename of the given module.
-
-        Any given module can either be a straight Python file (foo.py) or else a package
-        (in which case the file is an __init__.py within a directory).
-        """
-        top_level_components = found_package.name.split(".")
-        module_components = module.name.split(".")
-        leaf_components = module_components[len(top_level_components) :]
-        package_directory = found_package.directory
-
-        filename_root = self.file_system.join(package_directory, *leaf_components)
-        candidate_filenames = (
-            f"{filename_root}.py",
-            self.file_system.join(filename_root, "__init__.py"),
-        )
-        for candidate_filename in candidate_filenames:
-            if self.file_system.exists(candidate_filename):
-                return candidate_filename
-        raise FileNotFoundError(f"Could not find module {module}.")
-
-    def _found_package_for_module(self, module: Module) -> FoundPackage:
-        try:
-            return self._found_packages_by_module[module]
-        except KeyError:
-            raise ValueError(f"No found package for module {module}.")
-
-    def _read_module_contents(self, module_filename: str) -> str:
-        """
-        Read the file contents of the module.
-        """
-        return self.file_system.read(module_filename)
-
-    def _module_is_package(self, module_filename: str) -> bool:
-        """
-        Whether or not the supplied module filename is a package.
-        """
-        return self.file_system.split(module_filename)[-1] == "__init__.py"

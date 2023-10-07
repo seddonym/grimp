@@ -16,7 +16,6 @@ class AbstractImportScanner(abc.ABC):
         file_system: AbstractFileSystem,
         found_packages: Set[FoundPackage],
         include_external_packages: bool = False,
-        include_type_checking_imports: bool = True,
     ) -> None:
         """
         Args:
@@ -26,11 +25,9 @@ class AbstractImportScanner(abc.ABC):
             - include_external_packages:     Whether to include imports of external modules (i.e.
                                              modules not contained in modules_by_package_directory)
                                              in the results.
-            - include_type_checking_imports: Whether to include imports under a type check guard.
         """
         self.file_system = file_system
         self.include_external_packages = include_external_packages
-        self.include_type_checking_imports = include_type_checking_imports
         self.found_packages = found_packages
 
         # Flatten all the modules into a set.
@@ -39,7 +36,9 @@ class AbstractImportScanner(abc.ABC):
             self.modules |= {mf.module for mf in package.module_files}
 
     @abc.abstractmethod
-    def scan_for_imports(self, module: Module) -> Set[DirectImport]:
+    def scan_for_imports(
+        self, module: Module, *, exclude_type_checking_imports: bool = False
+    ) -> Set[DirectImport]:
         """
         Statically analyses the given module and returns an iterable of Modules that
         it imports.
