@@ -32,12 +32,13 @@ def build_graph(
         - additional_package_names: tuple of the
         - include_external_packages: whether to include any external packages in the graph.
         - exclude_type_checking_imports: whether to exclude imports made in type checking guards.
-
+        - cache_dir: The directory to use for caching the graph.
     Examples:
 
         # Single package.
         graph = build_graph("mypackage")
         graph = build_graph("mypackage", include_external_packages=True)
+        graph = build_graph("mypackage", exclude_type_checking_imports=True)
 
         # Multiple packages.
         graph = build_graph("mypackage", "anotherpackage", "onemore")
