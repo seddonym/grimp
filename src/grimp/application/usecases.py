@@ -113,6 +113,7 @@ def _scan_packages(
             file_system=file_system,
             found_packages=found_packages,
             include_external_packages=include_external_packages,
+            exclude_type_checking_imports=exclude_type_checking_imports,
             cache_dir=cache_dir_if_supplied,
         )
     import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
