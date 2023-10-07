@@ -23,6 +23,7 @@ be able to make use of each other's work:
 - ``build_graph("mypackage")``
 - ``build_graph("mypackage", "anotherpackage")``
 - ``build_graph("mypackage", "anotherpackage", include_external_packages=True)``
+- ``build_graph("mypackage", "anotherpackage", exclude_type_checking_imports=True)``
 
 Grimp can make use of cached results even if some of the modules change. For example,
 if ``mypackage.foo`` is changed, but all the other modules within ``mypackage`` are left
