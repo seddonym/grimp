@@ -252,13 +252,13 @@ def test_import_of_portion_not_in_graph(include_external_packages):
                 DirectImport(
                     importer=MODULE_FOO_ONE,
                     imported=Module("namespace.cyan"),
-                    line_number=4,
+                    line_number=5,
                     line_contents="from ..cyan import one",
                 ),
                 DirectImport(
                     importer=MODULE_FOO_ONE,
                     imported=Module("namespace.magenta"),
-                    line_number=5,
+                    line_number=6,
                     line_contents="from ..magenta.one import alpha",
                 ),
             },
