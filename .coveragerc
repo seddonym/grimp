@@ -17,4 +17,3 @@ omit = *migrations*
 exclude_lines =
     pragma: nocover
     @abc.abstractmethod
-    @overload

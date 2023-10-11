@@ -212,7 +212,9 @@ class Cache(AbstractCache):
             logger.warning(f"Could not use corrupt cache file {data_cache_filename}.")
             return {}
 
-        primitives_map: PrimitiveFormat = self._to_primitives_data_map(deserialized_json)
+        primitives_map: PrimitiveFormat = self._to_primitives_data_map(
+            deserialized_json
+        )
 
         return {
             Module(name=name): {

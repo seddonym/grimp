@@ -1,6 +1,6 @@
 import ast
 import logging
-from typing import Dict, List, Optional, Set, overload, Union
+from typing import Dict, List, Optional, Set, Union
 from ast import NodeVisitor, Import, ImportFrom, If, Attribute, Name
 
 from grimp import exceptions
@@ -373,16 +373,6 @@ class _TreeWalker(NodeVisitor):
                 return  # Skip parsing
 
         super().generic_visit(node)
-
-    @overload
-    def _parse_direct_imports_from_node(self, node: Import, parser: _ImportNodeParser) -> None:
-        ...
-
-    @overload
-    def _parse_direct_imports_from_node(
-        self, node: ImportFrom, parser: _ImportFromNodeParser
-    ) -> None:
-        ...
 
     def _parse_direct_imports_from_node(
         self,

@@ -108,7 +108,9 @@ def _scan_packages(
 ) -> Dict[Module, Set[DirectImport]]:
     imports_by_module: Dict[Module, Set[DirectImport]] = {}
     if cache_dir is not None:
-        cache_dir_if_supplied = cache_dir if cache_dir != NotSupplied else None
+        cache_dir_if_supplied = (
+            cache_dir if cache_dir != NotSupplied else None
+        )
         cache: caching.Cache = settings.CACHE_CLASS.setup(
             file_system=file_system,
             found_packages=found_packages,

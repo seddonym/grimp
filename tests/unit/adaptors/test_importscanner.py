@@ -649,7 +649,9 @@ def test_trims_whitespace_from_start_of_line_contents():
         ("from ..green.alpha import one", "namespace.foo.green"),
     ),
 )
-def test_external_package_imports_for_namespace_packages(statement, expected_module_name):
+def test_external_package_imports_for_namespace_packages(
+        statement, expected_module_name
+):
     module_to_scan = Module("namespace.foo.blue.alpha")
 
     file_system = FakeFileSystem(

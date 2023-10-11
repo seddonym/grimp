@@ -409,7 +409,9 @@ class TestCache:
                 ".grimp_cache/mypackage.data.json": """{}""",
             },
         )
-        module_file = ModuleFile(module=Module("mypackage.somemodule"), mtime=self.SOME_MTIME)
+        module_file = ModuleFile(
+            module=Module("mypackage.somemodule"), mtime=self.SOME_MTIME
+        )
         cache = Cache.setup(
             file_system=file_system,
             found_packages={
@@ -518,7 +520,9 @@ class TestCache:
     def test_uses_cache_multiple_packages(
         self, include_external_packages, expected_additional_imports
     ):
-        module_file = ModuleFile(module=Module("anotherpackage.unmodified"), mtime=self.SOME_MTIME)
+        module_file = ModuleFile(
+            module=Module("anotherpackage.unmodified"), mtime=self.SOME_MTIME
+        )
         cache = Cache.setup(
             file_system=self.FILE_SYSTEM,
             found_packages=self.FOUND_PACKAGES
@@ -554,7 +558,9 @@ class TestCache:
             | expected_additional_imports
         )
 
-    @pytest.mark.parametrize("cache_dir", ("/tmp/some-cache-dir", "/tmp/some-cache-dir/", None))
+    @pytest.mark.parametrize(
+        "cache_dir", ("/tmp/some-cache-dir", "/tmp/some-cache-dir/", None)
+    )
     @pytest.mark.parametrize(
         "include_external_packages, expected_data_file_name",
         (
@@ -636,7 +642,9 @@ class TestCache:
         )
 
         # Assert the cache is written afterwards.
-        expected_cache_dir = cache_dir.rstrip(file_system.sep) if cache_dir else ".grimp_cache"
+        expected_cache_dir = (
+            cache_dir.rstrip(file_system.sep) if cache_dir else ".grimp_cache"
+        )
         assert set(caplog.messages) == {
             f"No cache file: {expected_cache_dir}/{expected_data_file_name}.",
             f"No cache file: {expected_cache_dir}/blue.meta.json.",
