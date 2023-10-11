@@ -291,7 +291,9 @@ class _ImportFromNodeParser(_BaseNodeParser):
                 number_of_levels_to_trim_by = node.level
 
             if number_of_levels_to_trim_by:
-                module_base = ".".join(importing_module_components[:-number_of_levels_to_trim_by])
+                module_base = ".".join(
+                    importing_module_components[:-number_of_levels_to_trim_by]
+                )
             else:
                 module_base = ".".join(importing_module_components)
             if node.module:
