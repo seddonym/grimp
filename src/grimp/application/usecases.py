@@ -95,7 +95,9 @@ def _validate_package_names_are_strings(
 ) -> Sequence[str]:
     for name in package_names:
         if not isinstance(name, str):
-            raise TypeError(f"Package names must be strings, got {name.__class__.__name__}.")
+            raise TypeError(
+                f"Package names must be strings, got {name.__class__.__name__}."
+            )
     return cast(Sequence[str], package_names)
 
 

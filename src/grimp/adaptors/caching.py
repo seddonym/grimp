@@ -34,7 +34,9 @@ class CacheFileNamer:
         # Use a hash algorithm with a limited size to avoid cache filenames that are too long
         # the filesystem, which can happen if there are more than a few root packages
         # being analyzed.
-        safe_unicode_identifier = hashlib.blake2b(bytes_identifier, digest_size=20).hexdigest()
+        safe_unicode_identifier = hashlib.blake2b(
+            bytes_identifier, digest_size=20
+        ).hexdigest()
         return f"{safe_unicode_identifier}.data.json"
 
     @classmethod
@@ -51,7 +53,9 @@ class CacheFileNamer:
         """
         package_names = (p.name for p in found_packages)
         csv_packages = ",".join(sorted(package_names))
-        include_external_packages_option = ":external" if include_external_packages else ""
+        include_external_packages_option = (
+            ":external" if include_external_packages else ""
+        )
         exclude_type_checking_imports_option = (
             ":no_type_checking" if exclude_type_checking_imports else ""
         )
