@@ -26,9 +26,9 @@ assets = (Path(__file__).parent.parent.parent / "assets").resolve()
     ),
 )
 def test_determine_package_directory(package, expected):
-    assert ImportLibPackageFinder().determine_package_directory(
-        package, FileSystem()
-    ) == str(expected)
+    assert ImportLibPackageFinder().determine_package_directory(package, FileSystem()) == str(
+        expected
+    )
 
 
 def test_determine_package_directory_doesnt_support_namespace_packages():
@@ -40,9 +40,7 @@ def test_determine_package_directory_doesnt_support_namespace_packages():
             "namespace packages, adding an __init__.py file should fix the problem."
         ),
     ):
-        ImportLibPackageFinder().determine_package_directory(
-            "mynamespace", FakeFileSystem()
-        )
+        ImportLibPackageFinder().determine_package_directory("mynamespace", FakeFileSystem())
 
 
 @pytest.mark.parametrize(

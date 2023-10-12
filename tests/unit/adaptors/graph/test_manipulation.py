@@ -132,9 +132,7 @@ class TestAddSquashedModule:
         ):
             graph.add_module(module)
 
-    @pytest.mark.parametrize(
-        "module_name", ("mypackage.foo.one", "mypackage.foo.one.alpha")
-    )
+    @pytest.mark.parametrize("module_name", ("mypackage.foo.one", "mypackage.foo.one.alpha"))
     def test_cannot_add_descendant_of_squashed_module(self, module_name):
         graph = ImportGraph()
 
@@ -324,9 +322,7 @@ class TestSquashModule:
 
         graph.squash_module("foo")
 
-        assert [import_details] == graph.get_import_details(
-            importer="foo", imported="bar.blue"
-        )
+        assert [import_details] == graph.get_import_details(importer="foo", imported="bar.blue")
 
     def test_import_details_to_squashed_root_are_preserved(self):
         graph = ImportGraph()
@@ -346,9 +342,7 @@ class TestSquashModule:
 
         graph.squash_module("foo")
 
-        assert [import_details] == graph.get_import_details(
-            importer="bar.blue", imported="foo"
-        )
+        assert [import_details] == graph.get_import_details(importer="bar.blue", imported="foo")
 
     def test_original_import_details_from_descendant_are_lost(self):
         graph = ImportGraph()

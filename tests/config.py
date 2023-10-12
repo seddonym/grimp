@@ -11,6 +11,4 @@ class override_settings:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         for setting_name in self.settings_to_override:
-            settings.configure(
-                **{setting_name: getattr(self.original_settings, setting_name)}
-            )
+            settings.configure(**{setting_name: getattr(self.original_settings, setting_name)})

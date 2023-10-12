@@ -23,17 +23,13 @@ class CacheFileNamer:
     def make_data_file_name(
         cls, found_packages: Set[FoundPackage], include_external_packages: bool
     ) -> str:
-        identifier = cls.make_data_file_unique_string(
-            found_packages, include_external_packages
-        )
+        identifier = cls.make_data_file_unique_string(found_packages, include_external_packages)
 
         bytes_identifier = identifier.encode()
         # Use a hash algorithm with a limited size to avoid cache filenames that are too long
         # the filesystem, which can happen if there are more than a few root packages
         # being analyzed.
-        safe_unicode_identifier = hashlib.blake2b(
-            bytes_identifier, digest_size=20
-        ).hexdigest()
+        safe_unicode_identifier = hashlib.blake2b(bytes_identifier, digest_size=20).hexdigest()
         return f"{safe_unicode_identifier}.data.json"
 
     @classmethod
@@ -47,9 +43,7 @@ class CacheFileNamer:
         """
         package_names = (p.name for p in found_packages)
         csv_packages = ",".join(sorted(package_names))
-        include_external_packages_option = (
-            ":external" if include_external_packages else ""
-        )
+        include_external_packages_option = ":external" if include_external_packages else ""
         return csv_packages + include_external_packages_option
 
 
@@ -201,9 +195,7 @@ class Cache(AbstractCache):
             logger.warning(f"Could not use corrupt cache file {data_cache_filename}.")
             return {}
 
-        primitives_map: PrimitiveFormat = self._to_primitives_data_map(
-            deserialized_json
-        )
+        primitives_map: PrimitiveFormat = self._to_primitives_data_map(deserialized_json)
 
         return {
             Module(name=name): {

@@ -147,9 +147,7 @@ def test_get_import_details():
             "line_number": 5,
             "line_contents": "from .two import alpha",
         }
-    ] == graph.get_import_details(
-        importer="testpackage.utils", imported="testpackage.two.alpha"
-    )
+    ] == graph.get_import_details(importer="testpackage.utils", imported="testpackage.two.alpha")
 
 
 # Indirect imports
@@ -164,9 +162,7 @@ class TestPathExists:
             imported="testpackage.utils", importer="testpackage.one.alpha"
         )
 
-        assert graph.chain_exists(
-            imported="testpackage.one.alpha", importer="testpackage.utils"
-        )
+        assert graph.chain_exists(imported="testpackage.one.alpha", importer="testpackage.utils")
 
     def test_as_packages_true(self):
         graph = build_graph("testpackage", cache_dir=None)
@@ -187,9 +183,7 @@ def test_find_shortest_chain():
         "testpackage.utils",
         "testpackage.two.alpha",
         "testpackage.one.alpha",
-    ) == graph.find_shortest_chain(
-        importer="testpackage.utils", imported="testpackage.one.alpha"
-    )
+    ) == graph.find_shortest_chain(importer="testpackage.utils", imported="testpackage.one.alpha")
 
 
 def test_find_shortest_chains():
@@ -199,9 +193,7 @@ def test_find_shortest_chains():
         ("testpackage.two.alpha", "testpackage.one.alpha"),
         ("testpackage.two.beta", "testpackage.one.alpha"),
         ("testpackage.two.gamma", "testpackage.utils", "testpackage.one"),
-    } == graph.find_shortest_chains(
-        importer="testpackage.two", imported="testpackage.one"
-    )
+    } == graph.find_shortest_chains(importer="testpackage.two", imported="testpackage.one")
 
 
 class TestFindDownstreamModules:

@@ -91,9 +91,7 @@ def _validate_package_names_are_strings(
 ) -> Sequence[str]:
     for name in package_names:
         if not isinstance(name, str):
-            raise TypeError(
-                f"Package names must be strings, got {name.__class__.__name__}."
-            )
+            raise TypeError(f"Package names must be strings, got {name.__class__.__name__}.")
     return cast(Sequence[str], package_names)
 
 
@@ -105,9 +103,7 @@ def _scan_packages(
 ) -> Dict[Module, Set[DirectImport]]:
     imports_by_module: Dict[Module, Set[DirectImport]] = {}
     if cache_dir is not None:
-        cache_dir_if_supplied = (
-            cache_dir if cache_dir != NotSupplied else None
-        )
+        cache_dir_if_supplied = cache_dir if cache_dir != NotSupplied else None
         cache: caching.Cache = settings.CACHE_CLASS.setup(
             file_system=file_system,
             found_packages=found_packages,

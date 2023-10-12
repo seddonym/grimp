@@ -25,9 +25,7 @@ class ImportLibPackageFinder(AbstractPackageFinder):
             )
 
         if spec.has_location and spec.origin:
-            if not self._is_a_package(
-                spec, file_system
-            ) or self._has_a_non_namespace_parent(spec):
+            if not self._is_a_package(spec, file_system) or self._has_a_non_namespace_parent(spec):
                 raise exceptions.NotATopLevelModule
 
             return file_system.dirname(spec.origin)

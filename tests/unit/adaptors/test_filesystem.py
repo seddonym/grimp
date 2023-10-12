@@ -44,15 +44,11 @@ class TestFakeFileSystem:
     @pytest.mark.parametrize("path", ("/path/to", "/path/to/"))
     def test_join(self, path):
         file_system = FakeFileSystem()
-        assert "/path/to/mypackage/file.py" == file_system.join(
-            path, "mypackage", "file.py"
-        )
+        assert "/path/to/mypackage/file.py" == file_system.join(path, "mypackage", "file.py")
 
     def test_split(self):
         file_system = FakeFileSystem()
-        assert ("/path/to/mypackage", "file.py") == file_system.split(
-            "/path/to/mypackage/file.py"
-        )
+        assert ("/path/to/mypackage", "file.py") == file_system.split("/path/to/mypackage/file.py")
 
     def test_dirnames_can_be_modified_in_place(self):
         """
@@ -124,9 +120,7 @@ class TestFakeFileSystem:
                 "/path/to/mypackage/foo/two/blue.txt": "Dolor sic",
             },
         )
-        if isinstance(expected_contents, type) and issubclass(
-            expected_contents, Exception
-        ):
+        if isinstance(expected_contents, type) and issubclass(expected_contents, Exception):
             with pytest.raises(expected_contents):
                 file_system.read(file_name)
         else:

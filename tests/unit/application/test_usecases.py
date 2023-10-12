@@ -40,9 +40,7 @@ class TestBuildGraph:
         class FakePackageFinder(BaseFakePackageFinder):
             directory_map = {"mypackage": "/path/to/mypackage"}
 
-        with override_settings(
-            FILE_SYSTEM=file_system, PACKAGE_FINDER=FakePackageFinder()
-        ):
+        with override_settings(FILE_SYSTEM=file_system, PACKAGE_FINDER=FakePackageFinder()):
             graph = usecases.build_graph(
                 "mypackage", include_external_packages=include_external_packages
             )
@@ -67,9 +65,7 @@ class TestBuildGraph:
         # Check that the external packages are squashed modules.
         if include_external_packages:
             for module in ("external", "decimal"):
-                with pytest.raises(
-                    ValueError, match="Cannot find children of a squashed module."
-                ):
+                with pytest.raises(ValueError, match="Cannot find children of a squashed module."):
                     graph.find_children(module)
 
     def test_boolean_additional_package_raises_type_error(self):
@@ -106,9 +102,7 @@ class TestBuildGraph:
                 # Assertions.
 
                 if supplied_cache_dir is None:
-                    raise RuntimeError(
-                        "Cache should not be instantiated if caching is disabled."
-                    )
+                    raise RuntimeError("Cache should not be instantiated if caching is disabled.")
 
                 expected_cache_dir = (
                     SOME_DEFAULT_CACHE_DIR

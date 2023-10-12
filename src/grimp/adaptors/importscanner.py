@@ -92,9 +92,7 @@ class ImportScanner(AbstractImportScanner):
 
         return direct_imports
 
-    def _determine_module_filename(
-        self, module: Module, found_package: FoundPackage
-    ) -> str:
+    def _determine_module_filename(self, module: Module, found_package: FoundPackage) -> str:
         """
         Work out the full filename of the given module.
 
@@ -156,9 +154,7 @@ class _BaseNodeParser:
         self.module_is_package = is_package
         self.found_packages_by_module = found_packages_by_module
 
-    def determine_imported_modules(
-        self, include_external_packages: bool
-    ) -> Set[Module]:
+    def determine_imported_modules(self, include_external_packages: bool) -> Set[Module]:
         """
         Return the imported modules in the statement.
         """
@@ -198,24 +194,21 @@ class _BaseNodeParser:
         """
         # If it's a module that is a parent of one of the internal packages, return None
         # as it doesn't make sense and is probably an import of a namespace package.
-        if any(
-            Module(package.name).is_descendant_of(module)
-            for package in self.found_packages
-        ):
+        if any(Module(package.name).is_descendant_of(module) for package in self.found_packages):
             return None
 
         # If it shares a namespace with an internal module, get the shallowest component that does
         # not clash with an internal module namespace.
         candidate_portions: Set[Module] = set()
-        for found_package in sorted(
-            self.found_packages, key=lambda p: p.name, reverse=True
-        ):
+        for found_package in sorted(self.found_packages, key=lambda p: p.name, reverse=True):
             root_module = Module(found_package.name)
             if root_module.is_descendant_of(module.root):
                 (
                     internal_path_components,
                     external_path_components,
-                ) = root_module.name.split("."), module.name.split(".")
+                ) = root_module.name.split(
+                    "."
+                ), module.name.split(".")
                 external_namespace_components = []
                 while external_path_components[0] == internal_path_components[0]:
                     external_namespace_components.append(external_path_components[0])
@@ -242,9 +235,7 @@ class _ImportNodeParser(_BaseNodeParser):
 
     node_class = ast.Import
 
-    def determine_imported_modules(
-        self, include_external_packages: bool
-    ) -> Set[Module]:
+    def determine_imported_modules(self, include_external_packages: bool) -> Set[Module]:
         imported_modules: Set[Module] = set()
 
         assert isinstance(self.node, self.node_class)  # For type checker.
@@ -277,9 +268,7 @@ class _ImportFromNodeParser(_BaseNodeParser):
 
     node_class = ast.ImportFrom
 
-    def determine_imported_modules(
-        self, include_external_packages: bool
-    ) -> Set[Module]:
+    def determine_imported_modules(self, include_external_packages: bool) -> Set[Module]:
         imported_modules: Set[Module] = set()
         assert isinstance(self.node, self.node_class)  # For type checker.
         assert isinstance(self.node.level, int)  # For type checker.
@@ -296,9 +285,7 @@ class _ImportFromNodeParser(_BaseNodeParser):
                     for alias in self.node.names:
                         full_object_name = ".".join([self.node.module, alias.name])
                         untrimmed_module = Module(full_object_name)
-                        external_module = self._distill_external_module(
-                            untrimmed_module
-                        )
+                        external_module = self._distill_external_module(untrimmed_module)
                         if external_module:
                             external_modules.add(external_module)
                     return external_modules
@@ -321,9 +308,7 @@ class _ImportFromNodeParser(_BaseNodeParser):
                 number_of_levels_to_trim_by = self.node.level
 
             if number_of_levels_to_trim_by:
-                module_base = ".".join(
-                    importing_module_components[:-number_of_levels_to_trim_by]
-                )
+                module_base = ".".join(importing_module_components[:-number_of_levels_to_trim_by])
             else:
                 module_base = ".".join(importing_module_components)
             if self.node.module:
@@ -364,9 +349,7 @@ class _ImportFromNodeParser(_BaseNodeParser):
         if self._is_internal_object(full_object_name):
             untrimmed_module = Module(full_object_name)
             try:
-                imported_module = self._trim_to_internal_module(
-                    untrimmed_module=untrimmed_module
-                )
+                imported_module = self._trim_to_internal_module(untrimmed_module=untrimmed_module)
             except FileNotFoundError:
                 logger.warning(
                     f"Could not find {full_object_name} when scanning {self.module}. "

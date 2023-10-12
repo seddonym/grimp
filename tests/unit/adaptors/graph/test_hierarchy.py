@@ -54,7 +54,5 @@ def test_find_descendants_raises_exception_for_squashed_module():
 
     graph.add_module(module, is_squashed=True)
 
-    with pytest.raises(
-        ValueError, match="Cannot find descendants of a squashed module."
-    ):
+    with pytest.raises(ValueError, match="Cannot find descendants of a squashed module."):
         graph.find_descendants(module)

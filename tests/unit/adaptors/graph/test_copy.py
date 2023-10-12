@@ -6,9 +6,7 @@ from grimp.adaptors.graph import ImportGraph
 class TestCopy:
     def test_removing_import_doesnt_affect_copy(self):
         graph = ImportGraph()
-        graph.add_import(
-            importer="foo", imported="bar", line_number=3, line_contents="import bar"
-        )
+        graph.add_import(importer="foo", imported="bar", line_number=3, line_contents="import bar")
         graph.add_import(importer="bar", imported="baz")
         copied_graph = deepcopy(graph)
 
@@ -41,9 +39,7 @@ class TestCopy:
         copied_graph = deepcopy(graph)
 
         details["line_contents"] = "changed"
-        [copied_graph_details] = copied_graph.get_import_details(
-            importer="foo", imported="bar"
-        )
+        [copied_graph_details] = copied_graph.get_import_details(importer="foo", imported="bar")
 
         assert copied_graph_details["line_contents"] == original_line_contents
 

@@ -39,9 +39,7 @@ class SourceSyntaxError(GrimpException):
     Indicates a syntax error in code that was being statically analysed.
     """
 
-    def __init__(
-        self, filename: str, lineno: Optional[int], text: Optional[str]
-    ) -> None:
+    def __init__(self, filename: str, lineno: Optional[int], text: Optional[str]) -> None:
         """
         Args:
             filename: The file which contained the error.
