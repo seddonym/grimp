@@ -70,14 +70,11 @@ class FakeFileSystem(AbstractFileSystem):
         except KeyError:
             return []
 
-        yield from self._walk_contents(
-            directory_contents, containing_directory=directory_name
-        )
+        yield from self._walk_contents(directory_contents, containing_directory=directory_name)
 
     def _walk_contents(
         self, directory_contents: Dict[str, Any], containing_directory: str
     ) -> Generator[Tuple[str, List[str], List[str]], None, None]:
-
         directories = []
         files = []
         for key, value in directory_contents.items():

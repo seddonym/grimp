@@ -31,9 +31,7 @@ def test_find_downstream_modules(module, as_package, expected_result):
     graph.add_import(imported=f, importer=g)
     graph.add_import(imported=external, importer=d)
 
-    assert expected_result == graph.find_downstream_modules(
-        module, as_package=as_package
-    )
+    assert expected_result == graph.find_downstream_modules(module, as_package=as_package)
 
 
 @pytest.mark.parametrize(
@@ -247,9 +245,7 @@ class TestFindShortestChains:
 
         result = graph.find_shortest_chains(importer="green", imported="blue")
 
-        assert result == {
-            ("green.baz", "yellow.three", "yellow.two", "yellow.one", "blue.foo")
-        }
+        assert result == {("green.baz", "yellow.three", "yellow.two", "yellow.one", "blue.foo")}
 
     def test_chains_via_importer_package_dont_stop_longer_chains_being_included(self):
         graph = ImportGraph()

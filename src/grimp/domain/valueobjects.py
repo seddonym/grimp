@@ -19,6 +19,7 @@ class Module(ValueObject):
     """
     A Python module.
     """
+
     __slots__ = ("name",)
 
     def __init__(self, name: str) -> None:

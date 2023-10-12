@@ -98,9 +98,9 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         """
         internal_filename_and_path = filename_and_path[len(package_directory) :]
         internal_filename_and_path_without_extension = internal_filename_and_path[1:-3]
-        components = [
-            package_name
-        ] + internal_filename_and_path_without_extension.split(self.file_system.sep)
+        components = [package_name] + internal_filename_and_path_without_extension.split(
+            self.file_system.sep
+        )
         if components[-1] == "__init__":
             components.pop()
         return ".".join(components)

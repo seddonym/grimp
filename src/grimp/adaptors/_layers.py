@@ -147,7 +147,6 @@ def _generate_module_permutations(
                 continue
 
             for lower_layer in layers[index + 1 :]:
-
                 lower_layer_module = _module_from_layer(lower_layer, container)
 
                 if lower_layer_module.name not in graph.modules:

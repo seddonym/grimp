@@ -41,12 +41,8 @@ def test_happy_path():
                 ModuleFile(module=Module("mypackage.foo"), mtime=DEFAULT_MTIME),
                 ModuleFile(module=Module("mypackage.foo.one"), mtime=SOME_MTIME),
                 ModuleFile(module=Module("mypackage.foo.two"), mtime=DEFAULT_MTIME),
-                ModuleFile(
-                    module=Module("mypackage.foo.two.green"), mtime=DEFAULT_MTIME
-                ),
-                ModuleFile(
-                    module=Module("mypackage.foo.two.blue"), mtime=DEFAULT_MTIME
-                ),
+                ModuleFile(module=Module("mypackage.foo.two.green"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("mypackage.foo.two.blue"), mtime=DEFAULT_MTIME),
             }
         ),
     )
@@ -80,18 +76,10 @@ def test_namespaced_packages():
         module_files=frozenset(
             {
                 ModuleFile(module=Module("somenamespace.foo"), mtime=DEFAULT_MTIME),
-                ModuleFile(
-                    module=Module("somenamespace.foo.blue"), mtime=DEFAULT_MTIME
-                ),
-                ModuleFile(
-                    module=Module("somenamespace.foo.green"), mtime=DEFAULT_MTIME
-                ),
-                ModuleFile(
-                    module=Module("somenamespace.foo.green.one"), mtime=DEFAULT_MTIME
-                ),
-                ModuleFile(
-                    module=Module("somenamespace.foo.green.two"), mtime=DEFAULT_MTIME
-                ),
+                ModuleFile(module=Module("somenamespace.foo.blue"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("somenamespace.foo.green"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("somenamespace.foo.green.one"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("somenamespace.foo.green.two"), mtime=DEFAULT_MTIME),
             }
         ),
     )
