@@ -53,3 +53,4 @@ namespaces = false
 
 [tool.black]
 line-length = 99
+exclude = 'tests/assets/syntaxerrorpackage'
