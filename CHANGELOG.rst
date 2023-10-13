@@ -2,8 +2,8 @@
 Changelog
 =========
 
-latest
-------
+3.1 (2023-10-13)
+----------------
 
 * Add exclude_type_checking_imports argument to build_graph.
 
