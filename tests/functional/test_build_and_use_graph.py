@@ -6,7 +6,7 @@ For ease of reference, these are the imports of all the files:
 testpackage: None
 testpackage.one: None
 testpackage.one.alpha: sys, pytest
-testpackage.one.beta: testpackage.one.alpha
+testpackage.one.beta: testpackage.one.alpha, typing.TYPE_CHECKING, testpackage.two.alpha
 testpackage.one.gamma: testpackage.one.beta
 testpackage.one.delta: None
 testpackage.one.delta.blue: None
@@ -135,6 +135,9 @@ def test_direct_import_exists():
     assert True is graph.direct_import_exists(
         importer="testpackage.two.alpha", imported="testpackage.one.alpha"
     )
+    assert True is graph.direct_import_exists(
+        importer="testpackage.one.beta", imported="testpackage.two.alpha"
+    )
 
 
 def test_get_import_details():
@@ -244,3 +247,17 @@ class TestFindUpstreamModules:
             "testpackage.utils",
             "testpackage.one",
         }
+
+
+class TestExcludeTypeCheckingImports:
+    def test_exclude_false(self):
+        graph = build_graph("testpackage", cache_dir=None, exclude_type_checking_imports=False)
+        assert True is graph.direct_import_exists(
+            importer="testpackage.one.beta", imported="testpackage.two.alpha"
+        )
+
+    def test_exclude_true(self):
+        graph = build_graph("testpackage", cache_dir=None, exclude_type_checking_imports=True)
+        assert False is graph.direct_import_exists(
+            importer="testpackage.one.beta", imported="testpackage.two.alpha"
+        )

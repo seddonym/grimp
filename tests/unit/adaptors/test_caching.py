@@ -20,9 +20,14 @@ class SimplisticFileNamer(CacheFileNamer):
 
     @classmethod
     def make_data_file_name(
-        cls, found_packages: Set[FoundPackage], include_external_packages: bool
+        cls,
+        found_packages: Set[FoundPackage],
+        include_external_packages: bool,
+        exclude_type_checking_imports: bool,
     ) -> str:
-        unsafe_name = cls.make_data_file_unique_string(found_packages, include_external_packages)
+        unsafe_name = cls.make_data_file_unique_string(
+            found_packages, include_external_packages, exclude_type_checking_imports
+        )
         return f"{unsafe_name}.data.json"
 
 
@@ -39,18 +44,34 @@ class TestCacheFileNamer:
         assert result == "some-package.meta.json"
 
     @pytest.mark.parametrize(
-        "include_external_packages, expected",
+        "include_external_packages, exclude_type_checking_imports, expected",
         (
             # Blake2B 20-character hash of "hyphenated-package,underscore_package".
-            (False, "a857d066514de048b7f94fa8d385e8bd7b048406.data.json"),
+            (False, False, "a857d066514de048b7f94fa8d385e8bd7b048406.data.json"),
             # Blake2B 20-character hash "hyphenated-package,underscore_package:external".
             (
                 True,
+                False,
                 "021977b6de56b09810ae52f5c9d067622c1ea30f.data.json",
+            ),
+            # Blake2B 20-character hash
+            # "hyphenated-package,underscore_package:external:no_type_checking".
+            (
+                True,
+                True,
+                "4c2deb1d787161187915e159b5a17ea8b27cd0d4.data.json",
+            ),
+            # Blake2B 20-character hash "hyphenated-package,underscore_package:no_type_checking".
+            (
+                False,
+                True,
+                "815e7686179e2f3f817c130eec1121d53e62ff1c.data.json",
             ),
         ),
     )
-    def test_make_data_file_name(self, include_external_packages, expected):
+    def test_make_data_file_name(
+        self, include_external_packages, exclude_type_checking_imports, expected
+    ):
         result = CacheFileNamer.make_data_file_name(
             found_packages={
                 FoundPackage(
@@ -65,18 +86,23 @@ class TestCacheFileNamer:
                 ),
             },
             include_external_packages=include_external_packages,
+            exclude_type_checking_imports=exclude_type_checking_imports,
         )
 
         assert result == expected
 
     @pytest.mark.parametrize(
-        "include_external_packages, expected",
+        "include_external_packages, exclude_type_checking_imports, expected",
         (
-            (False, "hyphenated-package,underscore_package"),
-            (True, "hyphenated-package,underscore_package:external"),
+            (False, False, "hyphenated-package,underscore_package"),
+            (True, False, "hyphenated-package,underscore_package:external"),
+            (True, True, "hyphenated-package,underscore_package:external:no_type_checking"),
+            (False, True, "hyphenated-package,underscore_package:no_type_checking"),
         ),
     )
-    def test_make_data_file_unique_string(self, include_external_packages, expected):
+    def test_make_data_file_unique_string(
+        self, include_external_packages, exclude_type_checking_imports, expected
+    ):
         result = CacheFileNamer.make_data_file_unique_string(
             found_packages={
                 FoundPackage(
@@ -91,6 +117,7 @@ class TestCacheFileNamer:
                 ),
             },
             include_external_packages=include_external_packages,
+            exclude_type_checking_imports=exclude_type_checking_imports,
         )
 
         assert result == expected

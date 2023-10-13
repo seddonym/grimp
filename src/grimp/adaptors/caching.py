@@ -21,9 +21,14 @@ class CacheFileNamer:
 
     @classmethod
     def make_data_file_name(
-        cls, found_packages: Set[FoundPackage], include_external_packages: bool
+        cls,
+        found_packages: Set[FoundPackage],
+        include_external_packages: bool,
+        exclude_type_checking_imports: bool,
     ) -> str:
-        identifier = cls.make_data_file_unique_string(found_packages, include_external_packages)
+        identifier = cls.make_data_file_unique_string(
+            found_packages, include_external_packages, exclude_type_checking_imports
+        )
 
         bytes_identifier = identifier.encode()
         # Use a hash algorithm with a limited size to avoid cache filenames that are too long
@@ -34,7 +39,10 @@ class CacheFileNamer:
 
     @classmethod
     def make_data_file_unique_string(
-        cls, found_packages: Set[FoundPackage], include_external_packages: bool
+        cls,
+        found_packages: Set[FoundPackage],
+        include_external_packages: bool,
+        exclude_type_checking_imports: bool,
     ) -> str:
         """
         Construct a unique string that identifies the analysis parameters.
@@ -44,7 +52,12 @@ class CacheFileNamer:
         package_names = (p.name for p in found_packages)
         csv_packages = ",".join(sorted(package_names))
         include_external_packages_option = ":external" if include_external_packages else ""
-        return csv_packages + include_external_packages_option
+        exclude_type_checking_imports_option = (
+            ":no_type_checking" if exclude_type_checking_imports else ""
+        )
+        return (
+            csv_packages + include_external_packages_option + exclude_type_checking_imports_option
+        )
 
 
 class Cache(AbstractCache):
@@ -65,6 +78,7 @@ class Cache(AbstractCache):
         file_system: AbstractFileSystem,
         found_packages: Set[FoundPackage],
         include_external_packages: bool,
+        exclude_type_checking_imports: bool = False,
         cache_dir: Optional[str] = None,
         namer: Type[CacheFileNamer] = CacheFileNamer,
     ) -> "Cache":
@@ -72,6 +86,7 @@ class Cache(AbstractCache):
             file_system=file_system,
             found_packages=found_packages,
             include_external_packages=include_external_packages,
+            exclude_type_checking_imports=exclude_type_checking_imports,
             cache_dir=cls.cache_dir_or_default(cache_dir),
             namer=namer,
         )
@@ -126,6 +141,7 @@ class Cache(AbstractCache):
             self._namer.make_data_file_name(
                 found_packages=self.found_packages,
                 include_external_packages=self.include_external_packages,
+                exclude_type_checking_imports=self.exclude_type_checking_imports,
             ),
         )
         self.file_system.write(data_cache_filename, serialized)
@@ -179,6 +195,7 @@ class Cache(AbstractCache):
             self._namer.make_data_file_name(
                 found_packages=self.found_packages,
                 include_external_packages=self.include_external_packages,
+                exclude_type_checking_imports=self.exclude_type_checking_imports,
             ),
         )
         try:

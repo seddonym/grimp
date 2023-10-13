@@ -45,11 +45,14 @@ Building the graph
     # Include imports of external packages
     graph = grimp.build_graph('mypackage', include_external_packages=True)
 
-    # Use a different cache directory, or disable caching altogether.
+    # Exclude imports within a TYPE_CHECKING guard
+    graph = grimp.build_graph('mypackage', exclude_type_checking_imports=True)
+
+    # Use a different cache directory, or disable caching altogether
     graph = grimp.build_graph('mypackage', cache_dir="/path/to/cache")
     graph = grimp.build_graph('mypackage', cache_dir=None)
 
-.. py:function:: grimp.build_graph(package_name, *additional_package_names, include_external_packages=False)
+.. py:function:: grimp.build_graph(package_name, *additional_package_names, include_external_packages=False, exclude_type_checking_imports=False)
 
     Build and return an ImportGraph for the supplied package or packages.
 
@@ -58,7 +61,7 @@ Building the graph
         `namespace packages`_, the name of the *portion* should be supplied, for example ``'mynamespace.foo'``.
     :param tuple[str, ...] additional_package_names: Tuple of any additional package names. These can be
         supplied as positional arguments, as in the example above.
-    :param bool include_external_packages: Whether to include external packages in the import graph. If this is ``True``,
+    :param bool, optional include_external_packages: Whether to include external packages in the import graph. If this is ``True``,
         any other top level packages (including packages in the standard library) that are imported by this package will
         be included in the graph as squashed modules (see `Terminology`_ above).
 
@@ -71,10 +74,17 @@ Building the graph
 
         *Note: external packages are only analysed as modules that are imported; any imports they make themselves will
         not be included in the graph.*
+    :param bool, optional exclude_type_checking_imports: Whether to exclude imports made in type checking guards. If this is ``True``,
+        any import made under an ``if TYPE_CHECKING:`` statement will not be added to the graph.
+        See the `typing module documentation`_ for reference. (The type checking guard is detected purely by looking for
+        a statement in the form ``if TYPE_CHECKING`` or ``if {some_alias}.TYPE_CHECKING``. It does not check whether
+        ``TYPE_CHECKING`` is actually the attribute from the ``typing`` module.)
     :param str, optional cache_dir: The directory to use for caching the graph. Defaults to ``.grimp_cache``. To disable caching,
         pass ``None``. See :doc:`caching`.
     :return: An import graph that you can use to analyse the package.
     :rtype: ImportGraph
+
+.. _typing module documentation: https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING
 
 Methods for analysing the module tree
 -------------------------------------
