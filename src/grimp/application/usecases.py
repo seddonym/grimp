@@ -21,6 +21,7 @@ def build_graph(
     package_name,
     *additional_package_names,
     include_external_packages: bool = False,
+    exclude_type_checking_imports: bool = False,
     cache_dir: Union[str, Type[NotSupplied], None] = NotSupplied,
 ) -> ImportGraph:
     """
@@ -30,12 +31,14 @@ def build_graph(
         - package_name: the name of the top level package for which to build the graph.
         - additional_package_names: tuple of the
         - include_external_packages: whether to include any external packages in the graph.
-
+        - exclude_type_checking_imports: whether to exclude imports made in type checking guards.
+        - cache_dir: The directory to use for caching the graph.
     Examples:
 
         # Single package.
         graph = build_graph("mypackage")
         graph = build_graph("mypackage", include_external_packages=True)
+        graph = build_graph("mypackage", exclude_type_checking_imports=True)
 
         # Multiple packages.
         graph = build_graph("mypackage", "anotherpackage", "onemore")
@@ -55,6 +58,7 @@ def build_graph(
         found_packages=found_packages,
         file_system=file_system,
         include_external_packages=include_external_packages,
+        exclude_type_checking_imports=exclude_type_checking_imports,
         cache_dir=cache_dir,
     )
 
@@ -99,6 +103,7 @@ def _scan_packages(
     found_packages: Set[FoundPackage],
     file_system: AbstractFileSystem,
     include_external_packages: bool,
+    exclude_type_checking_imports: bool,
     cache_dir: Union[str, Type[NotSupplied], None],
 ) -> Dict[Module, Set[DirectImport]]:
     imports_by_module: Dict[Module, Set[DirectImport]] = {}
@@ -108,6 +113,7 @@ def _scan_packages(
             file_system=file_system,
             found_packages=found_packages,
             include_external_packages=include_external_packages,
+            exclude_type_checking_imports=exclude_type_checking_imports,
             cache_dir=cache_dir_if_supplied,
         )
     import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
@@ -124,7 +130,9 @@ def _scan_packages(
                     raise caching.CacheMiss
                 direct_imports = cache.read_imports(module_file)
             except caching.CacheMiss:
-                direct_imports = import_scanner.scan_for_imports(module)
+                direct_imports = import_scanner.scan_for_imports(
+                    module, exclude_type_checking_imports=exclude_type_checking_imports
+                )
             imports_by_module[module] = direct_imports
 
     if cache_dir is not None:

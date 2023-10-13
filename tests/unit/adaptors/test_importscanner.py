@@ -187,7 +187,8 @@ def test_import_of_portion_not_in_graph(include_external_packages):
                 import namespace.bar.one.orange
                 from namespace.yellow import one
                 from .. import mauve
-                from ..cyan import one
+                if t.TYPE_CHECKING:
+                    from ..cyan import one
                 from ..magenta.one import alpha
             """,
             "/path/to/namespace/foo/one/blue.py": """
@@ -251,13 +252,13 @@ def test_import_of_portion_not_in_graph(include_external_packages):
                 DirectImport(
                     importer=MODULE_FOO_ONE,
                     imported=Module("namespace.cyan"),
-                    line_number=4,
+                    line_number=5,
                     line_contents="from ..cyan import one",
                 ),
                 DirectImport(
                     importer=MODULE_FOO_ONE,
                     imported=Module("namespace.magenta"),
-                    line_number=5,
+                    line_number=6,
                     line_contents="from ..magenta.one import alpha",
                 ),
             },
@@ -307,7 +308,7 @@ def test_import_of_portion_not_in_graph(include_external_packages):
                 DirectImport(
                     importer=Module("foo.one.blue"),
                     imported=Module("foo.three"),
-                    line_number=3,
+                    line_number=4,
                     line_contents="from foo import three",
                 ),
             },
@@ -330,19 +331,19 @@ def test_import_of_portion_not_in_graph(include_external_packages):
                 DirectImport(
                     importer=Module("foo.one.blue"),
                     imported=Module("foo.three"),
-                    line_number=3,
+                    line_number=4,
                     line_contents="from foo import three",
                 ),
                 DirectImport(
                     importer=Module("foo.one.blue"),
                     imported=Module("external"),
-                    line_number=4,
+                    line_number=5,
                     line_contents="from external import one",
                 ),
                 DirectImport(
                     importer=Module("foo.one.blue"),
                     imported=Module("external"),
-                    line_number=5,
+                    line_number=6,
                     line_contents="from external.two import blue",
                 ),
             },
@@ -378,7 +379,8 @@ def test_absolute_from_imports(include_external_packages, expected_result):
             "/path/to/foo/one/blue.py": """
                 from foo.one import green
                 from foo.two import yellow
-                from foo import three
+                if t.TYPE_CHECKING:
+                    from foo import three
                 from external import one
                 from external.two import blue
                 arbitrary_expression = 1
@@ -739,6 +741,102 @@ def test_scans_multiple_packages(statement):
             line_contents=statement,
         ),
     } == result
+
+
+@pytest.mark.parametrize("exclude_type_checking_imports", (True, False))
+@pytest.mark.parametrize(
+    "statement, is_statement_valid",
+    (
+        ("if t.TYPE_CHECKING:", True),
+        ("if TYPE_CHECKING:", True),
+        ("if typing.TYPE_CHECKING:", True),
+        ("if WEIRD_ALIAS.TYPE_CHECKING:", True),
+        ("if type_checking:", False),
+        ("while TYPE_CHECKING:", False),
+    ),
+)
+def test_exclude_type_checking_imports(
+    exclude_type_checking_imports, statement, is_statement_valid
+):
+    all_modules = {
+        Module("foo.one"),
+        Module("foo.two"),
+        Module("foo.three"),
+        Module("foo.four"),
+        Module("foo.five"),
+    }
+    file_system = FakeFileSystem(
+        content_map={
+            "/path/to/foo/one.py": f"""
+                import foo.two
+                {statement}
+                    import foo.three
+                    import foo.four
+                import foo.five
+                arbitrary_expression = 1
+            """
+        }
+    )
+
+    import_scanner = ImportScanner(
+        found_packages={
+            FoundPackage(
+                name="foo",
+                directory="/path/to/foo",
+                module_files=frozenset(_modules_to_module_files(all_modules)),
+            )
+        },
+        file_system=file_system,
+    )
+
+    if exclude_type_checking_imports and is_statement_valid:
+        expected_result = {
+            DirectImport(
+                importer=Module("foo.one"),
+                imported=Module("foo.two"),
+                line_number=1,
+                line_contents="import foo.two",
+            ),
+            DirectImport(
+                importer=Module("foo.one"),
+                imported=Module("foo.five"),
+                line_number=5,
+                line_contents="import foo.five",
+            ),
+        }
+    else:
+        expected_result = {
+            DirectImport(
+                importer=Module("foo.one"),
+                imported=Module("foo.two"),
+                line_number=1,
+                line_contents="import foo.two",
+            ),
+            DirectImport(
+                importer=Module("foo.one"),
+                imported=Module("foo.three"),
+                line_number=3,
+                line_contents="import foo.three",
+            ),
+            DirectImport(
+                importer=Module("foo.one"),
+                imported=Module("foo.four"),
+                line_number=4,
+                line_contents="import foo.four",
+            ),
+            DirectImport(
+                importer=Module("foo.one"),
+                imported=Module("foo.five"),
+                line_number=5,
+                line_contents="import foo.five",
+            ),
+        }
+
+    result = import_scanner.scan_for_imports(
+        Module("foo.one"), exclude_type_checking_imports=exclude_type_checking_imports
+    )
+
+    assert expected_result == result
 
 
 def _modules_to_module_files(modules: Set[Module]) -> Set[ModuleFile]:

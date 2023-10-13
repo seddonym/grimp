@@ -14,15 +14,14 @@ What is cached?
 Grimp caches the imports discovered through static analysis of the packages when it builds a graph.
 It does not cache the results of any methods called on a graph, e.g. ``find_downstream_modules``.
 
-Separate caches of imports are created depending on the *set of packages* passed to ``build_graph``,
-together with whether or not the graph should include external packages.
-
-For example, the following invocations will each have a separate cache and will not
-be able to make use of each other's work:
+Separate caches of imports are created depending the arguments passed to ``build_graph``. For example,
+the following invocations will each have a separate cache and will not be able to make use of each
+other's work:
 
 - ``build_graph("mypackage")``
 - ``build_graph("mypackage", "anotherpackage")``
 - ``build_graph("mypackage", "anotherpackage", include_external_packages=True)``
+- ``build_graph("mypackage", "anotherpackage", exclude_type_checking_imports=True)``
 
 Grimp can make use of cached results even if some of the modules change. For example,
 if ``mypackage.foo`` is changed, but all the other modules within ``mypackage`` are left

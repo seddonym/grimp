@@ -1,6 +1,7 @@
 import ast
 import logging
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Union
+from ast import NodeVisitor, Import, ImportFrom, If, Attribute, Name
 
 from grimp import exceptions
 from grimp.application.ports.importscanner import AbstractImportScanner
@@ -8,10 +9,6 @@ from grimp.application.ports.modulefinder import FoundPackage
 from grimp.domain.valueobjects import DirectImport, Module
 
 logger = logging.getLogger(__name__)
-
-
-class NotAnImport(Exception):
-    pass
 
 
 class ImportScanner(AbstractImportScanner):
@@ -24,20 +21,21 @@ class ImportScanner(AbstractImportScanner):
             for module_file in package.module_files
         }
 
-    def scan_for_imports(self, module: Module) -> Set[DirectImport]:
+    def scan_for_imports(
+        self, module: Module, *, exclude_type_checking_imports: bool = False
+    ) -> Set[DirectImport]:
         """
         Note: this method only analyses the module in question and will not load any other
         code, so it relies on self.modules to deduce which modules it imports. (This is
         because you can't know whether "from foo.bar import baz" is importing a module
         called  `baz`, or a function `baz` from the module `bar`.)
         """
-        direct_imports: Set[DirectImport] = set()
-
         found_package = self._found_package_for_module(module)
         module_filename = self._determine_module_filename(module, found_package)
         is_package = self._module_is_package(module_filename)
         module_contents = self._read_module_contents(module_filename)
         module_lines = module_contents.splitlines()
+
         try:
             ast_tree = ast.parse(module_contents)
         except SyntaxError as e:
@@ -46,51 +44,35 @@ class ImportScanner(AbstractImportScanner):
                 lineno=e.lineno,
                 text=e.text,
             )
-        for node in ast.walk(ast_tree):
-            direct_imports |= self._parse_direct_imports_from_node(
-                node, module, found_package, module_lines, is_package
-            )
 
-        return direct_imports
+        from_import_parser = _ImportFromNodeParser(
+            module=module,
+            found_package=found_package,
+            found_packages=self.found_packages,
+            found_packages_by_module=self._found_packages_by_module,
+            include_external_packages=self.include_external_packages,
+            is_package=is_package,
+        )
 
-    def _parse_direct_imports_from_node(
-        self,
-        node: ast.AST,
-        module: Module,
-        found_package: FoundPackage,
-        module_lines: List[str],
-        is_package: bool,
-    ) -> Set[DirectImport]:
-        """
-        Parse an ast node into a set of DirectImports.
-        """
-        try:
-            parser = _get_node_parser(
-                node=node,
-                module=module,
-                found_package=found_package,
-                found_packages=self.found_packages,
-                found_packages_by_module=self._found_packages_by_module,
-                is_package=is_package,
-            )
-        except NotAnImport:
-            return set()
+        import_parser = _ImportNodeParser(
+            module=module,
+            found_package=found_package,
+            found_packages=self.found_packages,
+            found_packages_by_module=self._found_packages_by_module,
+            include_external_packages=self.include_external_packages,
+            is_package=is_package,
+        )
 
-        direct_imports: Set[DirectImport] = set()
+        walker = _TreeWalker(
+            import_parser=import_parser,
+            from_import_parser=from_import_parser,
+            module=module,
+            module_lines=module_lines,
+            exclude_type_checking_imports=exclude_type_checking_imports,
+        )
+        walker.visit(ast_tree)
 
-        for imported in parser.determine_imported_modules(
-            include_external_packages=self.include_external_packages
-        ):
-            direct_imports.add(
-                DirectImport(
-                    importer=module,
-                    imported=imported,
-                    line_number=node.lineno,
-                    line_contents=module_lines[node.lineno - 1].strip(),
-                )
-            )
-
-        return direct_imports
+        return walker.direct_imports
 
     def _determine_module_filename(self, module: Module, found_package: FoundPackage) -> str:
         """
@@ -140,21 +122,21 @@ class _BaseNodeParser:
 
     def __init__(
         self,
-        node: ast.AST,
         module: Module,
         found_package: FoundPackage,
         found_packages: Set[FoundPackage],
         found_packages_by_module: Dict[Module, FoundPackage],
         is_package: bool,
+        include_external_packages: bool,
     ) -> None:
-        self.node = node
         self.module = module
         self.found_package = found_package
         self.found_packages = found_packages
         self.module_is_package = is_package
         self.found_packages_by_module = found_packages_by_module
+        self.include_external_packages = include_external_packages
 
-    def determine_imported_modules(self, include_external_packages: bool) -> Set[Module]:
+    def determine_imported_modules(self, node: ast.AST) -> Set[Module]:
         """
         Return the imported modules in the statement.
         """
@@ -235,27 +217,23 @@ class _ImportNodeParser(_BaseNodeParser):
 
     node_class = ast.Import
 
-    def determine_imported_modules(self, include_external_packages: bool) -> Set[Module]:
+    def determine_imported_modules(self, node: ast.AST) -> Set[Module]:
         imported_modules: Set[Module] = set()
 
-        assert isinstance(self.node, self.node_class)  # For type checker.
-        for alias in self.node.names:
-            imported_module = self._module_from_name(
-                alias.name, include_external_packages=include_external_packages
-            )
+        assert isinstance(node, self.node_class)  # For type checker.
+        for alias in node.names:
+            imported_module = self._module_from_name(alias.name)
             if imported_module:
                 imported_modules.add(imported_module)
 
         return imported_modules
 
-    def _module_from_name(
-        self, module_name: str, include_external_packages: bool
-    ) -> Optional[Module]:
+    def _module_from_name(self, module_name: str) -> Optional[Module]:
         module = Module(module_name)
         if self._is_internal_module(module):
             return module
         else:
-            if include_external_packages:
+            if self.include_external_packages:
                 return self._distill_external_module(module)
             else:
                 return None
@@ -268,22 +246,22 @@ class _ImportFromNodeParser(_BaseNodeParser):
 
     node_class = ast.ImportFrom
 
-    def determine_imported_modules(self, include_external_packages: bool) -> Set[Module]:
+    def determine_imported_modules(self, node: ast.AST) -> Set[Module]:
         imported_modules: Set[Module] = set()
-        assert isinstance(self.node, self.node_class)  # For type checker.
-        assert isinstance(self.node.level, int)  # For type checker.
+        assert isinstance(node, self.node_class)  # For type checker.
+        assert isinstance(node.level, int)  # For type checker.
 
-        if self.node.level == 0:
+        if node.level == 0:
             # Absolute import.
             # Let the type checker know we expect node.module to be set here.
-            assert isinstance(self.node.module, str)
-            node_module = Module(self.node.module)
+            assert isinstance(node.module, str)
+            node_module = Module(node.module)
             if not self._is_internal_module(node_module):
-                if include_external_packages:
+                if self.include_external_packages:
                     # Return the top level package of the external module.
                     external_modules = set()
-                    for alias in self.node.names:
-                        full_object_name = ".".join([self.node.module, alias.name])
+                    for alias in node.names:
+                        full_object_name = ".".join([node.module, alias.name])
                         untrimmed_module = Module(full_object_name)
                         external_module = self._distill_external_module(untrimmed_module)
                         if external_module:
@@ -293,8 +271,8 @@ class _ImportFromNodeParser(_BaseNodeParser):
                     return set()
             # Don't include imports of modules outside this package.
 
-            module_base = self.node.module
-        elif self.node.level >= 1:
+            module_base = node.module
+        elif node.level >= 1:
             # Relative import. The level corresponds to how high up the tree it goes;
             # for example 'from ... import foo' would be level 3.
             importing_module_components = self.module.name.split(".")
@@ -303,23 +281,21 @@ class _ImportFromNodeParser(_BaseNodeParser):
             if self.module_is_package:
                 # If the scanned module an __init__.py file, we don't want
                 # to go up an extra level.
-                number_of_levels_to_trim_by = self.node.level - 1
+                number_of_levels_to_trim_by = node.level - 1
             else:
-                number_of_levels_to_trim_by = self.node.level
+                number_of_levels_to_trim_by = node.level
 
             if number_of_levels_to_trim_by:
                 module_base = ".".join(importing_module_components[:-number_of_levels_to_trim_by])
             else:
                 module_base = ".".join(importing_module_components)
-            if self.node.module:
-                module_base = ".".join([module_base, self.node.module])
+            if node.module:
+                module_base = ".".join([module_base, node.module])
 
         # node.names corresponds to 'a', 'b' and 'c' in 'from x import a, b, c'.
-        for alias in self.node.names:
+        for alias in node.names:
             full_object_name = ".".join([module_base, alias.name])
-            imported_module = self._module_from_object_name(
-                full_object_name, include_external_packages=include_external_packages
-            )
+            imported_module = self._module_from_object_name(full_object_name)
             if imported_module:
                 imported_modules.add(imported_module)
 
@@ -343,9 +319,7 @@ class _ImportFromNodeParser(_BaseNodeParser):
             else:
                 raise FileNotFoundError()
 
-    def _module_from_object_name(
-        self, full_object_name: str, include_external_packages: bool
-    ) -> Optional[Module]:
+    def _module_from_object_name(self, full_object_name: str) -> Optional[Module]:
         if self._is_internal_object(full_object_name):
             untrimmed_module = Module(full_object_name)
             try:
@@ -359,36 +333,58 @@ class _ImportFromNodeParser(_BaseNodeParser):
                 return imported_module
         else:
             untrimmed_module = Module(full_object_name)
-            if include_external_packages:
+            if self.include_external_packages:
                 return self._distill_external_module(untrimmed_module)
         return None
 
 
-def _get_node_parser(
-    node: ast.AST,
-    module: Module,
-    found_package: FoundPackage,
-    found_packages: Set[FoundPackage],
-    found_packages_by_module: Dict[Module, FoundPackage],
-    is_package: bool,
-) -> _BaseNodeParser:
-    """
-    Return a NodeParser instance for the supplied node.
+class _TreeWalker(NodeVisitor):
+    def __init__(
+        self,
+        import_parser: _ImportNodeParser,
+        from_import_parser: _ImportFromNodeParser,
+        module: Module,
+        module_lines: List[str],
+        *,
+        exclude_type_checking_imports: bool,
+    ) -> None:
+        self.module = module
+        self.module_lines = module_lines
+        self.exclude_type_checking_imports = exclude_type_checking_imports
+        self.direct_imports: Set[DirectImport] = set()
+        self.import_parser = import_parser
+        self.from_import_parser = from_import_parser
+        super().__init__()
 
-    Raises NotAnImport if the supplied node is not an import statement.
-    """
-    parser_class_map = {
-        ast.ImportFrom: _ImportFromNodeParser,
-        ast.Import: _ImportNodeParser,
-    }
-    for node_class, parser_class in parser_class_map.items():
-        if isinstance(node, node_class):
-            return parser_class(
-                node=node,
-                module=module,
-                found_package=found_package,
-                found_packages=found_packages,
-                is_package=is_package,
-                found_packages_by_module=found_packages_by_module,
+    def visit_Import(self, node: Import) -> None:
+        self._parse_direct_imports_from_node(node, self.import_parser)
+
+    def visit_ImportFrom(self, node: ImportFrom) -> None:
+        self._parse_direct_imports_from_node(node, self.from_import_parser)
+
+    def visit_If(self, node: If) -> None:
+        if self.exclude_type_checking_imports:
+            # Case for "if TYPE_CHECKING:"
+            if isinstance(node.test, Name) and node.test.id == "TYPE_CHECKING":
+                return  # Skip parsing
+
+            # Case for "if xxx.TYPE_CHECKING:"
+            if isinstance(node.test, Attribute) and node.test.attr == "TYPE_CHECKING":
+                return  # Skip parsing
+
+        super().generic_visit(node)
+
+    def _parse_direct_imports_from_node(
+        self,
+        node: Union[Import, ImportFrom],
+        parser: Union[_ImportNodeParser, _ImportFromNodeParser],
+    ) -> None:
+        for imported in parser.determine_imported_modules(node):
+            self.direct_imports.add(
+                DirectImport(
+                    importer=self.module,
+                    imported=imported,
+                    line_number=node.lineno,
+                    line_contents=self.module_lines[node.lineno - 1].strip(),
+                )
             )
-    raise NotAnImport
