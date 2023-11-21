@@ -6,10 +6,10 @@ use std::collections::HashSet;
 use std::time::Instant;
 
 /// A group of layers at the same level in the layering.
-/// These layers should be independent.
 #[derive(PartialEq, Eq, Hash, Debug)]
 pub struct Level<'a> {
     pub layers: Vec<&'a str>,
+    pub independent: bool,
 }
 
 pub fn find_illegal_dependencies<'a>(
@@ -45,6 +45,8 @@ pub fn find_illegal_dependencies<'a>(
     dependencies
 }
 
+/// Return every permutation of modules that exist in the graph
+/// in which the second should not import the first.
 fn _generate_module_permutations<'a>(
     graph: &'a ImportGraph,
     levels: &'a [Level],
@@ -69,13 +71,18 @@ fn _generate_module_permutations<'a>(
                     continue;
                 }
 
-                // Build the layers that mustn't import this higher layer. That
-                // includes lower layers and siblings.
+                // Build the layers that mustn't import this higher layer. 
+                // That includes:
+                // * lower layers.
+                // * sibling layers, if the layer is independent.
                 let mut layers_forbidden_to_import_higher_layer: Vec<&str> = vec![];
-                for potential_sibling_layer in &higher_level.layers {
-                    if potential_sibling_layer != higher_layer {
-                        // It's a sibling layer.
-                        layers_forbidden_to_import_higher_layer.push(potential_sibling_layer);
+
+                if higher_level.independent {
+                    for potential_sibling_layer in &higher_level.layers {
+                        if potential_sibling_layer != higher_layer {
+                            // It's a sibling layer.
+                            layers_forbidden_to_import_higher_layer.push(potential_sibling_layer);
+                        }
                     }
                 }
 
@@ -333,12 +340,15 @@ mod tests {
         ]));
         let levels = vec![
             Level {
+                independent: true,
                 layers: vec!["high"],
             },
             Level {
+                independent: true,
                 layers: vec!["mid_a", "mid_b", "mid_c"],
             },
             Level {
+                independent: true,
                 layers: vec!["low"],
             },
         ];
@@ -405,9 +415,11 @@ mod tests {
         ]));
         let levels = vec![
             Level {
+                independent: true,
                 layers: vec!["high"],
             },
             Level {
+                independent: true,
                 layers: vec!["low"],
             },
         ];
@@ -460,12 +472,15 @@ mod tests {
         ]));
         let levels = vec![
             Level {
+                independent: true,
                 layers: vec!["high"],
             },
             Level {
+                independent: true,
                 layers: vec!["mid_a", "mid_b", "mid_c"],
             },
             Level {
+                independent: true,
                 layers: vec!["low"],
             },
         ];
@@ -554,15 +569,108 @@ mod tests {
     }
 
     #[test]
-    fn test_layers_from_levels() {
+    fn test_generate_module_permutations_sibling_layer_not_independent() {
+        let graph = ImportGraph::new(HashMap::from([
+            ("mypackage.low", HashSet::new()),
+            ("mypackage.low.blue", HashSet::from(["mypackage.utils"])),
+            ("mypackage.low.green", HashSet::new()),
+            (
+                "mypackage.low.green.alpha",
+                HashSet::from(["mypackage.high.yellow"]),
+            ),
+            ("mypackage.mid_a", HashSet::new()),
+            ("mypackage.mid_a.foo", HashSet::new()),
+            ("mypackage.mid_b", HashSet::new()),
+            ("mypackage.mid_b.foo", HashSet::new()),
+            ("mypackage.mid_c", HashSet::new()),
+            ("mypackage.mid_c.foo", HashSet::new()),
+            ("mypackage.high", HashSet::from(["mypackage.low.blue"])),
+            ("mypackage.high.yellow", HashSet::new()),
+            ("mypackage.high.red", HashSet::new()),
+            ("mypackage.high.red.beta", HashSet::new()),
+            ("mypackage.utils", HashSet::from(["mypackage.high.red"])),
+        ]));
         let levels = vec![
             Level {
+                independent: true,
                 layers: vec!["high"],
             },
             Level {
+                independent: false,
+                layers: vec!["mid_a", "mid_b", "mid_c"],
+            },
+            Level {
+                independent: true,
+                layers: vec!["low"],
+            },
+        ];
+        let containers = HashSet::from(["mypackage"]);
+
+        let perms = _generate_module_permutations(&graph, &levels, &containers);
+
+        let result: HashSet<(String, String, Option<String>)> = HashSet::from_iter(perms);
+        let (high, mid_a, mid_b, mid_c, low) = (
+            "mypackage.high",
+            "mypackage.mid_a",
+            "mypackage.mid_b",
+            "mypackage.mid_c",
+            "mypackage.low",
+        );
+        assert_eq!(
+            result,
+            HashSet::from_iter([
+                (
+                    high.to_string(),
+                    mid_a.to_string(),
+                    Some("mypackage".to_string())
+                ),
+                (
+                    high.to_string(),
+                    mid_b.to_string(),
+                    Some("mypackage".to_string())
+                ),
+                (
+                    high.to_string(),
+                    mid_c.to_string(),
+                    Some("mypackage".to_string())
+                ),
+                (
+                    high.to_string(),
+                    low.to_string(),
+                    Some("mypackage".to_string())
+                ),
+                (
+                    mid_a.to_string(),
+                    low.to_string(),
+                    Some("mypackage".to_string())
+                ),
+                (
+                    mid_b.to_string(),
+                    low.to_string(),
+                    Some("mypackage".to_string())
+                ),
+                (
+                    mid_c.to_string(),
+                    low.to_string(),
+                    Some("mypackage".to_string())
+                ),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_layers_from_levels() {
+        let levels = vec![
+            Level {
+                independent: true,
+                layers: vec!["high"],
+            },
+            Level {
+                independent: true,
                 layers: vec!["medium_a", "medium_b", "medium_c"],
             },
             Level {
+                independent: true,
                 layers: vec!["low"],
             },
         ];
