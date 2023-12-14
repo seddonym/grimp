@@ -9,6 +9,7 @@ import pytest  # type: ignore
 from grimp import PackageDependency, Route
 from grimp.adaptors.graph import ImportGraph
 from grimp.exceptions import NoSuchContainer
+from grimp.domain.valueobjects import Level
 
 
 class TestSingleOrNoContainer:
@@ -395,12 +396,14 @@ class TestIndependentLayers:
         assert result == set()
 
     @pytest.mark.parametrize(
-        "sequence_type",
+        "sequence_type, expect_independent",
         (
-            set,
-            frozenset,
-            tuple,
-            list,
+            (lambda layers: Level(*layers), True),
+            (lambda layers: Level(*layers, independent=False), False),
+            (set, True),
+            (frozenset, True),
+            (tuple, True),
+            (list, True),
         ),
     )
     @pytest.mark.parametrize(
@@ -418,8 +421,13 @@ class TestIndependentLayers:
         "imported",
         ("mypackage.bar", "mypackage.bar.brown", "mypackage.bar.brown.beta"),
     )
-    def test_direct_illegal_between_sibling_layers(
-        self, sequence_type: type, specify_container: bool, importer: str, imported: str
+    def test_direct_illegal_between_sibling_layers_iff_independent(
+        self,
+        sequence_type: type,
+        expect_independent: bool,
+        specify_container: bool,
+        importer: str,
+        imported: str,
     ):
         graph = self._build_legal_graph()
         graph.add_import(importer=importer, imported=imported)
@@ -427,13 +435,17 @@ class TestIndependentLayers:
         result = self._analyze(
             graph, specify_container=specify_container, sequence_type=sequence_type
         )
-        assert result == {
-            PackageDependency.new(
-                importer="mypackage.foo",
-                imported="mypackage.bar",
-                routes={Route.single_chained(importer, imported)},
-            ),
-        }
+
+        if expect_independent:
+            assert result == {
+                PackageDependency.new(
+                    importer="mypackage.foo",
+                    imported="mypackage.bar",
+                    routes={Route.single_chained(importer, imported)},
+                ),
+            }
+        else:
+            assert not result
 
     @pytest.mark.parametrize("specify_container", (True, False))
     @pytest.mark.parametrize(
@@ -594,7 +606,11 @@ class TestIndependentLayers:
             )
         else:
             return graph.find_illegal_dependencies_for_layers(
-                layers=("mypackage.high", {"mypackage.foo", "mypackage.bar"}, "mypackage.low"),
+                layers=(
+                    "mypackage.high",
+                    sequence_type({"mypackage.foo", "mypackage.bar"}),
+                    "mypackage.low",
+                ),
             )
 
 
