@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterator, Sequence, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Iterator, Sequence, TypedDict
 
 from grimp import Route
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
@@ -12,11 +12,27 @@ if TYPE_CHECKING:
 
 from grimp.domain.analysis import PackageDependency
 from grimp.exceptions import NoSuchContainer
+from grimp.domain.valueobjects import Level
+
+
+def layers_to_levels(layers: Sequence[Level | str | set[str]]) -> tuple[Level, ...]:
+    """
+    Convert the levels within the passed `layers` into `Level`s.
+    """
+    out_layers = []
+    for layer in layers:
+        if isinstance(layer, Level):
+            out_layers.append(layer)
+        elif isinstance(layer, str):
+            out_layers.append(Level(layer, independent=True))
+        else:
+            out_layers.append(Level(*tuple(layer), independent=True))
+    return tuple(out_layers)
 
 
 def find_illegal_dependencies(
     graph: ImportGraph,
-    layers: Sequence[Union[str, set[str]]],
+    levels: Sequence[Level],
     containers: set[str],
 ) -> set[PackageDependency]:
     """
@@ -29,7 +45,9 @@ def find_illegal_dependencies(
     """
     try:
         rust_package_dependency_tuple = rust.find_illegal_dependencies(
-            levels=_layers_to_levels(layers),
+            levels=tuple(
+                {"layers": level.layers, "independent": level.independent} for level in levels
+            ),
             containers=set(containers),
             importeds_by_importer=graph._importeds_by_importer,
         )
@@ -50,13 +68,6 @@ class _RustPackageDependency(TypedDict):
     importer: str
     imported: str
     routes: tuple[_RustRoute, ...]
-
-
-def _layers_to_levels(layers: Sequence[Union[str, set[str]]]) -> tuple[set[str], ...]:
-    """
-    Convert any standalone layers to a one-element level.
-    """
-    return tuple({layer} if isinstance(layer, str) else set(layer) for layer in layers)
 
 
 def _dependencies_from_tuple(

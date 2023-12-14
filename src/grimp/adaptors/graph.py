@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Sequence, Set, Tuple, cast
 from grimp.algorithms.shortest_path import bidirectional_shortest_path
 from grimp.application.ports import graph
 from grimp.domain.analysis import PackageDependency
-from grimp.domain.valueobjects import Module
+from grimp.domain.valueobjects import Module, Level
 from grimp.exceptions import ModuleNotPresent
 
 from . import _layers
@@ -365,11 +365,12 @@ class ImportGraph(graph.ImportGraph):
 
     def find_illegal_dependencies_for_layers(
         self,
-        layers: Sequence[str | set[str]],
-        containers: Optional[set[str]] = None,
+        layers: Sequence[Level | str | set[str]],
+        containers: set[str] | None = None,
     ) -> set[PackageDependency]:
+        levels = _layers.layers_to_levels(layers)
         return _layers.find_illegal_dependencies(
-            graph=self, layers=layers, containers=containers or set()
+            graph=self, levels=levels, containers=containers or set()
         )
 
     # Private methods

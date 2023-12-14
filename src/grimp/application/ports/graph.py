@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import abc
-from typing import Iterator, List, Optional, Sequence, Set, Tuple, Union
+from typing import Iterator, List, Optional, Sequence, Set, Tuple
 
 from typing_extensions import TypedDict
 
 from grimp.domain.analysis import PackageDependency
+from grimp.domain.valueobjects import Level
 
 
 class DetailedImport(TypedDict):
@@ -271,8 +272,8 @@ class ImportGraph(abc.ABC):
 
     def find_illegal_dependencies_for_layers(
         self,
-        layers: Sequence[Union[str, set[str]]],
-        containers: Optional[set[str]] = None,
+        layers: Sequence[Level | str | set[str]],
+        containers: set[str] | None = None,
     ) -> set[PackageDependency]:
         """
         Find dependencies that don't conform to the supplied layered architecture.
