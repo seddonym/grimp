@@ -50,8 +50,11 @@ pub fn find_illegal_dependencies<'a>(
 fn rustify_levels(levels_python: &PyTuple) -> Vec<Level> {
     let mut rust_levels: Vec<Level> = vec![];
     for level_python in levels_python.into_iter() {
-        let layers: HashSet<&str> = level_python.extract().unwrap();
+        let level_dict = level_python.downcast::<PyDict>().unwrap();
+        let layers: HashSet<&str> = level_dict.get_item("layers").unwrap().extract().unwrap();
+        let independent: bool = level_dict.get_item("independent").unwrap().extract().unwrap();
         rust_levels.push(Level {
+            independent,
             layers: layers.into_iter().collect(),
         });
     }
@@ -104,16 +107,38 @@ fn convert_dependencies_to_python<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pyo3::types::{PySet, PyTuple};
+
+    // Macro to easily define a python dict.
+    // Adapted from the hash_map! macro in https://github.com/jofas/map_macro.
+    macro_rules! pydict {
+        ($py: ident, {$($k: expr => $v: expr),*, $(,)?}) => {
+            {
+                let dict = PyDict::new($py);
+                $(
+                    dict.set_item($k, $v)?;
+                )*
+                dict
+            }
+        };
+    }
 
     #[test]
     fn test_rustify_levels_no_sibling_layers() {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| -> PyResult<()> {
-            let elements: Vec<&PySet> = vec![
-                PySet::new(py, &vec!["high"]).unwrap(),
-                PySet::new(py, &vec!["medium"]).unwrap(),
-                PySet::new(py, &vec!["low"]).unwrap(),
+            let elements: Vec<&PyDict> = vec![
+                pydict! (py, {
+                    "independent" => true,
+                    "layers" => HashSet::from(["high"]),
+                }),
+                pydict! (py, {
+                    "independent" => true,
+                    "layers" => HashSet::from(["medium"]),
+                }),
+                pydict! (py, {
+                    "independent" => true,
+                    "layers" => HashSet::from(["low"]),
+                })
             ];
             let python_levels: &PyTuple = PyTuple::new(py, elements);
 
@@ -123,12 +148,15 @@ mod tests {
                 result,
                 vec![
                     Level {
+                        independent: true,
                         layers: vec!["high"]
                     },
                     Level {
+                        independent: true,
                         layers: vec!["medium"]
                     },
                     Level {
+                        independent: true,
                         layers: vec!["low"]
                     }
                 ]
@@ -143,10 +171,23 @@ mod tests {
     fn test_rustify_levels_sibling_layers() {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| -> PyResult<()> {
-            let elements: Vec<&PySet> = vec![
-                PySet::new(py, &vec!["high"]).unwrap(),
-                PySet::new(py, &vec!["blue", "green", "orange"]).unwrap(),
-                PySet::new(py, &vec!["low"]).unwrap(),
+            let elements: Vec<&PyDict> = vec![
+                pydict! (py, {
+                    "independent" => true,
+                    "layers" => HashSet::from(["high"]),
+                }),
+                pydict! (py, {
+                    "independent" => true,
+                    "layers" => HashSet::from(["blue", "green", "orange"]),
+                }),
+                pydict! (py, {
+                    "independent" => false,
+                    "layers" => HashSet::from(["red", "yellow"]),
+                }),
+                pydict! (py, {
+                    "independent" => true,
+                    "layers" => HashSet::from(["low"]),
+                })
             ];
             let python_levels: &PyTuple = PyTuple::new(py, elements);
 
@@ -159,12 +200,19 @@ mod tests {
                 result,
                 vec![
                     Level {
+                        independent: true,
                         layers: vec!["high"]
                     },
                     Level {
+                        independent: true,
                         layers: vec!["blue", "green", "orange"]
                     },
                     Level {
+                        independent: false,
+                        layers: vec!["red", "yellow"]
+                    },
+                    Level {
+                        independent: true,
                         layers: vec!["low"]
                     }
                 ]

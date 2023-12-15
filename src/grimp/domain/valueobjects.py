@@ -84,3 +84,23 @@ class DirectImport(ValueObject):
 
     def __hash__(self) -> int:
         return hash((str(self), self.line_contents))
+
+
+class Level(ValueObject):
+    """
+    A level within a layered architecture.
+
+    If level.independent is True then the layers within the level are considered
+    independent. This is the default.
+    """
+
+    def __init__(
+        self,
+        *layers: str,
+        independent: bool = True,
+    ) -> None:
+        self.layers = set(layers)
+        self.independent = independent
+
+    def __str__(self) -> str:
+        return f"{self.layers}, independent={self.independent}"

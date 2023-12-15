@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import abc
-from typing import Iterator, List, Optional, Sequence, Set, Tuple, Union
+from typing import Iterator, List, Optional, Sequence, Set, Tuple
 
 from typing_extensions import TypedDict
 
 from grimp.domain.analysis import PackageDependency
+from grimp.domain.valueobjects import Level
 
 
 class DetailedImport(TypedDict):
@@ -271,8 +272,8 @@ class ImportGraph(abc.ABC):
 
     def find_illegal_dependencies_for_layers(
         self,
-        layers: Sequence[Union[str, set[str]]],
-        containers: Optional[set[str]] = None,
+        layers: Sequence[Level | str | set[str]],
+        containers: set[str] | None = None,
     ) -> set[PackageDependency]:
         """
         Find dependencies that don't conform to the supplied layered architecture.
@@ -283,13 +284,15 @@ class ImportGraph(abc.ABC):
 
         Additionally, multiple layers can be grouped together at the same level; for example
         `mypackage.utils` and `mypackage.logging` might sit at the bottom, so they cannot
-        import from any other layers. Layers at the same level must be independent, so any
-        dependencies in either direction will be treated as illegal.
+        import from any other layers. When a simple set of sibling layers is passed then they
+        must be independent, so any dependencies in either direction will be treated as illegal.
+        To allow imports between siblings in a layer then an explicit `Level` can be passed instead,
+        and `independent` set to `False`.
 
         Arguments:
 
         - layers:     A sequence, each element of which consists either of the name of a layer
-                      module, or a set of sibling layers that at the same level. If containers
+                      module, a set of sibling layers, or a `Level`. If containers
                       are also specified, then these names must be relative to the container.
                       The order is from higher to lower level layers. Any layers that don't
                       exist in the graph will be ignored.

@@ -255,8 +255,10 @@ Higher level analysis
     around.
 
     Additionally, multiple layers can be grouped together at the same level; for example ``mypackage.utils`` and
-    ``mypackage.logging`` might sit at the bottom, so they cannot import from any other layers. Layers at the same level
-    must be *independent*: any dependencies in either direction are treated as illegal.
+    ``mypackage.logging`` might sit at the bottom, so they cannot import from any other layers. When a simple set 
+    of sibling layers is passed then they must be independent, so any dependencies in either direction will be 
+    treated as illegal. To allow imports between siblings in a layer then an explicit ``Level`` can be passed instead,
+    and ``independent`` set to ``False``.
 
     Note: each returned :class:`.PackageDependency` does not include all possible illegal :class:`.Route` objects.
     Instead, once an illegal :class:`.Route` is found, the algorithm will temporarily remove it from the graph before continuing
@@ -277,12 +279,25 @@ Higher level analysis
             ),
         )
 
-    Example with sibling layers::
+    Example with independent sibling layers::
 
         dependencies = graph.find_illegal_dependencies_for_layers(
             layers=(
                 "red",
-                {"green", "blue"},  # Green and blue should be independent.
+                # Imports between green and blue are forbidden.
+                # Equivalent to grimp.Level("green", "blue", independent=True)
+                {"green", "blue"},
+                "yellow",
+            ),
+        )
+
+    Example with sibling layers that allow imports between the siblings::
+
+        dependencies = graph.find_illegal_dependencies_for_layers(
+            layers=(
+                "red",
+                # Imports between green and blue are allowed.
+                grimp.Level("green", "blue", independent=False),
                 "yellow",
             ),
         )
@@ -301,8 +316,8 @@ Higher level analysis
             },
         )
 
-    :param Sequence[str | set[str]] layers: A sequence, each element of which consists either of the name of a layer
-        module, or a set of sibling layers that at the same level. If ``containers`` are also specified,
+    :param Sequence[Level | str | set[str]] layers: A sequence, each element of which consists either of the name of a layer
+        module, a set of sibling layers, or a :class:`.Level`. If ``containers`` are also specified,
         then these names must be relative to the container. The order is from higher to lower level layers.
         *Any layers that don't exist in the graph will be ignored.*
     :param set[str] containers: The parent modules of the layers, as absolute names that you could
@@ -314,34 +329,47 @@ Higher level analysis
     :rtype: ``set[PackageDependency]``.
     :raises grimp.exceptions.NoSuchContainer: if a container is not a module in the graph.
 
-    .. class:: PackageDependency
 
-      A collection of import dependencies from one Python package to another.
+.. class:: Level
 
-      .. attribute:: importer
+    A level within a layered architecture.
 
-        ``str``: The full name of the package within which all the routes start; the downstream package.
-           E.g. "mypackage.foo".
+    .. attribute:: layers
 
-      .. attribute:: imported
+    ``set[str]``: The sibling layers within this level.
 
-        ``str``: The full name of the package within which all the routes end; the upstream package.
-            E.g. "mypackage.bar".
+    .. attribute:: independent
 
-      .. attribute:: routes
+    ``bool``: Whether the sibling layers within this level are required to be independent.
 
-        ``frozenset[grimp.Route]``: A set of :class:`.Route` objects from importer to imported.
+.. class:: PackageDependency
 
-    .. class:: Route
+    A collection of import dependencies from one Python package to another.
 
-      A set of import chains that share the same middle.
+    .. attribute:: importer
 
-      The route fans in at the head and out at the tail, but the middle of the chain just links
-      individual modules.
+    ``str``: The full name of the package within which all the routes start; the downstream package.
+        E.g. "mypackage.foo".
 
-      Example: the following Route represents a chain of imports from
-      ``mypackage.orange -> mypackage.utils -> mypackage.helpers -> mypackage.green``, plus an import from
-      ``mypackage.red`` to ``mypackage.utils``, and an import from ``mypackage.helpers`` to ``mypackage.blue``::
+    .. attribute:: imported
+
+    ``str``: The full name of the package within which all the routes end; the upstream package.
+        E.g. "mypackage.bar".
+
+    .. attribute:: routes
+
+    ``frozenset[grimp.Route]``: A set of :class:`.Route` objects from importer to imported.
+
+.. class:: Route
+
+    A set of import chains that share the same middle.
+
+    The route fans in at the head and out at the tail, but the middle of the chain just links
+    individual modules.
+
+    Example: the following Route represents a chain of imports from
+    ``mypackage.orange -> mypackage.utils -> mypackage.helpers -> mypackage.green``, plus an import from
+    ``mypackage.red`` to ``mypackage.utils``, and an import from ``mypackage.helpers`` to ``mypackage.blue``::
 
         Route(
             heads=frozenset(

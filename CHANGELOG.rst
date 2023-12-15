@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+* Allow configuring sibling layer independence.
+
 3.1 (2023-10-13)
 ----------------
 

@@ -21,18 +21,23 @@ fn test_large_graph() {
 
     let levels = vec![
         Level {
+            independent: true,
             layers: vec!["plugins"],
         },
         Level {
+            independent: true,
             layers: vec!["interfaces"],
         },
         Level {
+            independent: true,
             layers: vec!["application"],
         },
         Level {
+            independent: true,
             layers: vec!["domain"],
         },
         Level {
+            independent: true,
             layers: vec!["data"],
         },
     ];
