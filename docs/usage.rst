@@ -250,15 +250,18 @@ Higher level analysis
 
     Find dependencies that don't conform to the supplied layered architecture.
 
-    'Layers' is a software architecture pattern in which a list of sibling modules/packages have a dependency direction
+    'Layers' is a software architecture pattern in which a list of modules/packages have a dependency direction
     from high to low. In other words, a higher layer would be allowed to import a lower layer, but not the other way
     around.
 
-    Additionally, multiple layers can be grouped together at the same level; for example ``mypackage.utils`` and
-    ``mypackage.logging`` might sit at the bottom, so they cannot import from any other layers. When a simple set 
-    of sibling layers is passed then they must be independent, so any dependencies in either direction will be 
-    treated as illegal. To allow imports between siblings in a layer then an explicit ``Level`` can be passed instead,
-    and ``independent`` set to ``False``.
+    Additionally, multiple modules can be grouped together at the same layer;
+    for example ``mypackage.utils`` and ``mypackage.logging`` might sit at the bottom, so they
+    cannot import from any other layers. To specify that multiple modules should
+    be treated as siblings within a single layer, pass a :class:`.Layer`. The ``Layer.independent``
+    field can be used to specify whether the sibling modules should be treated as independent
+    - should imports between sibling modules be forbidden (default) or allowed? For backwards
+    compatibility it is also possible to pass a simple ``set[str]`` to describe a layer. In this
+    case the sibling modules within the layer will be considered independent.
 
     Note: each returned :class:`.PackageDependency` does not include all possible illegal :class:`.Route` objects.
     Instead, once an illegal :class:`.Route` is found, the algorithm will temporarily remove it from the graph before continuing
@@ -279,25 +282,24 @@ Higher level analysis
             ),
         )
 
-    Example with independent sibling layers::
+    Example with independent sibling modules::
 
         dependencies = graph.find_illegal_dependencies_for_layers(
             layers=(
                 "red",
                 # Imports between green and blue are forbidden.
-                # Equivalent to grimp.Level("green", "blue", independent=True)
-                {"green", "blue"},
+                grimp.Layer("green", "blue"),
                 "yellow",
             ),
         )
 
-    Example with sibling layers that allow imports between the siblings::
+    Example with sibling modules that allow imports between the sibling modules::
 
         dependencies = graph.find_illegal_dependencies_for_layers(
             layers=(
                 "red",
                 # Imports between green and blue are allowed.
-                grimp.Level("green", "blue", independent=False),
+                grimp.Layer("green", "blue", independent=False),
                 "yellow",
             ),
         )
@@ -316,8 +318,8 @@ Higher level analysis
             },
         )
 
-    :param Sequence[Level | str | set[str]] layers: A sequence, each element of which consists either of the name of a layer
-        module, a set of sibling layers, or a :class:`.Level`. If ``containers`` are also specified,
+    :param Sequence[Layer | str | set[str]] layers: A sequence, each element of which consists either of a :class:`.Layer`
+        the name of a layer module or a set of sibling layers. If ``containers`` are also specified,
         then these names must be relative to the container. The order is from higher to lower level layers.
         *Any layers that don't exist in the graph will be ignored.*
     :param set[str] containers: The parent modules of the layers, as absolute names that you could
@@ -330,17 +332,19 @@ Higher level analysis
     :raises grimp.exceptions.NoSuchContainer: if a container is not a module in the graph.
 
 
-.. class:: Level
+.. class:: Layer
 
-    A level within a layered architecture.
+    A layer within a layered architecture.
 
-    .. attribute:: layers
+    .. attribute:: module_tails
 
-    ``set[str]``: The sibling layers within this level.
+    ``set[str]``: The tails of the names of the sibling modules within this layer. 
+                  When ``containers`` are used then these names must be relative to 
+                  the container, hence the naming "tails".
 
     .. attribute:: independent
 
-    ``bool``: Whether the sibling layers within this level are required to be independent.
+    ``bool``: Whether the sibling modules within this layer are required to be independent.
 
 .. class:: PackageDependency
 

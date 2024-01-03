@@ -6,7 +6,7 @@ from typing import Iterator, List, Optional, Sequence, Set, Tuple
 from typing_extensions import TypedDict
 
 from grimp.domain.analysis import PackageDependency
-from grimp.domain.valueobjects import Level
+from grimp.domain.valueobjects import Layer
 
 
 class DetailedImport(TypedDict):
@@ -272,27 +272,29 @@ class ImportGraph(abc.ABC):
 
     def find_illegal_dependencies_for_layers(
         self,
-        layers: Sequence[Level | str | set[str]],
+        layers: Sequence[Layer | str | set[str]],
         containers: set[str] | None = None,
     ) -> set[PackageDependency]:
         """
         Find dependencies that don't conform to the supplied layered architecture.
 
-        'Layers' is an architectural pattern in which a list of sibling modules/packages
+        'Layers' is an architectural pattern in which a list of modules/packages
         have a dependency direction from high to low. In other words, a higher layer would
         be allowed to import a lower layer, but not the other way around.
 
-        Additionally, multiple layers can be grouped together at the same level; for example
-        `mypackage.utils` and `mypackage.logging` might sit at the bottom, so they cannot
-        import from any other layers. When a simple set of sibling layers is passed then they
-        must be independent, so any dependencies in either direction will be treated as illegal.
-        To allow imports between siblings in a layer then an explicit `Level` can be passed instead,
-        and `independent` set to `False`.
+        Additionally, multiple modules can be grouped together at the same layer;
+        for example `mypackage.utils` and `mypackage.logging` might sit at the bottom, so they
+        cannot import from any other layers. To specify that multiple modules should
+        be treated as siblings within a single layer, pass a `Layer`. The `Layer.independent`
+        field can be used to specify whether the sibling modules should be treated as independent
+        - should imports between sibling modules be forbidden (default) or allowed? For backwards
+        compatibility it is also possible to pass a simple `set[str]` to describe a layer. In this
+        case the sibling modules within the layer will be considered independent.
 
         Arguments:
 
-        - layers:     A sequence, each element of which consists either of the name of a layer
-                      module, a set of sibling layers, or a `Level`. If containers
+        - layers:     A sequence, each element of which consists either of a `Layer`, the name
+                      of a layer module or a set of sibling modules. If containers
                       are also specified, then these names must be relative to the container.
                       The order is from higher to lower level layers. Any layers that don't
                       exist in the graph will be ignored.
