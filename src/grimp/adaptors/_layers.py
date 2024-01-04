@@ -11,27 +11,27 @@ if TYPE_CHECKING:
 
 from grimp.domain.analysis import PackageDependency
 from grimp.exceptions import NoSuchContainer
-from grimp.domain.valueobjects import Level
+from grimp.domain.valueobjects import Layer
 
 
-def layers_to_levels(layers: Sequence[Level | str | set[str]]) -> tuple[Level, ...]:
+def parse_layers(layers: Sequence[Layer | str | set[str]]) -> tuple[Layer, ...]:
     """
-    Convert the levels within the passed `layers` into `Level`s.
+    Convert the passed raw `layers` into `Layer`s.
     """
     out_layers = []
     for layer in layers:
-        if isinstance(layer, Level):
+        if isinstance(layer, Layer):
             out_layers.append(layer)
         elif isinstance(layer, str):
-            out_layers.append(Level(layer, independent=True))
+            out_layers.append(Layer(layer, independent=True))
         else:
-            out_layers.append(Level(*tuple(layer), independent=True))
+            out_layers.append(Layer(*tuple(layer), independent=True))
     return tuple(out_layers)
 
 
 def find_illegal_dependencies(
     graph: ImportGraph,
-    levels: Sequence[Level],
+    layers: Sequence[Layer],
     containers: set[str],
 ) -> set[PackageDependency]:
     """
@@ -45,7 +45,8 @@ def find_illegal_dependencies(
     try:
         rust_package_dependency_tuple = rust.find_illegal_dependencies(
             levels=tuple(
-                {"layers": level.layers, "independent": level.independent} for level in levels
+                {"layers": layer.module_tails, "independent": layer.independent}
+                for layer in layers
             ),
             containers=set(containers),
             importeds_by_importer=graph._importeds_by_importer,

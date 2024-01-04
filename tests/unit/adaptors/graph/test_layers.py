@@ -9,7 +9,7 @@ import pytest  # type: ignore
 from grimp import PackageDependency, Route
 from grimp.adaptors.graph import ImportGraph
 from grimp.exceptions import NoSuchContainer
-from grimp.domain.valueobjects import Level
+from grimp.domain.valueobjects import Layer
 
 
 class TestSingleOrNoContainer:
@@ -398,8 +398,8 @@ class TestIndependentLayers:
     @pytest.mark.parametrize(
         "sequence_type, expect_independent",
         (
-            (lambda layers: Level(*layers), True),
-            (lambda layers: Level(*layers, independent=False), False),
+            (lambda layers: Layer(*layers), True),
+            (lambda layers: Layer(*layers, independent=False), False),
             (set, True),
             (frozenset, True),
             (tuple, True),
