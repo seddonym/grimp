@@ -250,59 +250,60 @@ Higher level analysis
 
     Find dependencies that don't conform to the supplied layered architecture.
 
+    :param Sequence[Layer | str | set[str]] layers: A sequence of layers ordered from the highest to the lowest.
+        The module names passed are relative to any containers passed in: for example, to specify ``mypackage.foo``,
+        you could either pass it in directly, or pass ``mypackage`` as the container (see the ``containers`` argument)
+        and ``foo`` as the module name. A layer may optionally consist of multiple module names. If it does, the
+        layer will by default treat each module as 'independent' (see below), though this can be overridden by
+        passing ``independent=False`` when instantiating the :class:`.Layer`. For convenience, if a layer consists
+        only of one module name then a string may be passed in place of the :class:`.Layer` object. Additionally, if
+        the layer consists of multiple *independent* modules, that can be passed as a set of strings instead of a
+        :class:`.Layer` object.
+        *Any modules specified that don't exist in the graph will be silently ignored.*
+    :param set[str] containers: The parent modules of the layers, as absolute names that you could
+        import, such as ``mypackage.foo``. (Optional.)
+    :return: The illegal dependencies in the form of a set of :class:`.PackageDependency` objects. Each package
+             dependency is for a different permutation of two layers for which there is a violation, and contains
+             information about the illegal chains of imports from the lower layer (the 'importer') to the higher layer
+             (the 'imported').
+    :rtype: ``set[PackageDependency]``.
+    :raises grimp.exceptions.NoSuchContainer: if a container is not a module in the graph.
+
+    Overview
+    ^^^^^^^^
+
     'Layers' is a software architecture pattern in which a list of modules/packages have a dependency direction
     from high to low. In other words, a higher layer would be allowed to import a lower layer, but not the other way
     around.
 
-    Additionally, multiple modules can be grouped together at the same layer;
-    for example ``mypackage.utils`` and ``mypackage.logging`` might sit at the bottom, so they
-    cannot import from any other layers. To specify that multiple modules should
-    be treated as siblings within a single layer, pass a :class:`.Layer`. The ``Layer.independent``
-    field can be used to specify whether the sibling modules should be treated as independent
-    - should imports between sibling modules be forbidden (default) or allowed? For backwards
-    compatibility it is also possible to pass a simple ``set[str]`` to describe a layer. In this
-    case the sibling modules within the layer will be considered independent.
+    .. image:: ./_static/images/layers.png
+      :align: center
+      :alt: Layered architecture.
 
-    Note: each returned :class:`.PackageDependency` does not include all possible illegal :class:`.Route` objects.
-    Instead, once an illegal :class:`.Route` is found, the algorithm will temporarily remove it from the graph before continuing
-    with its search. As a result, any illegal Routes that have sections in common with other illegal Routes may not
-    be returned.
+    In this diagram, ``mypackage`` has a layered architecture in which the subpackage ``d`` is the highest layer and
+    the subpackage ``a`` is the lowest layer. ``a`` would not be allowed to import from any of the modules above
+    it, while ``d`` can import from everything. In the middle, ``c`` could import from ``a`` and ``b``, but not ``d``.
 
-    Additionally, unfortunately the Routes included in the PackageDependencies are not, currently, completely
-    deterministic. If there are multiple illegal Routes of the same length, it is not predictable which one will be
-    found first. This means that the PackageDependencies returned can vary for the same graph.
+    These layers can be individual ``.py`` modules or subpackages; if they're subpackages then the architecture
+    is enforced for all modules within the subpackage, so ``mypackage.a.one`` would not be allowed to import from
+    ``mypackage.b.two``.
 
-    Example::
+    Here's how the architecture shown can be checked using Grimp::
 
         dependencies = graph.find_illegal_dependencies_for_layers(
             layers=(
-                "mypackage.high",
-                "mypackage.medium",
-                "mypackage.low",
+                "mypackage.d",
+                "mypackage.c",
+                "mypackage.b",
+                "mypackage.a",
             ),
         )
 
-    Example with independent sibling modules::
+    Containers
+    ^^^^^^^^^^
 
-        dependencies = graph.find_illegal_dependencies_for_layers(
-            layers=(
-                "red",
-                # Imports between green and blue are forbidden.
-                grimp.Layer("green", "blue"),
-                "yellow",
-            ),
-        )
-
-    Example with sibling modules that allow imports between the sibling modules::
-
-        dependencies = graph.find_illegal_dependencies_for_layers(
-            layers=(
-                "red",
-                # Imports between green and blue are allowed.
-                grimp.Layer("green", "blue", independent=False),
-                "yellow",
-            ),
-        )
+    Containers allow for a less repetitive way of specifying layers, and are particularly useful if you want
+    to specify a recurring pattern of layers in different places in the graph.
 
     Example with containers::
 
@@ -318,19 +319,63 @@ Higher level analysis
             },
         )
 
-    :param Sequence[Layer | str | set[str]] layers: A sequence, each element of which consists either of a :class:`.Layer`
-        the name of a layer module or a set of sibling layers. If ``containers`` are also specified,
-        then these names must be relative to the container. The order is from higher to lower level layers.
-        *Any layers that don't exist in the graph will be ignored.*
-    :param set[str] containers: The parent modules of the layers, as absolute names that you could
-        import, such as ``mypackage.foo``. (Optional.)
-    :return: The illegal dependencies in the form of a set of :class:`.PackageDependency` objects. Each package
-             dependency is for a different permutation of two layers for which there is a violation, and contains
-             information about the illegal chains of imports from the lower layer (the 'importer') to the higher layer
-             (the 'imported').
-    :rtype: ``set[PackageDependency]``.
-    :raises grimp.exceptions.NoSuchContainer: if a container is not a module in the graph.
+    This call will check that, for example, ``mypackage.foo.low`` doesn't import from ``mypackage.foo.medium``. There
+    is no checking between the containers, though, so ``mypackage.foo.low`` would be able to import
+    ``mypackage.bar.high``.
 
+    Layers containing multiple siblings
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    Grimp supports the presence of multiple sibling modules or packages within the same layer. In the diagram below,
+    the modules ``blue`` and ``green`` are 'independent' in the same layer, meaning that, in addition to not being allowed
+    to import from layers above them, they are not allowed to import from each other.
+
+    .. image:: ./_static/images/layers-independent.png
+      :align: center
+      :alt: Architecture with a layer containing independent siblings.
+
+    An architecture like this can be checked by passing a ``set`` of module names::
+
+        dependencies = graph.find_illegal_dependencies_for_layers(
+            layers=(
+                "mypackage.d",
+                {"mypackage.blue", "mypackage.green"},
+                "mypackage.b",
+                "mypackage.a",
+            ),
+        )
+
+    Alternatively, siblings can be designated as non-independent, meaning that they are allowed to import
+    from each other, as shown:
+
+    .. image:: ./_static/images/layers-non-independent.png
+      :align: center
+      :alt: Architecture with a layer containing non-independent siblings.
+
+    To check this architecture, use the ``grimp.Layer`` class, specifying that the modules are not independent::
+
+        dependencies = graph.find_illegal_dependencies_for_layers(
+            layers=(
+                "mypackage.d",
+                grimp.Layer("mypackage.blue", "mypackage.green", independent=False),
+                "mypackage.b",
+                "mypackage.a",
+            ),
+        )
+
+    Return value
+    ^^^^^^^^^^^^
+
+    The method returns a set of :class:`.PackageDependency` objects that describe different illegal imports.
+
+    Note: each returned :class:`.PackageDependency` does not include all possible illegal :class:`.Route` objects.
+    Instead, once an illegal :class:`.Route` is found, the algorithm will temporarily remove it from the graph before continuing
+    with its search. As a result, any illegal Routes that have sections in common with other illegal Routes may not
+    be returned.
+
+    Unfortunately the Routes included in the PackageDependencies are not, currently, completely
+    deterministic. If there are multiple illegal Routes of the same length, it is not predictable which one will be
+    found first. This means that the PackageDependencies returned can vary for the same graph.
 
 .. class:: Layer
 
@@ -338,9 +383,9 @@ Higher level analysis
 
     .. attribute:: module_tails
 
-    ``set[str]``: The tails of the names of the sibling modules within this layer. 
-                  When ``containers`` are used then these names must be relative to 
-                  the container, hence the naming "tails".
+    ``set[str]``: A set, each element of which is the final component of a module name. This 'tail' is
+    combined with any container names to provide the full module name. For example, if a container
+    is ``"mypackage"`` then to refer to ``"mypackage.foo"`` you would supply ``"foo"`` as the module tail.
 
     .. attribute:: independent
 
@@ -353,12 +398,12 @@ Higher level analysis
     .. attribute:: importer
 
     ``str``: The full name of the package within which all the routes start; the downstream package.
-        E.g. "mypackage.foo".
+    E.g. "mypackage.foo".
 
     .. attribute:: imported
 
     ``str``: The full name of the package within which all the routes end; the upstream package.
-        E.g. "mypackage.bar".
+    E.g. "mypackage.bar".
 
     .. attribute:: routes
 
