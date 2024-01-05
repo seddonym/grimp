@@ -74,6 +74,9 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         if filename.startswith("."):
             return False
 
+        if not filename.endswith(".py"):
+            return False
+
         # Ignore files like some.module.py.
         if filename.count(".") > 1:
             logger.warning(
@@ -82,7 +85,7 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
             )
             return False
 
-        return filename.endswith(".py")
+        return True
 
     def _module_name_from_filename(
         self, package_name: str, filename_and_path: str, package_directory: str
