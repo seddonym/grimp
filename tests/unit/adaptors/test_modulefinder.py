@@ -2,6 +2,7 @@ from grimp.adaptors.modulefinder import ModuleFinder
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.domain.valueobjects import Module
 from tests.adaptors.filesystem import DEFAULT_MTIME, FakeFileSystem
+import pytest
 
 
 def test_happy_path():
@@ -123,18 +124,25 @@ def test_ignores_orphaned_python_files():
     )
 
 
-def test_ignores_dotted_python_files(caplog):
+@pytest.mark.parametrize(
+    "extension, should_warn",
+    (
+        ("py", True),
+        ("txt", False),  # Anything other than .py.
+    ),
+)
+def test_ignores_dotted_python_files(extension, should_warn, caplog):
     # Python files containing dots (other than the one before .py) should not be discovered.
     module_finder = ModuleFinder()
 
     file_system = FakeFileSystem(
-        contents="""
+        contents=f"""
             /path/to/mypackage/
                 __init__.py
                 foo.py
                 bar/
                     __init__.py
-                    baz.dotted.py
+                    baz.dotted.{extension}
             """
     )
 
@@ -155,12 +163,15 @@ def test_ignores_dotted_python_files(caplog):
             }
         ),
     )
-    assert caplog.messages == [
-        (
-            "Warning: skipping module with too many dots in the name: "
-            "/path/to/mypackage/bar/baz.dotted.py"
-        )
-    ]
+    if should_warn:
+        assert caplog.messages == [
+            (
+                "Warning: skipping module with too many dots in the name: "
+                f"/path/to/mypackage/bar/baz.dotted.{extension}"
+            )
+        ]
+    else:
+        assert caplog.messages == []
 
 
 def test_ignores_hidden_directories():
