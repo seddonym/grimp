@@ -2,8 +2,8 @@
 Changelog
 =========
 
-Unreleased
-----------
+3.2 (2024-1-8)
+--------------
 
 * Allow configuring sibling layer independence.
 * Fix bug where a warning would be logged if a non-Python file with multiple dots
