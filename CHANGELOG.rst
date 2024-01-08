@@ -8,6 +8,7 @@ Unreleased
 * Allow configuring sibling layer independence.
 * Fix bug where a warning would be logged if a non-Python file with multiple dots
   in the filename was encountered.
+* Formally add support for Python 3.12.
 
 3.1 (2023-10-13)
 ----------------
