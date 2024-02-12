@@ -1,9 +1,13 @@
 """
 Use cases handle application logic.
 """
+
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
+from math import ceil
 from typing import Dict, Sequence, Set, Type, Union, cast
 
-from ..application.ports import caching
+from ..application.ports import caching, modulefinder
 from ..application.ports.filesystem import AbstractFileSystem
 from ..application.ports.graph import ImportGraph
 from ..application.ports.importscanner import AbstractImportScanner
@@ -99,6 +103,28 @@ def _validate_package_names_are_strings(
     return cast(Sequence[str], package_names)
 
 
+def get_imports_by_module(
+    module_file: modulefinder.ModuleFile,
+    cache_dir: Union[str, Type[NotSupplied], None],
+    import_scanner: AbstractImportScanner,
+    exclude_type_checking_imports: bool,
+    cache: caching.Cache,
+):
+    module = module_file.module
+    direct_imports = set()
+
+    try:
+        if cache_dir is None:
+            raise caching.CacheMiss
+        direct_imports = cache.read_imports(module_file)
+    except caching.CacheMiss:
+        direct_imports = import_scanner.scan_for_imports(
+            module, exclude_type_checking_imports=exclude_type_checking_imports
+        )
+
+    return module, direct_imports
+
+
 def _scan_packages(
     found_packages: Set[FoundPackage],
     file_system: AbstractFileSystem,
@@ -107,9 +133,11 @@ def _scan_packages(
     cache_dir: Union[str, Type[NotSupplied], None],
 ) -> Dict[Module, Set[DirectImport]]:
     imports_by_module: Dict[Module, Set[DirectImport]] = {}
+    cache: caching.Cache | None = None
+
     if cache_dir is not None:
         cache_dir_if_supplied = cache_dir if cache_dir != NotSupplied else None
-        cache: caching.Cache = settings.CACHE_CLASS.setup(
+        cache = settings.CACHE_CLASS.setup(
             file_system=file_system,
             found_packages=found_packages,
             include_external_packages=include_external_packages,
@@ -122,20 +150,32 @@ def _scan_packages(
         include_external_packages=include_external_packages,
     )
 
-    for found_package in found_packages:
-        for module_file in found_package.module_files:
-            module = module_file.module
-            try:
-                if cache_dir is None:
-                    raise caching.CacheMiss
-                direct_imports = cache.read_imports(module_file)
-            except caching.CacheMiss:
-                direct_imports = import_scanner.scan_for_imports(
-                    module, exclude_type_checking_imports=exclude_type_checking_imports
-                )
-            imports_by_module[module] = direct_imports
+    partial_get_imports_by_module = partial(
+        get_imports_by_module,
+        cache_dir=cache_dir,
+        import_scanner=import_scanner,
+        exclude_type_checking_imports=exclude_type_checking_imports,
+        cache=cache,
+    )
 
-    if cache_dir is not None:
+    for found_package in found_packages:
+        with ProcessPoolExecutor() as executor:
+            # evenly distribute the module files across all of the cores
+            modules_per_worker = (
+                len(found_package.module_files)
+                / executor._max_workers  # type: ignore[attr-defined]
+            )
+            chunk_size = ceil(modules_per_worker) or 1
+
+            for future_result in executor.map(
+                partial_get_imports_by_module,
+                found_package.module_files,
+                chunksize=chunk_size,
+            ):
+                module, direct_imports = future_result
+                imports_by_module[module] = direct_imports
+
+    if cache_dir is not None and cache:
         cache.write(imports_by_module)
 
     return imports_by_module
