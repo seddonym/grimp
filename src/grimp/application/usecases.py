@@ -22,6 +22,7 @@ def build_graph(
     *additional_package_names,
     include_external_packages: bool = False,
     exclude_type_checking_imports: bool = False,
+    exclude_stdlib: bool = False,
     cache_dir: Union[str, Type[NotSupplied], None] = NotSupplied,
 ) -> ImportGraph:
     """
@@ -29,9 +30,11 @@ def build_graph(
 
     Args:
         - package_name: the name of the top level package for which to build the graph.
-        - additional_package_names: tuple of the
+        - additional_package_names: tuple of additional package names
         - include_external_packages: whether to include any external packages in the graph.
         - exclude_type_checking_imports: whether to exclude imports made in type checking guards.
+        - exclude_stdlib: whether to exclude standard library packages in the graph. Only used when
+            `include_external_packages` is `True`.
         - cache_dir: The directory to use for caching the graph.
     Examples:
 
@@ -59,6 +62,7 @@ def build_graph(
         file_system=file_system,
         include_external_packages=include_external_packages,
         exclude_type_checking_imports=exclude_type_checking_imports,
+        exclude_stdlib=exclude_stdlib,
         cache_dir=cache_dir,
     )
 
@@ -104,6 +108,7 @@ def _scan_packages(
     file_system: AbstractFileSystem,
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
+    exclude_stdlib: bool,
     cache_dir: Union[str, Type[NotSupplied], None],
 ) -> Dict[Module, Set[DirectImport]]:
     imports_by_module: Dict[Module, Set[DirectImport]] = {}
@@ -114,12 +119,14 @@ def _scan_packages(
             found_packages=found_packages,
             include_external_packages=include_external_packages,
             exclude_type_checking_imports=exclude_type_checking_imports,
+            exclude_stdlib=exclude_stdlib,
             cache_dir=cache_dir_if_supplied,
         )
     import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
         file_system=file_system,
         found_packages=found_packages,
         include_external_packages=include_external_packages,
+        exclude_stdlib=exclude_stdlib,
     )
 
     for found_package in found_packages:

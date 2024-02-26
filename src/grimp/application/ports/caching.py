@@ -16,6 +16,7 @@ class Cache:
         file_system: AbstractFileSystem,
         include_external_packages: bool,
         exclude_type_checking_imports: bool,
+        exclude_stdlib: bool,
         found_packages: Set[FoundPackage],
         cache_dir: str,
     ) -> None:
@@ -26,6 +27,7 @@ class Cache:
         self.found_packages = found_packages
         self.include_external_packages = include_external_packages
         self.exclude_type_checking_imports = exclude_type_checking_imports
+        self.exclude_stdlib = exclude_stdlib
         self.cache_dir = cache_dir
 
     @classmethod
@@ -36,6 +38,7 @@ class Cache:
         *,
         include_external_packages: bool,
         exclude_type_checking_imports: bool = False,
+        exclude_stdlib: bool = False,
         cache_dir: Optional[str] = None,
     ) -> "Cache":
         cache = cls(
@@ -43,6 +46,7 @@ class Cache:
             found_packages=found_packages,
             include_external_packages=include_external_packages,
             exclude_type_checking_imports=exclude_type_checking_imports,
+            exclude_stdlib=exclude_stdlib,
             cache_dir=cls.cache_dir_or_default(cache_dir),
         )
         return cache
