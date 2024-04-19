@@ -34,6 +34,8 @@ nosetests.xml
 coverage.xml
 htmlcov
 
+.benchmarks
+
 # Translations
 *.mo
 
