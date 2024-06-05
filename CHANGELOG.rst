@@ -2,6 +2,11 @@
 Changelog
 =========
 
+latest
+------
+
+* Include wheel for Python 3.13.0-beta.1 in release.
+
 3.2 (2024-1-8)
 --------------
 
