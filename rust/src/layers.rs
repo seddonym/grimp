@@ -20,6 +20,8 @@ pub fn find_illegal_dependencies<'a>(
     let mut dependencies: Vec<PackageDependency> = vec![];
     let layers = _layers_from_levels(levels);
 
+    println!("Slow loop result: {}", _slow_loop());
+
     for (higher_layer_package, lower_layer_package, container) in
         _generate_module_permutations(graph, levels, containers)
     {
@@ -43,6 +45,18 @@ pub fn find_illegal_dependencies<'a>(
         }
     }
     dependencies
+}
+
+fn _slow_loop() -> u128 {
+    let mut _x: u128 = 0;
+    let mut _y: u128 = 0;
+    for _i in 0..100_000 {
+        _y = _x;
+        for _j in 0..10_000 {
+            _x += _y * _x + _i * _j;
+        }
+    }
+    _x
 }
 
 /// Return every permutation of modules that exist in the graph
