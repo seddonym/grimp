@@ -22,26 +22,26 @@ fn test_large_graph() {
     let levels = vec![
         Level {
             independent: true,
-            layers: vec!["plugins"],
+            layers: vec!["plugins".to_string()],
         },
         Level {
             independent: true,
-            layers: vec!["interfaces"],
+            layers: vec!["interfaces".to_string()],
         },
         Level {
             independent: true,
-            layers: vec!["application"],
+            layers: vec!["application".to_string()],
         },
         Level {
             independent: true,
-            layers: vec!["domain"],
+            layers: vec!["domain".to_string()],
         },
         Level {
             independent: true,
-            layers: vec!["data"],
+            layers: vec!["data".to_string()],
         },
     ];
-    let containers = HashSet::from(["mypackage"]);
+    let containers = HashSet::from(["mypackage".to_string()]);
 
     find_illegal_dependencies(&graph, &levels, &containers);
 }

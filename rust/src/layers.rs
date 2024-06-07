@@ -7,15 +7,15 @@ use std::time::Instant;
 
 /// A group of layers at the same level in the layering.
 #[derive(PartialEq, Eq, Hash, Debug)]
-pub struct Level<'a> {
-    pub layers: Vec<&'a str>,
+pub struct Level {
+    pub layers: Vec<String>,
     pub independent: bool,
 }
 
 pub fn find_illegal_dependencies<'a>(
     graph: &'a ImportGraph,
     levels: &'a Vec<Level>,
-    containers: &'a HashSet<&'a str>,
+    containers: &'a HashSet<String>,
 ) -> Vec<PackageDependency> {
     let mut dependencies: Vec<PackageDependency> = vec![];
     let layers = _layers_from_levels(levels);
@@ -50,7 +50,7 @@ pub fn find_illegal_dependencies<'a>(
 fn _generate_module_permutations<'a>(
     graph: &'a ImportGraph,
     levels: &'a [Level],
-    containers: &'a HashSet<&'a str>,
+    containers: &'a HashSet<String>,
 ) -> Vec<(String, String, Option<String>)> {
     let mut permutations: Vec<(String, String, Option<String>)> = vec![];
 
@@ -71,7 +71,7 @@ fn _generate_module_permutations<'a>(
                     continue;
                 }
 
-                // Build the layers that mustn't import this higher layer. 
+                // Build the layers that mustn't import this higher layer.
                 // That includes:
                 // * lower layers.
                 // * sibling layers, if the layer is independent.
@@ -164,7 +164,7 @@ fn _search_for_package_dependency<'a>(
 fn _layers_from_levels<'a>(levels: &'a Vec<Level>) -> Vec<&'a str> {
     let mut layers: Vec<&str> = vec![];
     for level in levels {
-        layers.extend(level.layers.iter());
+        layers.extend(level.layers.iter().map(|s| s.as_str()));
     }
     layers
 }
@@ -341,15 +341,19 @@ mod tests {
         let levels = vec![
             Level {
                 independent: true,
-                layers: vec!["high"],
+                layers: vec!["high".to_string()],
             },
             Level {
                 independent: true,
-                layers: vec!["mid_a", "mid_b", "mid_c"],
+                layers: vec![
+                    "mid_a".to_string(),
+                    "mid_b".to_string(),
+                    "mid_c".to_string(),
+                ],
             },
             Level {
                 independent: true,
-                layers: vec!["low"],
+                layers: vec!["low".to_string()],
             },
         ];
         let containers = HashSet::new();
@@ -416,14 +420,14 @@ mod tests {
         let levels = vec![
             Level {
                 independent: true,
-                layers: vec!["high"],
+                layers: vec!["high".to_string()],
             },
             Level {
                 independent: true,
-                layers: vec!["low"],
+                layers: vec!["low".to_string()],
             },
         ];
-        let containers = HashSet::from(["mypackage"]);
+        let containers = HashSet::from(["mypackage".to_string()]);
 
         let dependencies = find_illegal_dependencies(&graph, &levels, &containers);
 
@@ -473,18 +477,22 @@ mod tests {
         let levels = vec![
             Level {
                 independent: true,
-                layers: vec!["high"],
+                layers: vec!["high".to_string()],
             },
             Level {
                 independent: true,
-                layers: vec!["mid_a", "mid_b", "mid_c"],
+                layers: vec![
+                    "mid_a".to_string(),
+                    "mid_b".to_string(),
+                    "mid_c".to_string(),
+                ],
             },
             Level {
                 independent: true,
-                layers: vec!["low"],
+                layers: vec!["low".to_string()],
             },
         ];
-        let containers = HashSet::from(["mypackage"]);
+        let containers = HashSet::from(["mypackage".to_string()]);
 
         let perms = _generate_module_permutations(&graph, &levels, &containers);
 
@@ -593,18 +601,22 @@ mod tests {
         let levels = vec![
             Level {
                 independent: true,
-                layers: vec!["high"],
+                layers: vec!["high".to_string()],
             },
             Level {
                 independent: false,
-                layers: vec!["mid_a", "mid_b", "mid_c"],
+                layers: vec![
+                    "mid_a".to_string(),
+                    "mid_b".to_string(),
+                    "mid_c".to_string(),
+                ],
             },
             Level {
                 independent: true,
-                layers: vec!["low"],
+                layers: vec!["low".to_string()],
             },
         ];
-        let containers = HashSet::from(["mypackage"]);
+        let containers = HashSet::from(["mypackage".to_string()]);
 
         let perms = _generate_module_permutations(&graph, &levels, &containers);
 
@@ -663,15 +675,19 @@ mod tests {
         let levels = vec![
             Level {
                 independent: true,
-                layers: vec!["high"],
+                layers: vec!["high".to_string()],
             },
             Level {
                 independent: true,
-                layers: vec!["medium_a", "medium_b", "medium_c"],
+                layers: vec![
+                    "medium_a".to_string(),
+                    "medium_b".to_string(),
+                    "medium_c".to_string(),
+                ],
             },
             Level {
                 independent: true,
-                layers: vec!["low"],
+                layers: vec!["low".to_string()],
             },
         ];
 
