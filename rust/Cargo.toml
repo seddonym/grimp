@@ -9,11 +9,11 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 log = "0.4.19"
-pyo3-log = "0.8.3"
+pyo3-log = "0.10.0"
 serde_json = "1.0.103"
 
 [dependencies.pyo3]
-version = "0.19.1"
+version = "0.21.2"
 
 [features]
 extension-module = ["pyo3/extension-module"]
