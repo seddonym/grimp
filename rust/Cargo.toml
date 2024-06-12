@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 log = "0.4.19"
 pyo3-log = "0.10.0"
 serde_json = "1.0.103"
+rayon = "1.10"
 
 [dependencies.pyo3]
 version = "0.21.2"

@@ -46,7 +46,9 @@ pub fn find_illegal_dependencies<'py>(
         return Err(NoSuchContainer::new_err(err));
     }
 
-    let dependencies = layers::find_illegal_dependencies(&graph, &levels_rust, &containers_rust);
+    let dependencies = py.allow_threads(|| {
+        layers::find_illegal_dependencies(&graph, &levels_rust, &containers_rust)
+    });
 
     convert_dependencies_to_python(py, dependencies, &graph)
 }

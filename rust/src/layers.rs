@@ -2,6 +2,7 @@ use crate::dependencies::{PackageDependency, Route};
 use crate::importgraph::ImportGraph;
 
 use log::info;
+use rayon::prelude::*;
 use std::collections::HashSet;
 use std::time::Instant;
 
@@ -17,32 +18,29 @@ pub fn find_illegal_dependencies<'a>(
     levels: &'a Vec<Level>,
     containers: &'a HashSet<String>,
 ) -> Vec<PackageDependency> {
-    let mut dependencies: Vec<PackageDependency> = vec![];
     let layers = _layers_from_levels(levels);
 
-    for (higher_layer_package, lower_layer_package, container) in
-        _generate_module_permutations(graph, levels, containers)
-    {
-        // TODO: it's inefficient to do this for sibling layers, as we don't need
-        // to clone and trim the graph for identical pairs.
-        info!(
-            "Searching for import chains from {} to {}...",
-            lower_layer_package, higher_layer_package
-        );
-        let now = Instant::now();
-        let dependency_or_none = _search_for_package_dependency(
-            &higher_layer_package,
-            &lower_layer_package,
-            &layers,
-            &container,
-            graph,
-        );
-        _log_illegal_route_count(&dependency_or_none, now.elapsed().as_secs());
-        if let Some(dependency) = dependency_or_none {
-            dependencies.push(dependency);
-        }
-    }
-    dependencies
+    _generate_module_permutations(graph, levels, containers)
+        .into_par_iter()
+        .filter_map(|(higher_layer_package, lower_layer_package, container)| {
+            // TODO: it's inefficient to do this for sibling layers, as we don't need
+            // to clone and trim the graph for identical pairs.
+            info!(
+                "Searching for import chains from {} to {}...",
+                lower_layer_package, higher_layer_package
+            );
+            let now = Instant::now();
+            let dependency_or_none = _search_for_package_dependency(
+                &higher_layer_package,
+                &lower_layer_package,
+                &layers,
+                &container,
+                graph,
+            );
+            _log_illegal_route_count(&dependency_or_none, now.elapsed().as_secs());
+            dependency_or_none
+        })
+        .collect()
 }
 
 /// Return every permutation of modules that exist in the graph
