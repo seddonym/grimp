@@ -7,7 +7,7 @@ latest
 
 * Include wheel for Python 3.13.0-beta.1 in release.
 * Upgrade PyO3 to 0.21.
-* Follow symbolic links while iterating through module files
+* Follow symbolic links while walking through module files
 
 3.2 (2024-1-8)
 --------------
