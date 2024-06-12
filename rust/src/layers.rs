@@ -2,6 +2,7 @@ use crate::dependencies::{PackageDependency, Route};
 use crate::importgraph::ImportGraph;
 
 use log::info;
+use rayon::prelude::*;
 use std::collections::HashSet;
 use std::time::Instant;
 
@@ -20,7 +21,7 @@ pub fn find_illegal_dependencies<'a>(
     let layers = _layers_from_levels(levels);
 
     _generate_module_permutations(graph, levels, containers)
-        .into_iter()
+        .into_par_iter()
         .filter_map(|(higher_layer_package, lower_layer_package, container)| {
             // TODO: it's inefficient to do this for sibling layers, as we don't need
             // to clone and trim the graph for identical pairs.
