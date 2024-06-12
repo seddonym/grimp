@@ -18,7 +18,7 @@ class FileSystem(AbstractFileSystem):
         return os.path.dirname(filename)
 
     def walk(self, directory_name: str) -> Iterator[Tuple[str, List[str], List[str]]]:
-        yield from os.walk(directory_name)
+        yield from os.walk(directory_name, followlinks=True)
 
     def join(self, *components: str) -> str:
         return os.path.join(*components)
