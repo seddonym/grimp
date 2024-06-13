@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 env:
-  PYTHON_VERSION: "3.x 3.13.0-beta.1"
+  PYTHON_VERSION: "3.x"
 
 jobs:
   linux:
