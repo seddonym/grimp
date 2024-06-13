@@ -2,10 +2,9 @@
 Changelog
 =========
 
-latest
-------
+3.3 (2024-06-13)
+----------------
 
-* Include wheel for Python 3.13.0-beta.1 in release.
 * Upgrade PyO3 to 0.21.
 * Follow symbolic links while walking through module files.
 * Speed up find_illegal_dependencies_for_layers by using thread concurrency.
