@@ -7,19 +7,12 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
-      - master
     tags:
       - '*'
-  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
-
-env:
-  PYTHON_VERSION: "3.x"
 
 jobs:
   linux:
@@ -43,7 +36,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: |
+            3.8
+            3.9
+            3.10
+            3.11
+            3.12
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -74,7 +72,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: |
+            3.8
+            3.9
+            3.10
+            3.11
+            3.12
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -101,7 +104,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: |
+            3.8
+            3.9
+            3.10
+            3.11
+            3.12
           architecture: ${{ matrix.platform.target }}
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -128,7 +136,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: |
+            3.8
+            3.9
+            3.10
+            3.11
+            3.12
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
