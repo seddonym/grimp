@@ -304,8 +304,12 @@ class ImportGraph(graph.ImportGraph):
         """
         shortest_chains = set()
 
-        upstream_modules = self._all_modules_in_package(imported)
-        downstream_modules = self._all_modules_in_package(importer)
+        upstream_modules = (
+            {imported} if not as_packages else self._all_modules_in_package(imported)
+        )
+        downstream_modules = (
+            {importer} if not as_packages else self._all_modules_in_package(importer)
+        )
 
         if upstream_modules & downstream_modules:
             # If there are shared modules between the two, one of the modules is a descendant
