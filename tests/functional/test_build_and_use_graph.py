@@ -1,4 +1,6 @@
 from grimp import build_graph
+from typing import Set, Tuple, Optional
+import pytest
 
 """
 For ease of reference, these are the imports of all the files:
@@ -15,6 +17,12 @@ testpackage.two.alpha: testpackage.one.alpha
 testpackage.two.beta: testpackage.one.alpha
 testpackage.two.gamma: testpackage.two.beta, testpackage.utils
 testpackage.utils: testpackage.one, testpackage.two.alpha
+testpackage.three: testpackage.one.alpha
+testpackage.three.alpha: testpackage.one.alpha
+testpackage.three.beta: testpackage.one.alpha
+testpackage.three.gamma: testpackage.two.beta, testpackage.utils
+
+
 
 """
 
@@ -38,6 +46,10 @@ def test_modules():
         "testpackage.two.beta",
         "testpackage.two.gamma",
         "testpackage.utils",
+        "testpackage.three",
+        "testpackage.three.beta",
+        "testpackage.three.gamma",
+        "testpackage.three.alpha",
     }
 
 
@@ -123,6 +135,9 @@ def test_find_modules_that_directly_import():
         "testpackage.one.beta",
         "testpackage.two.alpha",
         "testpackage.two.beta",
+        "testpackage.three",
+        "testpackage.three.alpha",
+        "testpackage.three.beta",
     } == result
 
 
@@ -189,14 +204,62 @@ def test_find_shortest_chain():
     ) == graph.find_shortest_chain(importer="testpackage.utils", imported="testpackage.one.alpha")
 
 
-def test_find_shortest_chains():
+@pytest.mark.parametrize(
+    "as_packages, expected_result",
+    [
+        pytest.param(
+            True,
+            {
+                ("testpackage.three", "testpackage.one.alpha"),
+                ("testpackage.three.alpha", "testpackage.one.alpha"),
+                ("testpackage.three.beta", "testpackage.one.alpha"),
+                (
+                    "testpackage.three.gamma",
+                    "testpackage.utils",
+                    "testpackage.two.alpha",
+                    "testpackage.one.alpha",
+                ),
+            },
+            id="Treating imports as packages",
+        ),
+        pytest.param(
+            False,
+            {
+                ("testpackage.three", "testpackage.one.alpha"),
+            },
+            id="Treating imports as modules (explicit)",
+        ),
+        pytest.param(
+            None,
+            {
+                ("testpackage.three", "testpackage.one.alpha"),
+                ("testpackage.three.alpha", "testpackage.one.alpha"),
+                ("testpackage.three.beta", "testpackage.one.alpha"),
+                (
+                    "testpackage.three.gamma",
+                    "testpackage.utils",
+                    "testpackage.two.alpha",
+                    "testpackage.one.alpha",
+                ),
+            },
+            id="Treating imports as modules (implicit)",
+        ),
+    ],
+)
+def test_find_shortest_chains(as_packages: Optional[bool], expected_result: Set[Tuple]):
+    importer = "testpackage.three"
+    imported = "testpackage.one.alpha"
+
     graph = build_graph("testpackage", cache_dir=None)
 
-    assert {
-        ("testpackage.two.alpha", "testpackage.one.alpha"),
-        ("testpackage.two.beta", "testpackage.one.alpha"),
-        ("testpackage.two.gamma", "testpackage.utils", "testpackage.one"),
-    } == graph.find_shortest_chains(importer="testpackage.two", imported="testpackage.one")
+    if as_packages is not None:
+        shortest_chain = graph.find_shortest_chains(
+            importer=importer, imported=imported, as_packages=as_packages
+        )
+    else:
+        shortest_chain = graph.find_shortest_chains(importer=importer, imported=imported)
+
+    assert expected_result == shortest_chain
 
 
 class TestFindDownstreamModules:
@@ -212,6 +275,10 @@ class TestFindDownstreamModules:
             "testpackage.two.beta",
             "testpackage.two.gamma",
             "testpackage.utils",
+            "testpackage.three.beta",
+            "testpackage.three",
+            "testpackage.three.alpha",
+            "testpackage.three.gamma",
         } == result
 
     def test_as_package_true(self):
@@ -224,6 +291,10 @@ class TestFindDownstreamModules:
             "testpackage.two.beta",
             "testpackage.two.gamma",
             "testpackage.utils",
+            "testpackage.three.beta",
+            "testpackage.three",
+            "testpackage.three.alpha",
+            "testpackage.three.gamma",
         } == result
 
 
