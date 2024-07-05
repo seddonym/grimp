@@ -231,12 +231,19 @@ class ImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def find_shortest_chains(self, importer: str, imported: str) -> Set[Tuple[str, ...]]:
+    def find_shortest_chains(
+        self, importer: str, imported: str, as_packages: bool = True
+    ) -> Set[Tuple[str, ...]]:
         """
         Find the shortest import chains that exist between the importer and imported, and
-        between any modules contained within them. Only one chain per upstream/downstream pair
-        will be included. Any chains that are contained within other chains in the result set
-        will be excluded.
+        between any modules contained within them if as_packages is True. Only one chain per
+        upstream/downstream pair will be included. Any chains that are contained within other
+        chains in the result set will be excluded.
+
+        The default behavior is to treat the import and imported as packages, however, if
+        as_packages is False, both the importer and imported will be treated as modules instead.
+
+
 
         Returns:
             A set of tuples of strings. Each tuple is ordered from importer to imported modules.
