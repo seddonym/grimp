@@ -226,6 +226,9 @@ Methods for analysing import chains
 
     :param str importer: A module or subpackage within the graph.
     :param str imported: Another module or subpackage within the graph.
+    :param bool as_packages: Whether or not to treat the imported and importer as an individual module,
+                            or as a package (including any descendants, if there are any). If treating them as packages, all descendants
+                            of ``importer`` and ``imported`` will be checked too. Defaults to True.
     :return: The shortest import chains that exist between the ``importer`` and ``imported``, and between any modules
              contained within them. Only one chain per upstream/downstream pair will be included. Any chains that are
              contained within other chains in the result set will be excluded.
