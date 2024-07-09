@@ -115,8 +115,8 @@ impl<'a> ImportGraph<'a> {
 
     pub fn get_descendant_ids(&self, module_name: &str) -> Vec<u32> {
         let mut descendant_ids = vec![];
+        let namespace: String = format!("{}.", module_name);
         for (candidate_name, candidate_id) in &self.ids_by_name {
-            let namespace: String = format!("{}.", module_name);
             if candidate_name.starts_with(&namespace) {
                 descendant_ids.push(*candidate_id);
             }
