@@ -2,6 +2,12 @@
 Changelog
 =========
 
+latest
+------
+
+* Speed up adding and removing modules.
+
+
 3.3 (2024-06-13)
 ----------------
 
