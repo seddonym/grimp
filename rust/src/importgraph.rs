@@ -236,32 +236,32 @@ impl<'a> ImportGraph<'a> {
 
             while !forward_fringe.is_empty() && !reverse_fringe.is_empty() {
                 if forward_fringe.len() <= reverse_fringe.len() {
-                    this_level = forward_fringe.to_vec();
+                    this_level = forward_fringe;
                     forward_fringe = Vec::new();
                     for v in this_level {
-                        for w in self.importeds_by_importer[&v].clone() {
-                            pred.entry(w).or_insert_with(|| {
-                                forward_fringe.push(w);
+                        for w in self.importeds_by_importer[&v].iter() {
+                            pred.entry(*w).or_insert_with(|| {
+                                forward_fringe.push(*w);
                                 Some(v)
                             });
                             if succ.contains_key(&w) {
                                 // Found path.
-                                return Some((pred, succ, w));
+                                return Some((pred, succ, *w));
                             }
                         }
                     }
                 } else {
-                    this_level = reverse_fringe.to_vec();
+                    this_level = reverse_fringe;
                     reverse_fringe = Vec::new();
                     for v in this_level {
-                        for w in self.importers_by_imported[&v].clone() {
-                            if let Vacant(e) = succ.entry(w) {
+                        for w in self.importers_by_imported[&v].iter() {
+                            if let Vacant(e) = succ.entry(*w) {
                                 e.insert(Some(v));
-                                reverse_fringe.push(w);
+                                reverse_fringe.push(*w);
                             }
                             if pred.contains_key(&w) {
                                 // Found path.
-                                return Some((pred, succ, w));
+                                return Some((pred, succ, *w));
                             }
                         }
                     }
