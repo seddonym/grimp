@@ -2,6 +2,11 @@
 Changelog
 =========
 
+latest
+------
+
+* Officially support Python 3.13.
+
 3.4 (2024-07-09)
 ----------------
 
