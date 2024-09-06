@@ -442,18 +442,22 @@ class TestFindShortestChains:
         graph = ImportGraph()
         graph.add_module("green")
         graph.add_module("blue")
-        import_details = {
-            "importer": "green.foo",
-            "imported": "blue.bar",
-            "line_contents": "import blue.bar",
-            "line_number": 5,
-        }
-        graph.add_import(**import_details)
+        graph.add_import(
+            importer="green.foo",
+            imported="blue.bar",
+            line_contents="import blue.bar",
+            line_number=5,
+        )
 
         graph.find_shortest_chains(importer="green", imported="blue", as_packages=as_packages)
 
         assert graph.get_import_details(importer="green.foo", imported="blue.bar") == [
-            import_details
+            {
+                "importer": "green.foo",
+                "imported": "blue.bar",
+                "line_contents": "import blue.bar",
+                "line_number": 5,
+            }
         ]
 
     @pytest.mark.parametrize(
