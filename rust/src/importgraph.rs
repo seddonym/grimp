@@ -77,23 +77,19 @@ impl<'a> ImportGraph<'a> {
     }
 
     pub fn add_import_ids(&mut self, importer: u32, imported: u32) {
-        let mut importeds = self.importeds_by_importer[&importer].clone();
+        let importeds = self.importeds_by_importer.get_mut(&importer).unwrap();
         importeds.insert(imported);
-        self.importeds_by_importer.insert(importer, importeds);
 
-        let mut importers = self.importers_by_imported[&imported].clone();
+        let importers = self.importers_by_imported.get_mut(&imported).unwrap();
         importers.insert(importer);
-        self.importers_by_imported.insert(imported, importers);
     }
 
     pub fn remove_import_ids(&mut self, importer: u32, imported: u32) {
-        let mut importeds = self.importeds_by_importer[&importer].clone();
+        let importeds = self.importeds_by_importer.get_mut(&importer).unwrap();
         importeds.remove(&imported);
-        self.importeds_by_importer.insert(importer, importeds);
 
-        let mut importers = self.importers_by_imported[&imported].clone();
+        let importers = self.importers_by_imported.get_mut(&imported).unwrap();
         importers.remove(&importer);
-        self.importers_by_imported.insert(imported, importers);
     }
 
     pub fn remove_module_by_id(&mut self, module_id: u32) {
@@ -119,8 +115,8 @@ impl<'a> ImportGraph<'a> {
 
     pub fn get_descendant_ids(&self, module_name: &str) -> Vec<u32> {
         let mut descendant_ids = vec![];
+        let namespace: String = format!("{}.", module_name);
         for (candidate_name, candidate_id) in &self.ids_by_name {
-            let namespace: String = format!("{}.", module_name);
             if candidate_name.starts_with(&namespace) {
                 descendant_ids.push(*candidate_id);
             }

@@ -7,6 +7,16 @@ latest
 
 * Added `as_packages` option to the `find_shortest_chains` method.
 
+3.4.1 (2024-07-12)
+------------------
+
+* Officially support Python 3.13.
+
+3.4 (2024-07-09)
+----------------
+
+* Speed up adding and removing modules.
+
 3.3 (2024-06-13)
 ----------------
 

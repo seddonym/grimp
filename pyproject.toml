@@ -8,7 +8,7 @@ module-name = "grimp._rustgrimp"
 
 [project]
 name = "grimp"
-version = "3.3"
+version = "3.4.1"
 license = {text = "BSD 2-Clause License"}
 description = "Builds a queryable graph of the imports within one or more Python packages."
 authors = [
@@ -31,6 +31,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Rust",
     "Topic :: Utilities",
