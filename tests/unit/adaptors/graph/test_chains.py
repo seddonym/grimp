@@ -169,13 +169,7 @@ class TestFindShortestChain:
 
 
 class TestFindShortestChains:
-    @pytest.mark.parametrize(
-        "as_packages",
-        (
-            (False),
-            (True),
-        ),
-    )
+    @pytest.mark.parametrize("as_packages", (False, True))
     def test_top_level_import(self, as_packages: bool):
         graph = ImportGraph()
         graph.add_import(importer="green", imported="blue")
@@ -205,13 +199,7 @@ class TestFindShortestChains:
 
         assert result == expected_result
 
-    @pytest.mark.parametrize(
-        "as_packages",
-        (
-            (False),
-            (True),
-        ),
-    )
+    @pytest.mark.parametrize("as_packages", (False, True))
     def test_no_results_in_reverse_direction(self, as_packages: bool):
         graph = ImportGraph()
         graph.add_module("green")
@@ -432,10 +420,7 @@ class TestFindShortestChains:
             ),
         }
 
-    @pytest.mark.parametrize(
-        "as_packages",
-        (False, True),
-    )
+    @pytest.mark.parametrize("as_packages", (False, True))
     def test_doesnt_lose_import_details(self, as_packages: bool):
         # Find shortest chains uses hiding mechanisms, this checks that it doesn't
         # inadvertently delete import details for the things it hides.
@@ -460,10 +445,7 @@ class TestFindShortestChains:
             }
         ]
 
-    @pytest.mark.parametrize(
-        "as_packages",
-        (False, True),
-    )
+    @pytest.mark.parametrize("as_packages", (False, True))
     def test_doesnt_change_import_count(self, as_packages: bool):
         # Find shortest chains uses hiding mechanisms, this checks that it doesn't
         # inadvertently change the import count.
