@@ -242,7 +242,7 @@ def test_find_shortest_chain():
                     "testpackage.one.alpha",
                 ),
             },
-            id="Treating imports as modules (implicit)",
+            id="Treating imports as packages (implicit)",
         ),
     ],
 )
