@@ -2,6 +2,11 @@
 Changelog
 =========
 
+latest
+------
+
+* Added `as_packages` option to the `find_shortest_chains` method.
+
 3.4.1 (2024-07-12)
 ------------------
 

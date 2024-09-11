@@ -1,3 +1,5 @@
+from typing import Set, Tuple
+
 import pytest  # type: ignore
 
 from grimp.adaptors.graph import ImportGraph
@@ -167,85 +169,188 @@ class TestFindShortestChain:
 
 
 class TestFindShortestChains:
-    def test_top_level_import(self):
+    @pytest.mark.parametrize(
+        "as_packages",
+        (
+            (False),
+            (True),
+        ),
+    )
+    def test_top_level_import(self, as_packages: bool):
         graph = ImportGraph()
         graph.add_import(importer="green", imported="blue")
 
-        result = graph.find_shortest_chains(importer="green", imported="blue")
+        result = graph.find_shortest_chains(
+            importer="green", imported="blue", as_packages=as_packages
+        )
 
         assert result == {("green", "blue")}
 
-    def test_first_level_child_import(self):
+    @pytest.mark.parametrize(
+        "as_packages, expected_result",
+        (
+            (False, set()),
+            (True, {("green.foo", "blue.bar")}),
+        ),
+    )
+    def test_first_level_child_import(self, as_packages: bool, expected_result: Set[Tuple]):
         graph = ImportGraph()
         graph.add_module("green")
         graph.add_module("blue")
         graph.add_import(importer="green.foo", imported="blue.bar")
 
-        result = graph.find_shortest_chains(importer="green", imported="blue")
+        result = graph.find_shortest_chains(
+            importer="green", imported="blue", as_packages=as_packages
+        )
 
-        assert result == {("green.foo", "blue.bar")}
+        assert result == expected_result
 
-    def test_no_results_in_reverse_direction(self):
+    @pytest.mark.parametrize(
+        "as_packages",
+        (
+            (False),
+            (True),
+        ),
+    )
+    def test_no_results_in_reverse_direction(self, as_packages: bool):
         graph = ImportGraph()
         graph.add_module("green")
         graph.add_module("blue")
         graph.add_import(importer="green.foo", imported="blue.bar")
 
-        result = graph.find_shortest_chains(importer="blue", imported="green")
+        result = graph.find_shortest_chains(
+            importer="blue", imported="green", as_packages=as_packages
+        )
 
         assert result == set()
 
-    def test_grandchildren_import(self):
+    @pytest.mark.parametrize(
+        "as_packages, expected_result",
+        (
+            (False, set()),
+            (True, {("green.foo.one", "blue.bar.two")}),
+        ),
+    )
+    def test_grandchildren_import(self, as_packages: bool, expected_result: Set[Tuple]):
         graph = ImportGraph()
         graph.add_module("green")
         graph.add_module("blue")
         graph.add_import(importer="green.foo.one", imported="blue.bar.two")
 
-        result = graph.find_shortest_chains(importer="green", imported="blue")
+        result = graph.find_shortest_chains(
+            importer="green", imported="blue", as_packages=as_packages
+        )
 
-        assert result == {("green.foo.one", "blue.bar.two")}
+        assert result == expected_result
 
-    def test_import_between_child_and_top_level(self):
+    @pytest.mark.parametrize(
+        "as_packages, expected_result",
+        (
+            (False, set()),
+            (True, {("green.foo", "blue")}),
+        ),
+    )
+    def test_import_between_child_and_top_level(
+        self, as_packages: bool, expected_result: Set[Tuple]
+    ):
         graph = ImportGraph()
         graph.add_module("green")
         graph.add_import(importer="green.foo", imported="blue")
 
-        result = graph.find_shortest_chains(importer="green", imported="blue")
+        result = graph.find_shortest_chains(
+            importer="green", imported="blue", as_packages=as_packages
+        )
 
-        assert result == {("green.foo", "blue")}
+        assert result == expected_result
 
-    def test_import_between_top_level_and_child(self):
+    @pytest.mark.parametrize(
+        "as_packages, expected_result",
+        (
+            (False, set()),
+            (True, {("green", "blue.foo")}),
+        ),
+    )
+    def test_import_between_top_level_and_child(
+        self, as_packages: bool, expected_result: Set[Tuple]
+    ):
         graph = ImportGraph()
         graph.add_module("blue")
         graph.add_import(importer="green", imported="blue.foo")
 
-        result = graph.find_shortest_chains(importer="green", imported="blue")
+        result = graph.find_shortest_chains(
+            importer="green", imported="blue", as_packages=as_packages
+        )
 
-        assert result == {("green", "blue.foo")}
+        assert result == expected_result
 
-    def test_short_indirect_import(self):
+    @pytest.mark.parametrize(
+        "as_packages, expected_result",
+        (
+            (False, {("green", "yellow", "red", "blue")}),
+            (
+                True,
+                {
+                    ("green.indirect", "purple", "blue.foo"),
+                    ("green", "yellow", "red", "blue"),
+                },
+            ),
+        ),
+    )
+    def test_short_indirect_import(self, as_packages: bool, expected_result: Set[Tuple]):
         graph = ImportGraph()
         graph.add_module("green")
         graph.add_module("blue")
+
+        # Test cases for indirect import as package
         graph.add_import(importer="green.indirect", imported="purple")
         graph.add_import(importer="purple", imported="blue.foo")
 
-        result = graph.find_shortest_chains(importer="green", imported="blue")
+        # Test cases for indirect import as module
+        graph.add_import(importer="green", imported="yellow")
+        graph.add_import(importer="yellow", imported="red")
+        graph.add_import(importer="red", imported="blue")
 
-        assert result == {("green.indirect", "purple", "blue.foo")}
+        result = graph.find_shortest_chains(
+            importer="green", imported="blue", as_packages=as_packages
+        )
 
-    def test_long_indirect_import(self):
+        assert result == expected_result
+
+    @pytest.mark.parametrize(
+        "as_packages, expected_result",
+        (
+            (False, {("green", "red.three", "red.two", "red.one", "blue")}),
+            (
+                True,
+                {
+                    ("green.baz", "yellow.three", "yellow.two", "yellow.one", "blue.foo"),
+                    ("green", "red.three", "red.two", "red.one", "blue"),
+                },
+            ),
+        ),
+    )
+    def test_long_indirect_import(self, as_packages: bool, expected_result: Set[Tuple]):
         graph = ImportGraph()
         graph.add_module("green")
         graph.add_module("blue")
+
+        # Test cases for indirect import as package
         graph.add_import(importer="green.baz", imported="yellow.three")
         graph.add_import(importer="yellow.three", imported="yellow.two")
         graph.add_import(importer="yellow.two", imported="yellow.one")
         graph.add_import(importer="yellow.one", imported="blue.foo")
 
-        result = graph.find_shortest_chains(importer="green", imported="blue")
+        # Test cases for indirect import as module
+        graph.add_import(importer="green", imported="red.three")
+        graph.add_import(importer="red.three", imported="red.two")
+        graph.add_import(importer="red.two", imported="red.one")
+        graph.add_import(importer="red.one", imported="blue")
 
-        assert result == {("green.baz", "yellow.three", "yellow.two", "yellow.one", "blue.foo")}
+        result = graph.find_shortest_chains(
+            importer="green", imported="blue", as_packages=as_packages
+        )
+
+        assert result == expected_result
 
     def test_chains_via_importer_package_dont_stop_longer_chains_being_included(self):
         graph = ImportGraph()
@@ -327,27 +432,39 @@ class TestFindShortestChains:
             ),
         }
 
-    def test_doesnt_lose_import_details(self):
+    @pytest.mark.parametrize(
+        "as_packages",
+        (False, True),
+    )
+    def test_doesnt_lose_import_details(self, as_packages: bool):
         # Find shortest chains uses hiding mechanisms, this checks that it doesn't
         # inadvertently delete import details for the things it hides.
         graph = ImportGraph()
         graph.add_module("green")
         graph.add_module("blue")
-        import_details = {
-            "importer": "green.foo",
-            "imported": "blue.bar",
-            "line_contents": "import blue.bar",
-            "line_number": 5,
-        }
-        graph.add_import(**import_details)
+        graph.add_import(
+            importer="green.foo",
+            imported="blue.bar",
+            line_contents="import blue.bar",
+            line_number=5,
+        )
 
-        graph.find_shortest_chains(importer="green", imported="blue")
+        graph.find_shortest_chains(importer="green", imported="blue", as_packages=as_packages)
 
         assert graph.get_import_details(importer="green.foo", imported="blue.bar") == [
-            import_details
+            {
+                "importer": "green.foo",
+                "imported": "blue.bar",
+                "line_contents": "import blue.bar",
+                "line_number": 5,
+            }
         ]
 
-    def test_doesnt_change_import_count(self):
+    @pytest.mark.parametrize(
+        "as_packages",
+        (False, True),
+    )
+    def test_doesnt_change_import_count(self, as_packages: bool):
         # Find shortest chains uses hiding mechanisms, this checks that it doesn't
         # inadvertently change the import count.
         graph = ImportGraph()
@@ -356,7 +473,7 @@ class TestFindShortestChains:
         graph.add_import(importer="green.foo", imported="blue.bar")
         count_prior = graph.count_imports()
 
-        graph.find_shortest_chains(importer="green", imported="blue")
+        graph.find_shortest_chains(importer="green", imported="blue", as_packages=as_packages)
 
         assert graph.count_imports() == count_prior
 
@@ -370,12 +487,7 @@ class TestFindShortestChains:
         # Importer does not import the imported, even indirectly.
         ("a.two.green", "a.one", None, False),
         ("b.two", "c.one", None, False),  # Importer imports the child of the imported.
-        (
-            "b.two",
-            "b",
-            None,
-            False,
-        ),  # Importer is child of imported (but doesn't import).
+        ("b.two", "b", None, False),  # Importer is child of imported (but doesn't import).
         # Importer's child imports imported's child.
         ("b.two", "a.one", None, False),
         # Importer's grandchild directly imports imported's grandchild.
