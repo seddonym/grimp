@@ -65,26 +65,40 @@ class ImportGraph(python_graph.ImportGraph):
         return super().remove_import(importer=importer, imported=imported)
 
     def count_imports(self) -> int:
+        self._rustgraph.count_imports()
         return super().count_imports()
 
     def find_children(self, module: str) -> Set[str]:
+        self._rustgraph.find_children(module)
         return super().find_children(module)
 
     def find_descendants(self, module: str) -> Set[str]:
+        self._rustgraph.find_descendants(module)
         return super().find_descendants(module)
 
     def direct_import_exists(
         self, *, importer: str, imported: str, as_packages: bool = False
     ) -> bool:
-        return super().direct_import_exists(
+        result = super().direct_import_exists(
             importer=importer, imported=imported, as_packages=as_packages
         )
+        if result:
+            # TODO This can panic if result is False.
+            self._rustgraph.direct_import_exists(
+                importer=importer, imported=imported, as_packages=as_packages
+            )
+        return result
 
     def find_modules_directly_imported_by(self, module: str) -> Set[str]:
+        self._rustgraph.find_modules_directly_imported_by(module)
         return super().find_modules_directly_imported_by(module)
 
     def find_modules_that_directly_import(self, module: str) -> Set[str]:
-        return super().find_modules_that_directly_import(module)
+        result = super().find_modules_that_directly_import(module)
+        if module in self.modules:
+            # TODO panics if module isn't in modules.   
+            self._rustgraph.find_modules_that_directly_import(module)
+        return result
 
     def get_import_details(self, *, importer: str, imported: str) -> List[DetailedImport]:
         return super().get_import_details(importer=importer, imported=imported)

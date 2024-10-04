@@ -1,6 +1,6 @@
 import pytest  # type: ignore
 
-from grimp.adaptors.graph import ImportGraph
+from grimp.adaptors.rustgraph import ImportGraph
 
 
 def test_find_modules_directly_imported_by():
