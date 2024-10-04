@@ -59,7 +59,8 @@ impl GraphWrapper {
     }
 
     pub fn is_module_squashed(&self, module: &str) -> bool {
-        self._graph.is_module_squashed(&Module::new(module.to_string()))
+        self._graph
+            .is_module_squashed(&Module::new(module.to_string()))
     }
 
     #[pyo3(signature = (*, importer, imported, line_number=None, line_contents=None))]
@@ -70,22 +71,20 @@ impl GraphWrapper {
         line_number: Option<usize>,
         line_contents: Option<&str>,
     ) {
-        let importer=Module::new(importer.to_string());
-        let imported=Module::new(imported.to_string());
+        let importer = Module::new(importer.to_string());
+        let imported = Module::new(imported.to_string());
         match (line_number, line_contents) {
             (Some(line_number), Some(line_contents)) => {
-                self._graph.add_detailed_import(
-                    &DetailedImport {
-                        importer: importer,
-                        imported: imported,
-                        line_number: line_number,
-                        line_contents: line_contents.to_string(),
-                    }
-                );
-            },
+                self._graph.add_detailed_import(&DetailedImport {
+                    importer: importer,
+                    imported: imported,
+                    line_number: line_number,
+                    line_contents: line_contents.to_string(),
+                });
+            }
             (None, None) => {
                 self._graph.add_import(&importer, &imported);
-            },
+            }
             _ => {
                 // TODO handle better.
                 panic!("Expected line_number and line_contents, or neither.");
@@ -96,10 +95,52 @@ impl GraphWrapper {
     #[pyo3(signature = (*, importer, imported))]
     pub fn remove_import(&mut self, importer: &str, imported: &str) {
         self._graph.remove_import(
-           &Module::new(importer.to_string()),
-           &Module::new(imported.to_string()),
+            &Module::new(importer.to_string()),
+            &Module::new(imported.to_string()),
         );
     }
+
+    pub fn count_imports(&self) -> usize {
+        self._graph.count_imports()
+    }
+
+    pub fn find_children(&self, module: &str) -> HashSet<String> {
+        self._graph
+            .find_children(&Module::new(module.to_string()))
+            .iter()
+            .map(|child| child.name.clone())
+            .collect()
+    }
+
+    pub fn find_descendants(&self, module: &str) -> HashSet<String> {
+        self._graph
+            .find_descendants(&Module::new(module.to_string()))
+            .iter()
+            .map(|descendant| descendant.name.clone())
+            .collect()
+    }
+
+    #[pyo3(signature = (*, importer, imported, as_packages = false))]
+    pub fn direct_import_exists(&self, importer: &str, imported: &str, as_packages: bool) -> bool {
+        self._graph.direct_import_exists(
+            &Module::new(importer.to_string()),
+            &Module::new(imported.to_string()),
+            as_packages,
+        )
+    }
+
+    pub fn find_modules_directly_imported_by(&self, module: &str) -> HashSet<String> {
+        self._graph.find_modules_directly_imported_by(&Module::new(module.to_string())).iter().map(
+            |imported| imported.name.clone()
+        ).collect()
+    }
+
+    pub fn find_modules_that_directly_import(&self, module: &str) -> HashSet<String> {
+        self._graph.find_modules_that_directly_import(&Module::new(module.to_string())).iter().map(
+            |importer| importer.name.clone()
+        ).collect()
+    }
+
 
 }
 

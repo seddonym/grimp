@@ -38,7 +38,7 @@ const DELIMITER: char = '.';
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Module {
-    name: String,
+    pub name: String,
 }
 
 impl fmt::Display for Module {
