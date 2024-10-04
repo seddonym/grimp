@@ -185,6 +185,24 @@ impl GraphWrapper {
             .map(|upstream| upstream.name.clone())
             .collect()
     }
+
+    pub fn find_shortest_chain(&self, importer: &str, imported: &str) -> Option<Vec<String>> {
+        let chain = self._graph.find_shortest_chain(
+            &Module::new(importer.to_string()),
+            &Module::new(imported.to_string()),
+        )?;
+
+        Some(chain.iter().map(|module| module.name.clone()).collect())
+    }
+
+    #[pyo3(signature = (importer, imported, as_packages=false))]
+    pub fn chain_exists(&self, importer: &str, imported: &str, as_packages: bool) -> bool {
+        self._graph.chain_exists(
+            &Module::new(importer.to_string()),
+            &Module::new(imported.to_string()),
+            as_packages
+        )
+    }
 }
 
 #[pyfunction]
