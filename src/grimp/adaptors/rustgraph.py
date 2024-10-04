@@ -61,6 +61,7 @@ class ImportGraph(python_graph.ImportGraph):
         )
 
     def remove_import(self, *, importer: str, imported: str) -> None:
+        self._rustgraph.remove_import(importer=importer, imported=imported)
         return super().remove_import(importer=importer, imported=imported)
 
     def count_imports(self) -> int:

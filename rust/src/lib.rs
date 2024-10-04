@@ -62,7 +62,6 @@ impl GraphWrapper {
         self._graph.is_module_squashed(&Module::new(module.to_string()))
     }
 
-    #[allow(unused_variables)]
     #[pyo3(signature = (*, importer, imported, line_number=None, line_contents=None))]
     pub fn add_import(
         &mut self,
@@ -92,6 +91,14 @@ impl GraphWrapper {
                 panic!("Expected line_number and line_contents, or neither.");
             }
         }
+    }
+
+    #[pyo3(signature = (*, importer, imported))]
+    pub fn remove_import(&mut self, importer: &str, imported: &str) {
+        self._graph.remove_import(
+           &Module::new(importer.to_string()),
+           &Module::new(imported.to_string()),
+        );
     }
 
 }
