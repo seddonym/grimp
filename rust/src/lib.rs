@@ -71,7 +71,7 @@ impl GraphWrapper {
         line_contents: Option<&str>,
     ) {
         let importer=Module::new(importer.to_string());
-        let imported=Module::new(importer.to_string());
+        let imported=Module::new(imported.to_string());
         match (line_number, line_contents) {
             (Some(line_number), Some(line_contents)) => {
                 self._graph.add_detailed_import(
