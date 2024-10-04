@@ -47,6 +47,17 @@ impl fmt::Display for Module {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModuleNotPresent{
+    pub module: Module
+}
+
+
+impl fmt::Display for ModuleNotPresent {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "\"{}\" not present in the graph", self.module.name)
+    }
+}
 
 impl Module {
     pub fn new(name: String) -> Module {
@@ -185,13 +196,16 @@ impl Graph {
             .collect()
     }
 
-    pub fn find_descendants(&self, module: &Module) -> HashSet<&Module> {
-        let module_index = self.hierarchy_module_indices.get_by_left(module).unwrap();
-        Bfs::new(&self.hierarchy, *module_index)
+    pub fn find_descendants(&self, module: &Module) -> Result<HashSet<&Module>, ModuleNotPresent> {
+        let module_index = match self.hierarchy_module_indices.get_by_left(module) {
+            Some(index) => index,
+            None => return Err(ModuleNotPresent{module: module.clone()}),
+        };
+        Ok(Bfs::new(&self.hierarchy, *module_index)
             .iter(&self.hierarchy)
             .filter(|index| index != module_index) // Don't include the supplied module.
-            .map(|index| self.hierarchy_module_indices.get_by_right(&index).unwrap())
-            .collect()
+            .map(|index| self.hierarchy_module_indices.get_by_right(&index).unwrap())  // This panics sometimes.
+            .collect())
     }
 
     pub fn add_import(&mut self, importer: &Module, imported: &Module) {
@@ -420,13 +434,13 @@ impl Graph {
 
         let mut importer_modules: HashSet<&Module> = HashSet::from([importer]);
         // TODO don't do this if module is squashed?
-        for descendant in self.find_descendants(&importer) {
+        for descendant in self.find_descendants(&importer).unwrap() {
             importer_modules.insert(descendant);
         }
 
         let mut imported_modules: HashSet<&Module> = HashSet::from([imported]);
         // TODO don't do this if module is squashed?
-        for descendant in self.find_descendants(&imported) {
+        for descendant in self.find_descendants(&imported).unwrap() {
             imported_modules.insert(descendant);
         }
 
@@ -465,7 +479,7 @@ impl Graph {
     #[allow(unused_variables)]
     pub fn squash_module(&mut self, module: &Module) {
         // Get descendants and their imports.
-        let descendants: Vec<Module> = self.find_descendants(module).into_iter().cloned().collect();
+        let descendants: Vec<Module> = self.find_descendants(module).unwrap().into_iter().cloned().collect();
         let modules_imported_by_descendants: Vec<Module> = descendants
             .iter()
             .flat_map(|descendant| {
@@ -776,7 +790,17 @@ imports:
         graph.add_module(mypackage_foo_alpha_green.clone());
         graph.add_module(mypackage_foo_beta.clone());
 
-        assert_eq!(graph.find_descendants(&mypackage_bar), HashSet::new());
+        assert_eq!(graph.find_descendants(&mypackage_bar), Ok(HashSet::new()));
+    }
+
+    #[test]
+    fn find_descendants_module_not_in_graph() {
+        let mut graph = Graph::default();
+        let blue = Module::new("blue".to_string());
+        let green = Module::new("green".to_string());
+        graph.add_module(blue.clone());
+
+        assert_eq!(graph.find_descendants(&green), Err(ModuleNotPresent{module: green.clone()}));
     }
 
     #[test]
@@ -800,12 +824,12 @@ imports:
 
         assert_eq!(
             graph.find_descendants(&mypackage_foo),
-            HashSet::from([
+            Ok(HashSet::from([
                 &mypackage_foo_alpha,
                 &mypackage_foo_alpha_blue,
                 &mypackage_foo_alpha_green,
                 &mypackage_foo_beta
-            ])
+            ]))
         );
     }
 
