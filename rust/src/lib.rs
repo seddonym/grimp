@@ -3,6 +3,7 @@ mod containers;
 pub mod dependencies;
 pub mod importgraph;
 pub mod layers;
+mod graph;
 
 use crate::dependencies::PackageDependency;
 use containers::check_containers_exist;
@@ -18,12 +19,24 @@ use std::collections::{HashMap, HashSet};
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     pyo3_log::init();
 
+    m.add_class::<Graph>()?;
     m.add_function(wrap_pyfunction!(find_illegal_dependencies, m)?)?;
     m.add("NoSuchContainer", py.get_type_bound::<NoSuchContainer>())?;
     Ok(())
 }
 
 create_exception!(_rustgrimp, NoSuchContainer, pyo3::exceptions::PyException);
+
+#[pyclass]
+struct Graph {
+}
+#[pymethods]
+impl Graph {
+    #[new]
+    fn new() -> Self {
+        Graph {}
+    }
+}
 
 #[pyfunction]
 pub fn find_illegal_dependencies<'py>(
