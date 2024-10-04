@@ -1,7 +1,7 @@
 import pytest  # type: ignore
 
 from grimp.application.config import settings
-from grimp.adaptors.graph import ImportGraph
+from grimp.adaptors.rustgraph import ImportGraph
 from grimp.adaptors.modulefinder import ModuleFinder
 from grimp.adaptors.importscanner import ImportScanner
 
