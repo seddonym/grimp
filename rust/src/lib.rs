@@ -44,6 +44,12 @@ impl GraphWrapper {
         }
     }
 
+    pub fn get_modules(&self) -> HashSet<String> {
+        self._graph.get_modules().iter().map(
+            |module| module.name.clone()
+        ).collect()
+    }
+
     #[allow(unused_variables)]
     #[pyo3(signature = (module, is_squashed = false))]
     pub fn add_module(&mut self, module: &str, is_squashed: bool) {

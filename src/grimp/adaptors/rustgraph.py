@@ -20,6 +20,7 @@ class ImportGraph(python_graph.ImportGraph):
 
     @property
     def modules(self) -> Set[str]:
+        self._rustgraph.get_modules()
         return super().modules
 
     def add_module(self, module: str, is_squashed: bool = False) -> None:
