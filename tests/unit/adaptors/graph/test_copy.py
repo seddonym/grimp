@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from grimp.adaptors.graph import ImportGraph
+from grimp.adaptors.rustgraph import ImportGraph
 
 
 class TestCopy:
