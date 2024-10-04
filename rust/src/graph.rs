@@ -13,7 +13,7 @@ find_shortest_chain - DONE
     find_shortest_chains - TODO
 chain_exists - DONE
     find_illegal_dependencies_for_layers - TODO
-add_module - DONE
+    add_module - PARTIALLY DONE - need to add is_squashed
 remove_module - DONE
 add_import - DONE
 remove_import - DONE
@@ -37,7 +37,7 @@ use std::fmt;
 const DELIMITER: char = '.';
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct Module {
+pub struct Module {
     name: String,
 }
 
@@ -72,7 +72,7 @@ impl Module {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct DetailedImport {
+pub struct DetailedImport {
     importer: Module,
     imported: Module,
     line_number: usize,
@@ -80,7 +80,7 @@ struct DetailedImport {
 }
 
 #[derive(Default, Clone)]
-struct Graph {
+pub struct Graph {
     // Bidirectional lookup between Module and NodeIndex.
     hierarchy_module_indices: BiMap<Module, NodeIndex>,
     hierarchy: StableGraph<Module, ()>,
@@ -500,7 +500,7 @@ impl Graph {
         self.squashed_modules.insert(module.clone());
     }
 
-    pub fn is_module_squashed(&mut self, module: &Module) -> bool {
+    pub fn is_module_squashed(&self, module: &Module) -> bool {
         self.squashed_modules.contains(module)
     }
 
