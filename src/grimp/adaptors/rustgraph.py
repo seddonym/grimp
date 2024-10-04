@@ -39,7 +39,6 @@ class ImportGraph(python_graph.ImportGraph):
         self._rustgraph.is_module_squashed(module)
         return super().is_module_squashed(module)
 
-
     def add_import(
         self,
         *,
@@ -48,6 +47,12 @@ class ImportGraph(python_graph.ImportGraph):
         line_number: Optional[int] = None,
         line_contents: Optional[str] = None,
     ) -> None:
+        self._rustgraph.add_import(
+            importer=importer,
+            imported=imported,
+            line_number=line_number,
+            line_contents=line_contents,
+        )
         return super().add_import(
             importer=importer,
             imported=imported,
