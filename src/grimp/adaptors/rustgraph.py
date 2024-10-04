@@ -116,6 +116,7 @@ class ImportGraph(python_graph.ImportGraph):
         return super().find_upstream_modules(module, as_package)
 
     def find_shortest_chain(self, importer: str, imported: str) -> tuple[str, ...] | None:
+        self._rustgraph.find_shortest_chain(importer, imported)
         return super().find_shortest_chain(importer, imported)
 
     def find_shortest_chains(
@@ -124,6 +125,7 @@ class ImportGraph(python_graph.ImportGraph):
         return super().find_shortest_chains(importer, imported, as_packages)
 
     def chain_exists(self, importer: str, imported: str, as_packages: bool = False) -> bool:
+        self._rustgraph.chain_exists(importer, imported, as_packages)
         return super().chain_exists(importer, imported, as_packages)
 
     def find_illegal_dependencies_for_layers(
