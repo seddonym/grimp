@@ -73,10 +73,10 @@ impl Module {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DetailedImport {
-    importer: Module,
-    imported: Module,
-    line_number: usize,
-    line_contents: String,
+    pub importer: Module,
+    pub imported: Module,
+    pub line_number: usize,
+    pub line_contents: String,
 }
 
 #[derive(Default, Clone)]
