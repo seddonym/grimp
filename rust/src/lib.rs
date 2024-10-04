@@ -6,7 +6,7 @@ pub mod importgraph;
 pub mod layers;
 
 use crate::dependencies::PackageDependency;
-use crate::graph::{Graph, Module};
+use crate::graph::{DetailedImport, Graph, Module};
 use containers::check_containers_exist;
 use importgraph::ImportGraph;
 use layers::Level;
@@ -71,9 +71,28 @@ impl GraphWrapper {
         line_number: Option<usize>,
         line_contents: Option<&str>,
     ) {
-        //
+        let importer=Module::new(importer.to_string());
+        let imported=Module::new(importer.to_string());
+        match (line_number, line_contents) {
+            (Some(line_number), Some(line_contents)) => {
+                self._graph.add_detailed_import(
+                    &DetailedImport {
+                        importer: importer,
+                        imported: imported,
+                        line_number: line_number,
+                        line_contents: line_contents.to_string(),
+                    }
+                );
+            },
+            (None, None) => {
+                self._graph.add_import(&importer, &imported);
+            },
+            _ => {
+                // TODO handle better.
+                panic!("Expected line_number and line_contents, or neither.");
+            }
+        }
     }
-
 
 }
 
