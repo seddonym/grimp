@@ -16,7 +16,7 @@ petgraph = "0.6.5"
 bimap = "0.6.3"
 
 [dependencies.pyo3]
-version = "0.22.1"
+version = "0.22.3"
 
 [features]
 extension-module = ["pyo3/extension-module"]

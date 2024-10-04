@@ -7,8 +7,8 @@ find_modules_directly_imported_by - DONE
 find_modules_that_directly_import -  DONE
 get_import_details - DONE
 count_imports - DONE
-find_downstream_modules - DONE
-find_upstream_modules - DONE
+    find_downstream_modules - partially done - need to add as_package
+    find_upstream_modules - partially done - need to add as_package
 find_shortest_chain - DONE
     find_shortest_chains - TODO
 chain_exists - DONE
