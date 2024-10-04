@@ -1,11 +1,12 @@
 mod containers;
 // TODO make these private.
 pub mod dependencies;
+mod graph;
 pub mod importgraph;
 pub mod layers;
-mod graph;
 
 use crate::dependencies::PackageDependency;
+use crate::graph::{Graph, Module};
 use containers::check_containers_exist;
 use importgraph::ImportGraph;
 use layers::Level;
@@ -14,12 +15,13 @@ use pyo3::create_exception;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyFrozenSet, PySet, PyString, PyTuple};
 use std::collections::{HashMap, HashSet};
+//use petgraph::Graph;
 
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     pyo3_log::init();
 
-    m.add_class::<Graph>()?;
+    m.add_class::<GraphWrapper>()?;
     m.add_function(wrap_pyfunction!(find_illegal_dependencies, m)?)?;
     m.add("NoSuchContainer", py.get_type_bound::<NoSuchContainer>())?;
     Ok(())
@@ -27,15 +29,52 @@ fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 
 create_exception!(_rustgrimp, NoSuchContainer, pyo3::exceptions::PyException);
 
-#[pyclass]
-struct Graph {
+#[pyclass(name = "Graph")]
+struct GraphWrapper {
+    _graph: Graph,
 }
+
+/// Wrapper around the Graph struct that integrates with Python.
 #[pymethods]
-impl Graph {
+impl GraphWrapper {
     #[new]
     fn new() -> Self {
-        Graph {}
+        GraphWrapper {
+            _graph: Graph::default(),
+        }
     }
+
+    #[allow(unused_variables)]
+    #[pyo3(signature = (module, is_squashed = false))]
+    pub fn add_module(&mut self, module: &str, is_squashed: bool) {
+        self._graph.add_module(Module::new(module.to_string()));
+    }
+
+    pub fn remove_module(&mut self, module: &str) {
+        self._graph.remove_module(&Module::new(module.to_string()));
+    }
+
+    pub fn squash_module(&mut self, module: &str) {
+        self._graph.squash_module(&Module::new(module.to_string()));
+    }
+
+    pub fn is_module_squashed(&self, module: &str) -> bool {
+        self._graph.is_module_squashed(&Module::new(module.to_string()))
+    }
+
+    #[allow(unused_variables)]
+    #[pyo3(signature = (*, importer, imported, line_number=None, line_contents=None))]
+    pub fn add_import(
+        &mut self,
+        importer: &str,
+        imported: &str,
+        line_number: Option<usize>,
+        line_contents: Option<&str>,
+    ) {
+        //
+    }
+
+
 }
 
 #[pyfunction]
