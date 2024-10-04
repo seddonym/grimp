@@ -114,7 +114,7 @@ impl GraphWrapper {
 
     pub fn find_descendants(&self, module: &str) -> HashSet<String> {
         self._graph
-            .find_descendants(&Module::new(module.to_string()))
+            .find_descendants(&Module::new(module.to_string())).unwrap()
             .iter()
             .map(|descendant| descendant.name.clone())
             .collect()
