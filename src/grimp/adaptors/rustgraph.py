@@ -96,17 +96,23 @@ class ImportGraph(python_graph.ImportGraph):
     def find_modules_that_directly_import(self, module: str) -> Set[str]:
         result = super().find_modules_that_directly_import(module)
         if module in self.modules:
-            # TODO panics if module isn't in modules.   
+            # TODO panics if module isn't in modules.
             self._rustgraph.find_modules_that_directly_import(module)
         return result
 
     def get_import_details(self, *, importer: str, imported: str) -> List[DetailedImport]:
+        # self._rustgraph.get_import_details(
+        #     importer=importer,
+        #     imported=imported,
+        # )
         return super().get_import_details(importer=importer, imported=imported)
 
     def find_downstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
+        self._rustgraph.find_downstream_modules(module, as_package)
         return super().find_downstream_modules(module, as_package)
 
     def find_upstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
+        self._rustgraph.find_upstream_modules(module, as_package)
         return super().find_upstream_modules(module, as_package)
 
     def find_shortest_chain(self, importer: str, imported: str) -> tuple[str, ...] | None:

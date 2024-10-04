@@ -130,18 +130,61 @@ impl GraphWrapper {
     }
 
     pub fn find_modules_directly_imported_by(&self, module: &str) -> HashSet<String> {
-        self._graph.find_modules_directly_imported_by(&Module::new(module.to_string())).iter().map(
-            |imported| imported.name.clone()
-        ).collect()
+        self._graph
+            .find_modules_directly_imported_by(&Module::new(module.to_string()))
+            .iter()
+            .map(|imported| imported.name.clone())
+            .collect()
     }
 
     pub fn find_modules_that_directly_import(&self, module: &str) -> HashSet<String> {
-        self._graph.find_modules_that_directly_import(&Module::new(module.to_string())).iter().map(
-            |importer| importer.name.clone()
-        ).collect()
+        self._graph
+            .find_modules_that_directly_import(&Module::new(module.to_string()))
+            .iter()
+            .map(|importer| importer.name.clone())
+            .collect()
     }
 
+    // #[pyo3(signature = (*, importer, imported))]
+    // pub fn get_import_details(
+    //     &self,
+    //     importer: &str,
+    //     imported: &str,
+    // ) -> HashSet<DetailedImport> {
+    //     self._graph.get_import_details(
+    //         &Module::new(importer.to_string()),
+    //         &Module::new(imported.to_string()),
+    //     ).iter().map(
+    //         |detailed_import| PyDict::from_sequence_bound(
+    //             (
+    //                 ("importer".to_string(), &detailed_import.importer.clone()),
+    //                 ("imported".to_string(), &detailed_import.imported.clone()),
+    //                 ("line_number".to_string(), &detailed_import.line_number),
+    //                 ("line_contents".to_string(), &detailed_import.line_contents.clone()),
+    //             )
+    //         )
+    //     ).collect()
+    // }
 
+    #[allow(unused_variables)]
+    #[pyo3(signature = (module, as_package=false))]
+    pub fn find_downstream_modules(&self, module: &str, as_package: bool) -> HashSet<String> {
+        self._graph
+            .find_downstream_modules(&Module::new(module.to_string()))
+            .iter()
+            .map(|downstream| downstream.name.clone())
+            .collect()
+    }
+
+    #[allow(unused_variables)]
+    #[pyo3(signature = (module, as_package=false))]
+    pub fn find_upstream_modules(&self, module: &str, as_package: bool) -> HashSet<String> {
+        self._graph
+            .find_upstream_modules(&Module::new(module.to_string()))
+            .iter()
+            .map(|upstream| upstream.name.clone())
+            .collect()
+    }
 }
 
 #[pyfunction]
