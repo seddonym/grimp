@@ -127,9 +127,7 @@ class _Link:
 
 
 # A chain of modules, each of which imports the next.
-if TYPE_CHECKING:
-    # TODO: remove TYPE_CHECKING conditional once on Python 3.9.
-    _Chain = tuple[str, ...]
+_Chain = tuple[str, ...]
 
 
 def _generate_module_permutations(
