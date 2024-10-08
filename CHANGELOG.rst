@@ -2,8 +2,8 @@
 Changelog
 =========
 
-latest
-------
+3.5 (2024-10-08)
+----------------
 
 * Added `as_packages` option to the `find_shortest_chains` method.
 * Include 3.13 wheel in release.
