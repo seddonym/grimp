@@ -117,6 +117,8 @@ class ImportGraph(python_graph.ImportGraph):
 
     def find_shortest_chain(self, importer: str, imported: str) -> tuple[str, ...] | None:
         self._rustgraph.find_shortest_chain(importer, imported)
+        # Once deepcopying is implemented, this should work.
+        # return  tuple(chain) if chain else None
         return self._pygraph.find_shortest_chain(importer, imported)
 
     def find_shortest_chains(
@@ -142,17 +144,5 @@ class ImportGraph(python_graph.ImportGraph):
     def __deepcopy__(self, memodict: dict) -> "ImportGraph":
         new_graph = ImportGraph()
         new_graph._pygraph = deepcopy(self._pygraph)
-
-        # TODO - this is very inefficient, defer to rust to do this.
-        new_rustgraph = rust.Graph()
-        for module in self._rustgraph.get_modules():
-            new_rustgraph.add_module(
-                module,
-                is_squashed=self._rustgraph.is_module_squashed(module)
-            )
-
-        # TODO add imports too.
-
-        new_graph._rustgraph = new_rustgraph
-
+        new_graph._rustgraph = self._rustgraph.clone()
         return new_graph
