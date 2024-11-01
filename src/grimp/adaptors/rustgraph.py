@@ -110,12 +110,10 @@ class ImportGraph(python_graph.ImportGraph):
         return self._pygraph.get_import_details(importer=importer, imported=imported)
 
     def find_downstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
-        self._rustgraph.find_downstream_modules(module, as_package)
-        return self._pygraph.find_downstream_modules(module, as_package)
+        return self._rustgraph.find_downstream_modules(module, as_package)
 
     def find_upstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
-        self._rustgraph.find_upstream_modules(module, as_package)
-        return self._pygraph.find_upstream_modules(module, as_package)
+        return self._rustgraph.find_upstream_modules(module, as_package)
 
     def find_shortest_chain(self, importer: str, imported: str) -> tuple[str, ...] | None:
         self._rustgraph.find_shortest_chain(importer, imported)

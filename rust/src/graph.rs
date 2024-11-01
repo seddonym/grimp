@@ -7,8 +7,8 @@ find_modules_directly_imported_by - DONE
 find_modules_that_directly_import -  DONE
 get_import_details - DONE
 count_imports - DONE
-    find_upstream_modules - partially done - need to add as_package
-    find_downstream_modules - partially done - need to add as_package
+find_upstream_modules - DONE
+find_downstream_modules - DONE
 find_shortest_chain - DONE
     find_shortest_chains - TODO
 chain_exists - DONE
@@ -404,34 +404,62 @@ impl Graph {
         importeds
     }
 
-    pub fn find_upstream_modules(&self, module: &Module) -> HashSet<&Module> {
-        let module_index = match self.imports_module_indices.get_by_left(module) {
-            Some(index) => *index,
-            None => return HashSet::new(),
+    pub fn find_upstream_modules(&self, module: &Module, as_package: bool) -> HashSet<&Module> {
+        let mut upstream_modules = HashSet::new();
+
+        let mut modules_to_check: HashSet<&Module> = HashSet::from([module]);
+        if as_package {
+            let descendants = self.find_descendants(&module).unwrap_or(HashSet::new());
+            modules_to_check.extend(descendants.into_iter());
         };
-        Bfs::new(&self.imports, module_index)
-            .iter(&self.imports)
-            .filter(|index| *index != module_index) // Don't include the supplied module.
-            .map(|index| self.imports_module_indices.get_by_right(&index).unwrap())
-            .collect()
+
+        for module_to_check in modules_to_check.iter() {
+            let module_index = match self.imports_module_indices.get_by_left(module_to_check) {
+                Some(index) => *index,
+                None => continue,
+            };
+            upstream_modules.extend(
+                Bfs::new(&self.imports, module_index)
+                    .iter(&self.imports)
+                    .map(|index| self.imports_module_indices.get_by_right(&index).unwrap())
+                    // Exclude any modules that we are checking.
+                    .filter(|downstream_module| !modules_to_check.contains(downstream_module))
+            );
+        }
+
+        upstream_modules
     }
 
-    pub fn find_downstream_modules(&self, module: &Module) -> HashSet<&Module> {
-        let module_index = match self.imports_module_indices.get_by_left(module) {
-            Some(index) => *index,
-            None => return HashSet::new(),
+    pub fn find_downstream_modules(&self, module: &Module, as_package: bool) -> HashSet<&Module> {
+        let mut downstream_modules = HashSet::new();
+
+        let mut modules_to_check: HashSet<&Module> = HashSet::from([module]);
+        if as_package {
+            let descendants = self.find_descendants(&module).unwrap_or(HashSet::new());
+            modules_to_check.extend(descendants.into_iter());
         };
 
-        // Reverse all the edges in the graph and then do what we do in find_upstream_modules.
-        // Is there a way of doing this without the clone?
-        let mut reversed_graph = self.imports.clone();
-        reversed_graph.reverse();
+        for module_to_check in modules_to_check.iter() {
+            let module_index = match self.imports_module_indices.get_by_left(module_to_check) {
+                Some(index) => *index,
+                None => continue,
+            };
 
-        Bfs::new(&reversed_graph, module_index)
-            .iter(&reversed_graph)
-            .filter(|index| *index != module_index) // Don't include the supplied module.
-            .map(|index| self.imports_module_indices.get_by_right(&index).unwrap())
-            .collect()
+            // Reverse all the edges in the graph and then do what we do in find_upstream_modules.
+            // Is there a way of doing this without the clone?
+            let mut reversed_graph = self.imports.clone();
+            reversed_graph.reverse();
+
+            downstream_modules.extend(
+                Bfs::new(&reversed_graph, module_index)
+                .iter(&reversed_graph)
+                .map(|index| self.imports_module_indices.get_by_right(&index).unwrap())
+                // Exclude any modules that we are checking.
+                .filter(|downstream_module| !modules_to_check.contains(downstream_module))
+            )
+        }
+
+        downstream_modules
     }
 
     pub fn find_shortest_chain(
@@ -1510,7 +1538,7 @@ imports:
         // Add an import to blue.
         graph.add_import(&brown, &blue);
 
-        let result = graph.find_upstream_modules(&blue);
+        let result = graph.find_upstream_modules(&blue, false);
 
         assert_eq!(result, HashSet::from([&green, &red, &yellow, &purple]))
     }
@@ -1520,9 +1548,46 @@ imports:
         let graph = Graph::default();
         let blue = Module::new("mypackage.blue".to_string());
 
-        let result = graph.find_upstream_modules(&blue);
+        let result = graph.find_upstream_modules(&blue, false);
 
         assert_eq!(result, HashSet::new())
+    }
+
+    #[test]
+    fn find_upstream_modules_as_packages() {
+        let mut graph = Graph::default();
+        let mypackage = Module::new("mypackage".to_string());
+        let blue = Module::new("mypackage.blue".to_string());
+        let alpha = Module::new("mypackage.blue.alpha".to_string());
+        let beta = Module::new("mypackage.blue.beta".to_string());
+        let green = Module::new("mypackage.green".to_string());
+        let red = Module::new("mypackage.red".to_string());
+        let yellow = Module::new("mypackage.yellow".to_string());
+        let purple = Module::new("mypackage.purple".to_string());
+        let orange = Module::new("mypackage.orange".to_string());
+        let brown = Module::new("mypackage.brown".to_string());
+        graph.add_module(mypackage.clone());
+        graph.add_module(blue.clone());
+        graph.add_module(alpha.clone());
+        graph.add_module(beta.clone());
+        graph.add_module(green.clone());
+        graph.add_module(red.clone());
+        graph.add_module(yellow.clone());
+        graph.add_module(purple.clone());
+        graph.add_module(orange.clone());
+        graph.add_module(brown.clone());
+        // Add the import chains we care about.
+        graph.add_import(&blue, &green);
+        graph.add_import(&green, &yellow);
+        graph.add_import(&alpha, &purple);
+        graph.add_import(&purple, &brown);
+        // Despite being technically upstream, beta doesn't appear because it's
+        // in the same package.
+        graph.add_import(&purple, &beta);
+
+        let result = graph.find_upstream_modules(&blue, true);
+
+        assert_eq!(result, HashSet::from([&green, &yellow, &purple, &brown]))
     }
 
     #[test]
@@ -1552,7 +1617,7 @@ imports:
         // Add an import from purple.
         graph.add_import(&purple, &brown);
 
-        let result = graph.find_downstream_modules(&purple);
+        let result = graph.find_downstream_modules(&purple, false);
 
         assert_eq!(result, HashSet::from([&yellow, &green, &blue]))
     }
@@ -1562,9 +1627,46 @@ imports:
         let graph = Graph::default();
         let blue = Module::new("mypackage.blue".to_string());
 
-        let result = graph.find_downstream_modules(&blue);
+        let result = graph.find_downstream_modules(&blue, false);
 
         assert_eq!(result, HashSet::new())
+    }
+
+    #[test]
+    fn find_downstream_modules_as_packages() {
+        let mut graph = Graph::default();
+        let mypackage = Module::new("mypackage".to_string());
+        let blue = Module::new("mypackage.blue".to_string());
+        let alpha = Module::new("mypackage.blue.alpha".to_string());
+        let beta = Module::new("mypackage.blue.beta".to_string());
+        let green = Module::new("mypackage.green".to_string());
+        let red = Module::new("mypackage.red".to_string());
+        let yellow = Module::new("mypackage.yellow".to_string());
+        let purple = Module::new("mypackage.purple".to_string());
+        let orange = Module::new("mypackage.orange".to_string());
+        let brown = Module::new("mypackage.brown".to_string());
+        graph.add_module(mypackage.clone());
+        graph.add_module(blue.clone());
+        graph.add_module(alpha.clone());
+        graph.add_module(beta.clone());
+        graph.add_module(green.clone());
+        graph.add_module(red.clone());
+        graph.add_module(yellow.clone());
+        graph.add_module(purple.clone());
+        graph.add_module(orange.clone());
+        graph.add_module(brown.clone());
+        // Add the import chains we care about.
+        graph.add_import(&yellow, &green);
+        graph.add_import(&green, &blue);
+        graph.add_import(&brown, &purple);
+        graph.add_import(&purple, &alpha);
+        // Despite being technically downstream, beta doesn't appear because it's
+        // in the same package.
+        graph.add_import(&beta, &yellow);
+
+        let result = graph.find_downstream_modules(&blue, true);
+
+        assert_eq!(result, HashSet::from([&green, &yellow, &purple, &brown]))
     }
 
     // find_shortest_chain
