@@ -133,12 +133,12 @@ impl GraphWrapper {
 
     #[pyo3(signature = (*, importer, imported, as_packages = false))]
     pub fn direct_import_exists(&self, importer: &str, imported: &str, as_packages: bool) -> PyResult<bool> {
-        let importer_module = Module::new(importer.to_string());
-        let imported_module = Module::new(imported.to_string());
-
         if as_packages {
+            let importer_module = Module::new(importer.to_string());
+            let imported_module = Module::new(imported.to_string());
             // Raise a ValueError if they are in the same package.
             // (direct_import_exists) will panic if they are passed.
+            // TODO - this is a simpler check than Python, is it enough?
             if importer_module.is_descendant_of(&imported_module) || imported_module.is_descendant_of(&importer_module) {
                 return Err(PyValueError::new_err("Modules have shared descendants."));
             }
@@ -219,12 +219,21 @@ impl GraphWrapper {
     }
 
     #[pyo3(signature = (importer, imported, as_packages=false))]
-    pub fn chain_exists(&self, importer: &str, imported: &str, as_packages: bool) -> bool {
-        self._graph.chain_exists(
+    pub fn chain_exists(&self, importer: &str, imported: &str, as_packages: bool) -> PyResult<bool> {
+        if as_packages {
+            let importer_module = Module::new(importer.to_string());
+            let imported_module = Module::new(imported.to_string());
+            // Raise a ValueError if they are in the same package.
+            // TODO - this is a simpler check than Python, is it enough?
+            if importer_module.is_descendant_of(&imported_module) || imported_module.is_descendant_of(&importer_module) {
+                return Err(PyValueError::new_err("Modules have shared descendants."));
+            }
+        }
+        Ok(self._graph.chain_exists(
             &Module::new(importer.to_string()),
             &Module::new(imported.to_string()),
             as_packages
-        )
+        ))
     }
 
     pub fn clone(&self) -> GraphWrapper {

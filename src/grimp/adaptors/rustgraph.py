@@ -128,8 +128,7 @@ class ImportGraph(python_graph.ImportGraph):
         return self._pygraph.find_shortest_chains(importer, imported, as_packages)
 
     def chain_exists(self, importer: str, imported: str, as_packages: bool = False) -> bool:
-        self._rustgraph.chain_exists(importer, imported, as_packages)
-        return self._pygraph.chain_exists(importer, imported, as_packages)
+        return self._rustgraph.chain_exists(importer, imported, as_packages)
 
     def find_illegal_dependencies_for_layers(
         self,

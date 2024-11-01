@@ -13,7 +13,7 @@ find_shortest_chain - DONE
     find_shortest_chains - TODO
 chain_exists - DONE
     find_illegal_dependencies_for_layers - TODO
-    add_module - PARTIALLY DONE - need to add is_squashed
+add_module - DONE - need to add is_squashed
 remove_module - DONE
 add_import - DONE
 remove_import - DONE
@@ -543,6 +543,8 @@ impl Graph {
         imported: &Module,
         as_packages: bool,
     ) -> bool {
+        // TODO should this return a Result, so we can handle the situation the importer / imported
+        // having shared descendants when as_packages=true?
         let mut temp_graph;
         let graph = match as_packages {
             true => {
