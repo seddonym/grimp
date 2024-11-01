@@ -80,6 +80,12 @@ impl Module {
 
         Module::new(parent_name)
     }
+
+    // Return whether this module is a descendant of the supplied one, based on the name.
+    pub fn is_descendant_of(&self, module: &Module) -> bool {
+        let candidate = format!("{}{}", module.name, DELIMITER);
+        self.name.starts_with(&candidate)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -316,6 +322,7 @@ impl Graph {
         self.imports.remove_edge(edge_index);
     }
 
+    // Note: this will panic if importer and imported are in the same package.
     #[allow(unused_variables)]
     pub fn direct_import_exists(
         &self,
@@ -814,6 +821,38 @@ imports:
     }
 
     #[test]
+    fn is_descendant_of_true_for_child() {
+        let foo = Module::new("mypackage.foo".to_string());
+        let foo_bar = Module::new("mypackage.foo.bar".to_string());
+
+        assert!(foo_bar.is_descendant_of(&foo));
+    }
+
+    #[test]
+    fn is_descendant_of_false_for_parent() {
+        let foo = Module::new("mypackage.foo".to_string());
+        let foo_bar = Module::new("mypackage.foo.bar".to_string());
+
+        assert_eq!(foo.is_descendant_of(&foo_bar), false);
+    }
+
+    #[test]
+    fn is_descendant_of_true_for_grandchild() {
+        let foo = Module::new("mypackage.foo".to_string());
+        let foo_bar_baz = Module::new("mypackage.foo.bar.baz".to_string());
+
+        assert!(foo_bar_baz.is_descendant_of(&foo));
+    }
+
+    #[test]
+    fn is_descendant_of_false_for_grandparent() {
+        let foo = Module::new("mypackage.foo".to_string());
+        let foo_bar_baz = Module::new("mypackage.foo.bar.baz".to_string());
+
+        assert_eq!(foo.is_descendant_of(&foo_bar_baz), false);
+    }
+
+    #[test]
     fn is_root_false() {
         let non_root = Module::new("rootpackage.blue".to_string());
 
@@ -1224,6 +1263,17 @@ imports:
         graph.add_import(&mypackage_foo_alpha, &mypackage_bar);
 
         assert!(graph.direct_import_exists(&mypackage_foo, &mypackage_bar, true));
+    }
+
+    #[test]
+    #[should_panic]
+    fn direct_import_exists_within_package_panics() {
+        let mut graph = Graph::default();
+        let ancestor = Module::new("mypackage.foo".to_string());
+        let descendant = Module::new("mypackage.foo.blue.alpha".to_string());
+        graph.add_import(&ancestor, &descendant);
+
+        graph.direct_import_exists(&ancestor, &descendant, true);
     }
 
     #[test]

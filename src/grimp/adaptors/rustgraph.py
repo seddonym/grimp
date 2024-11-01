@@ -88,15 +88,9 @@ class ImportGraph(python_graph.ImportGraph):
     def direct_import_exists(
         self, *, importer: str, imported: str, as_packages: bool = False
     ) -> bool:
-        result = self._pygraph.direct_import_exists(
+        return self._rustgraph.direct_import_exists(
             importer=importer, imported=imported, as_packages=as_packages
         )
-        if result:
-            # TODO This can panic if result is False.
-            return self._rustgraph.direct_import_exists(
-                importer=importer, imported=imported, as_packages=as_packages
-            )
-        return result
 
     def find_modules_directly_imported_by(self, module: str) -> Set[str]:
         return self._rustgraph.find_modules_directly_imported_by(module)
