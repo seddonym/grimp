@@ -98,6 +98,8 @@ pub struct Graph {
     imports_module_indices: BiMap<Module, NodeIndex>,
     imports: StableGraph<Module, ()>,
     squashed_modules: HashSet<Module>,
+    // Invisible modules exist in the hierarchy but haven't been explicitly added to the graph.
+    invisible_modules: HashSet<Module>,
     detailed_imports_map: HashMap<(Module, Module), HashSet<DetailedImport>>,
 }
 
@@ -108,13 +110,21 @@ impl Graph {
 
         let hierarchy_module_indices: Vec<_> = self.hierarchy_module_indices.iter().collect();
 
-        for (from_module, from_index) in hierarchy_module_indices {
-            for to_index in self.hierarchy.neighbors(*from_index) {
-                let to_module = self
+        for (parent_module, parent_index) in hierarchy_module_indices {
+            for child_index in self.hierarchy.neighbors(*parent_index) {
+                let child_module = self
                     .hierarchy_module_indices
-                    .get_by_right(&to_index)
+                    .get_by_right(&child_index)
                     .unwrap();
-                hierarchy.push(format!("    {} -> {}", from_module.name, to_module.name));
+                let parent_module_str = match self.invisible_modules.contains(&parent_module) {
+                    true => format!("({})", parent_module.name),
+                    false => parent_module.name.to_string(),
+                };
+                let child_module_str = match self.invisible_modules.contains(&child_module) {
+                    true => format!("({})", child_module.name),
+                    false => child_module.name.to_string(),
+                };
+                hierarchy.push(format!("    {} -> {}", parent_module_str, child_module_str));
             }
         }
 
@@ -139,23 +149,29 @@ impl Graph {
     }
 
     pub fn add_module(&mut self, module: Module) {
+        // If this module is already in the graph, but invisible, just make it visible.
+        if self.invisible_modules.contains(&module) {
+            self.invisible_modules.remove(&module);
+            return;
+        }
+
         let module_index = self.hierarchy.add_node(module.clone());
         self.hierarchy_module_indices
             .insert(module.clone(), module_index);
 
-        // Add to the hierarchy from the module's parent, if it has one.
+        // Add this module to the hierarchy.
         if !module.is_root() {
             let parent = Module::new_parent(&module);
 
-            // If the parent isn't already in the graph, add it.
             let parent_index = match self.hierarchy_module_indices.get_by_left(&parent) {
                 Some(index) => index,
                 None => {
+                    // If the parent isn't already in the graph, add it, but as an invisible module.
                     self.add_module(parent.clone());
+                    self.invisible_modules.insert(parent.clone());
                     self.hierarchy_module_indices.get_by_left(&parent).unwrap()
                 }
             };
-
             self.hierarchy.add_edge(*parent_index, module_index, ());
         }
     }
@@ -173,7 +189,9 @@ impl Graph {
     }
 
     pub fn get_modules(&self) -> HashSet<&Module> {
-        self.hierarchy_module_indices.left_values().collect()
+        self.hierarchy_module_indices.left_values().filter(
+            |module| !self.invisible_modules.contains(module)
+        ).collect()
     }
 
     pub fn count_imports(&self) -> usize {
@@ -189,10 +207,19 @@ impl Graph {
     }
 
     pub fn find_children(&self, module: &Module) -> HashSet<&Module> {
-        let module_index = self.hierarchy_module_indices.get_by_left(module).unwrap();
+        if self.invisible_modules.contains(module) {
+            return HashSet::new();
+        }
+        let module_index = match self.hierarchy_module_indices.get_by_left(module) {
+            Some(index) => index,
+            // Module does not exist.
+            // TODO: should this return a result, to handle if module is not in graph?
+            None => return HashSet::new(),
+        };
         self.hierarchy
             .neighbors(*module_index)
             .map(|index| self.hierarchy_module_indices.get_by_right(&index).unwrap())
+            .filter(|module| !self.invisible_modules.contains(module))
             .collect()
     }
 
@@ -205,6 +232,7 @@ impl Graph {
             .iter(&self.hierarchy)
             .filter(|index| index != module_index) // Don't include the supplied module.
             .map(|index| self.hierarchy_module_indices.get_by_right(&index).unwrap())  // This panics sometimes.
+            .filter(|module| !self.invisible_modules.contains(module))
             .collect())
     }
 
@@ -522,6 +550,9 @@ impl Graph {
         if self.hierarchy_module_indices.get_by_left(module).is_none() {
             self.add_module(module.clone());
         };
+        if self.invisible_modules.contains(&module) {
+            self.invisible_modules.remove(&module);
+        };
     }
 }
 
@@ -547,6 +578,17 @@ mod tests {
     #[test]
     fn add_module() {
         let mypackage = Module::new("mypackage".to_string());
+        let mut graph = Graph::default();
+        graph.add_module(mypackage.clone());
+
+        let result = graph.get_modules();
+
+        assert_eq!(result, HashSet::from([&mypackage]));
+    }
+
+    #[test]
+    fn add_module_doesnt_add_parent() {
+        let mypackage = Module::new("mypackage.foo".to_string());
         let mut graph = Graph::default();
         graph.add_module(mypackage.clone());
 
@@ -756,7 +798,7 @@ imports:
     }
 
     #[test]
-    fn find_children_works_when_adding_orphans() {
+    fn find_children_returns_empty_set_with_nonexistent_module() {
         let mut graph = Graph::default();
         // Note: mypackage is not in the graph.
         let mypackage_foo = Module::new("mypackage.foo".to_string());
@@ -767,7 +809,7 @@ imports:
 
         assert_eq!(
             graph.find_children(&Module::new("mypackage".to_string())),
-            HashSet::from([&mypackage_foo, &mypackage_bar])
+            HashSet::new()
         );
     }
 
@@ -829,6 +871,70 @@ imports:
                 &mypackage_foo_alpha_blue,
                 &mypackage_foo_alpha_green,
                 &mypackage_foo_beta
+            ]))
+        );
+    }
+
+    #[test]
+    fn find_descendants_with_gap() {
+        let mut graph = Graph::default();
+        let mypackage = Module::new("mypackage".to_string());
+        let mypackage_foo = Module::new("mypackage.foo".to_string());
+        // mypackage.foo.blue is not added.
+        let mypackage_foo_blue_alpha = Module::new("mypackage.foo.blue.alpha".to_string());
+        let mypackage_foo_blue_alpha_one = Module::new("mypackage.foo.blue.alpha.one".to_string());
+        let mypackage_foo_blue_alpha_two = Module::new("mypackage.foo.blue.alpha.two".to_string());
+        let mypackage_foo_blue_beta_three = Module::new("mypackage.foo.blue.beta.three".to_string());
+        let mypackage_bar_green_alpha = Module::new("mypackage.bar.green.alpha".to_string());
+        graph.add_module(mypackage.clone());
+        graph.add_module(mypackage_foo.clone());
+        graph.add_module(mypackage_foo_blue_alpha.clone());
+        graph.add_module(mypackage_foo_blue_alpha_one.clone());
+        graph.add_module(mypackage_foo_blue_alpha_two.clone());
+        graph.add_module(mypackage_foo_blue_beta_three.clone());
+        graph.add_module(mypackage_bar_green_alpha.clone());
+
+        assert_eq!(
+            graph.find_descendants(&mypackage_foo),
+            // mypackage.foo.blue is not included.
+            Ok(HashSet::from([
+                &mypackage_foo_blue_alpha,
+                &mypackage_foo_blue_alpha_one,
+                &mypackage_foo_blue_alpha_two,
+                &mypackage_foo_blue_beta_three,
+            ]))
+        );
+    }
+
+    #[test]
+    fn find_descendants_added_in_different_order() {
+        let mut graph = Graph::default();
+        let mypackage = Module::new("mypackage".to_string());
+        let mypackage_foo = Module::new("mypackage.foo".to_string());
+        let mypackage_foo_blue_alpha = Module::new("mypackage.foo.blue.alpha".to_string());
+        let mypackage_foo_blue_alpha_one = Module::new("mypackage.foo.blue.alpha.one".to_string());
+        let mypackage_foo_blue_alpha_two = Module::new("mypackage.foo.blue.alpha.two".to_string());
+        let mypackage_foo_blue_beta_three = Module::new("mypackage.foo.blue.beta.three".to_string());
+        let mypackage_bar_green_alpha = Module::new("mypackage.bar.green.alpha".to_string());
+        let mypackage_foo_blue = Module::new("mypackage.foo.blue".to_string());
+        graph.add_module(mypackage.clone());
+        graph.add_module(mypackage_foo.clone());
+        graph.add_module(mypackage_foo_blue_alpha.clone());
+        graph.add_module(mypackage_foo_blue_alpha_one.clone());
+        graph.add_module(mypackage_foo_blue_alpha_two.clone());
+        graph.add_module(mypackage_foo_blue_beta_three.clone());
+        graph.add_module(mypackage_bar_green_alpha.clone());
+        // Add the middle one at the end.
+        graph.add_module(mypackage_foo_blue.clone());
+
+        assert_eq!(
+            graph.find_descendants(&mypackage_foo),
+            Ok(HashSet::from([
+                &mypackage_foo_blue, // Should be included.
+                &mypackage_foo_blue_alpha,
+                &mypackage_foo_blue_alpha_one,
+                &mypackage_foo_blue_alpha_two,
+                &mypackage_foo_blue_beta_three,
             ]))
         );
     }
@@ -911,7 +1017,6 @@ imports:
     #[test]
     fn add_import_with_non_existent_importer_adds_that_module() {
         let mut graph = Graph::default();
-        let mypackage = Module::new("mypackage".to_string());
         let mypackage_foo = Module::new("mypackage.foo".to_string());
         let mypackage_bar = Module::new("mypackage.bar".to_string());
         graph.add_module(mypackage_bar.clone());
@@ -920,15 +1025,15 @@ imports:
 
         assert_eq!(
             graph.get_modules(),
-            HashSet::from([&mypackage, &mypackage_bar, &mypackage_foo])
+            HashSet::from([&mypackage_bar, &mypackage_foo])
         );
         assert!(graph.direct_import_exists(&mypackage_foo, &mypackage_bar, false));
         assert_eq!(
             graph.pretty_str(),
             "
 hierarchy:
-    mypackage -> mypackage.bar
-    mypackage -> mypackage.foo
+    (mypackage) -> mypackage.bar
+    (mypackage) -> mypackage.foo
 imports:
     mypackage.foo -> mypackage.bar
 "
@@ -939,7 +1044,6 @@ imports:
     #[test]
     fn add_import_with_non_existent_imported_adds_that_module() {
         let mut graph = Graph::default();
-        let mypackage = Module::new("mypackage".to_string());
         let mypackage_foo = Module::new("mypackage.foo".to_string());
         let mypackage_bar = Module::new("mypackage.bar".to_string());
         graph.add_module(mypackage_foo.clone());
@@ -948,15 +1052,15 @@ imports:
 
         assert_eq!(
             graph.get_modules(),
-            HashSet::from([&mypackage, &mypackage_bar, &mypackage_foo])
+            HashSet::from([&mypackage_bar, &mypackage_foo])
         );
         assert!(graph.direct_import_exists(&mypackage_foo, &mypackage_bar, false));
         assert_eq!(
             graph.pretty_str(),
             "
 hierarchy:
-    mypackage -> mypackage.bar
-    mypackage -> mypackage.foo
+    (mypackage) -> mypackage.bar
+    (mypackage) -> mypackage.foo
 imports:
     mypackage.foo -> mypackage.bar
 "
@@ -1117,7 +1221,7 @@ imports:
     fn squash_module_descendants() {
         let mut graph = Graph::default();
         // Module we're going to squash.
-        //let mypackage = Module::new("mypackage".to_string());
+        let mypackage = Module::new("mypackage".to_string());
         let mypackage_blue = Module::new("mypackage.blue".to_string());
         let mypackage_blue_alpha = Module::new("mypackage.blue.alpha".to_string());
         let mypackage_blue_alpha_foo = Module::new("mypackage.blue.alpha.foo".to_string());
@@ -1127,6 +1231,8 @@ imports:
         let mypackage_red = Module::new("mypackage.red".to_string());
         let mypackage_orange = Module::new("mypackage.orange".to_string());
         let mypackage_yellow = Module::new("mypackage.yellow".to_string());
+        graph.add_module(mypackage.clone());
+        graph.add_module(mypackage_blue.clone());
         // Module's descendants importing other modules.
         graph.add_import(&mypackage_blue_alpha, &mypackage_green);
         graph.add_import(&mypackage_blue_alpha, &mypackage_red);
@@ -1194,7 +1300,9 @@ imports:
     #[test]
     fn squash_module_no_descendants() {
         let mut graph = Graph::default();
+        let mypackage = Module::new("mypackage".to_string());
         let mypackage_blue = Module::new("mypackage.blue".to_string());
+        graph.add_module(mypackage.clone());
         graph.add_module(mypackage_blue.clone());
 
         graph.squash_module(&mypackage_blue);

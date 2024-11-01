@@ -83,3 +83,20 @@ def test_find_descendants_works_with_gaps():
         "mypackage.foo.blue.alpha.two",
         "mypackage.foo.blue.beta.three",
     }
+
+def test_find_descendants_works_if_modules_added_in_different_order():
+    graph = ImportGraph()
+    graph.add_module("mypackage.foo")
+    graph.add_module("mypackage.foo.blue.alpha")
+    graph.add_module("mypackage.foo.blue.alpha.one")
+    graph.add_module("mypackage.bar.green.beta")
+    # Add the middle item in the hierarchy last.
+    graph.add_module("mypackage.foo.blue")
+
+    result = graph.find_descendants("mypackage.foo")
+
+    assert result == {
+        "mypackage.foo.blue",
+        "mypackage.foo.blue.alpha",
+        "mypackage.foo.blue.alpha.one",
+    }
