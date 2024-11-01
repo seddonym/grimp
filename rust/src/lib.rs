@@ -179,6 +179,7 @@ impl GraphWrapper {
     #[allow(unused_variables)]
     #[pyo3(signature = (module, as_package=false))]
     pub fn find_downstream_modules(&self, module: &str, as_package: bool) -> HashSet<String> {
+        // Turn the Modules to Strings.
         self._graph
             .find_downstream_modules(&Module::new(module.to_string()))
             .iter()
