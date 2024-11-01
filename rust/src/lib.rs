@@ -53,7 +53,11 @@ impl GraphWrapper {
     #[allow(unused_variables)]
     #[pyo3(signature = (module, is_squashed = false))]
     pub fn add_module(&mut self, module: &str, is_squashed: bool) {
-        self._graph.add_module(Module::new(module.to_string()));
+        let module_struct = Module::new(module.to_string());
+        match is_squashed {
+            false => self._graph.add_module(module_struct),
+            true => self._graph.add_squashed_module(module_struct),
+        };
     }
 
     pub fn remove_module(&mut self, module: &str) {

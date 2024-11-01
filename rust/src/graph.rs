@@ -176,6 +176,11 @@ impl Graph {
         }
     }
 
+    pub fn add_squashed_module(&mut self, module: Module) {
+        self.add_module(module.clone());
+        self.squashed_modules.insert(module);
+    }
+
     pub fn remove_module(&mut self, module: &Module) {
         if let Some(hierarchy_index) = self.hierarchy_module_indices.get_by_left(module) {
             self.hierarchy.remove_node(*hierarchy_index);
