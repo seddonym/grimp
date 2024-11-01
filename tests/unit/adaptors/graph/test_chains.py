@@ -502,6 +502,9 @@ class TestFindShortestChains:
         # Importer is child of imported (but doesn't import). This doesn't
         # make sense if as_packages is True, so it should raise an exception.
         ("b.two", "b", True, ValueError()),
+        # Importer is child of imported (but doesn't import). This doesn't
+        # make sense if as_packages is True, so it should raise an exception.
+        ("b", "b.two", True, ValueError()),
         # Importer's child imports imported's child (b.two.green -> a.one.green).
         ("b.two", "a.one", True, True),
         # Importer's grandchild directly imports imported's grandchild
