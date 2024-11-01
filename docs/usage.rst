@@ -179,7 +179,9 @@ Methods for analysing direct imports
 
 .. py:function:: ImportGraph.count_imports()
 
-    :return: The number of direct imports in the graph.
+    :return: The number of imports in the graph. For backward compatibility reasons, ``count_imports`` does not actually
+        return the number of imports, but the number of dependencies between modules.
+        So if a module is imported twice from the same module, it will only be counted once.
     :rtype: Integer.
 
 Methods for analysing import chains
