@@ -56,3 +56,23 @@ def test_find_descendants_raises_exception_for_squashed_module():
 
     with pytest.raises(ValueError, match="Cannot find descendants of a squashed module."):
         graph.find_descendants(module)
+
+
+def test_find_descendants_works_with_gaps():
+    graph = ImportGraph()
+    graph.add_module("mypackage.foo")
+    # We do not add "mypackage.foo.blue" - there's a gap.
+    graph.add_module("mypackage.foo.blue.alpha")
+    graph.add_module("mypackage.foo.blue.alpha.one")
+    graph.add_module("mypackage.foo.blue.alpha.two")
+    graph.add_module("mypackage.foo.blue.beta.three")
+    graph.add_module("mypackage.bar.green.alpha")
+
+    result = graph.find_descendants("mypackage.foo")
+
+    assert result == {
+        "mypackage.foo.blue.alpha",
+        "mypackage.foo.blue.alpha.one",
+        "mypackage.foo.blue.alpha.two",
+        "mypackage.foo.blue.beta.three",
+    }
