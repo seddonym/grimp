@@ -1,6 +1,7 @@
 import pytest  # type: ignore
 
 from grimp.adaptors.rustgraph import ImportGraph
+from grimp.exceptions import ModuleNotPresent
 
 
 @pytest.mark.parametrize(
@@ -17,6 +18,12 @@ def test_find_children(module, expected_result):
 
     assert expected_result == graph.find_children(module)
 
+def test_find_children_raises_exception_for_missing_module():
+    graph = ImportGraph()
+    graph.add_module("foo.a.one")
+
+    with pytest.raises(ModuleNotPresent):
+        graph.find_children("foo.a")
 
 def test_find_children_raises_exception_for_squashed_module():
     graph = ImportGraph()
