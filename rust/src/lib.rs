@@ -214,6 +214,12 @@ impl GraphWrapper {
             as_packages
         )
     }
+
+    pub fn clone(&self) -> GraphWrapper {
+        GraphWrapper{
+            _graph: self._graph.clone()
+        }
+    }
 }
 
 #[pyfunction]
