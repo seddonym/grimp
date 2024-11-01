@@ -183,6 +183,8 @@ impl Graph {
 
     pub fn remove_module(&mut self, module: &Module) {
         if let Some(hierarchy_index) = self.hierarchy_module_indices.get_by_left(module) {
+            // TODO should we check for children before removing?
+            // Maybe should just make invisible instead?
             self.hierarchy.remove_node(*hierarchy_index);
             self.hierarchy_module_indices.remove_by_left(module);
         };
@@ -301,8 +303,13 @@ impl Graph {
         };
 
         self.imports.remove_edge(edge_index);
-        self.imports_module_indices.remove_by_left(importer);
-        self.imports_module_indices.remove_by_left(importer);
+
+        // There might be other imports to / from the modules, so don't
+        // remove from the indices.  (TODO: does it matter if we don't clean these up
+        // if there are no more imports?)
+        // self.imports_module_indices.remove_by_left(importer);
+        // self.imports_module_indices.remove_by_left(importer);
+
         let key = (importer.clone(), imported.clone());
 
         self.detailed_imports_map.remove(&key);
@@ -737,6 +744,30 @@ imports:
         let mut graph = Graph::default();
 
         graph.remove_import(&importer, &imported);
+    }
+
+    #[test]
+    fn remove_import_doesnt_affect_other_imports_from_same_modules() {
+        let blue = Module::new("blue".to_string());
+        let green = Module::new("green".to_string());
+        let yellow = Module::new("yellow".to_string());
+        let red = Module::new("red".to_string());
+        let mut graph = Graph::default();
+        graph.add_import(&blue, &green);
+        graph.add_import(&blue, &yellow);
+        graph.add_import(&red, &blue);
+
+        graph.remove_import(&blue, &green);
+
+        // The other imports are still there.
+        assert_eq!(
+            graph.direct_import_exists(&blue, &yellow, false),
+            true
+        );
+        assert_eq!(
+            graph.direct_import_exists(&red, &blue, false),
+            true
+        );
     }
 
     #[test]
@@ -1198,6 +1229,24 @@ imports:
     }
 
     #[test]
+    fn find_modules_that_directly_import_after_removal() {
+        let mut graph = Graph::default();
+        let blue = Module::new("blue".to_string());
+        let green = Module::new("green".to_string());
+        let yellow = Module::new("yellow".to_string());
+        graph.add_import(&green, &blue);
+        graph.add_import(&yellow, &blue);
+
+        graph.remove_import(&green, &blue);
+        let result = graph.find_modules_that_directly_import(&blue);
+
+        assert_eq!(
+            result,
+            HashSet::from([&yellow])
+        )
+    }
+
+    #[test]
     fn find_modules_directly_imported_by() {
         let mut graph = Graph::default();
         let mypackage = Module::new("mypackage".to_string());
@@ -1224,6 +1273,24 @@ imports:
         assert_eq!(
             result,
             HashSet::from([&mypackage_foo_alpha, &anotherpackage])
+        )
+    }
+
+    #[test]
+    fn find_modules_directly_imported_by_after_removal() {
+        let mut graph = Graph::default();
+        let blue = Module::new("blue".to_string());
+        let green = Module::new("green".to_string());
+        let yellow = Module::new("yellow".to_string());
+        graph.add_import(&blue, &green);
+        graph.add_import(&blue, &yellow);
+
+        graph.remove_import(&blue, &green);
+        let result = graph.find_modules_directly_imported_by(&blue);
+
+        assert_eq!(
+            result,
+            HashSet::from([&yellow])
         )
     }
 
