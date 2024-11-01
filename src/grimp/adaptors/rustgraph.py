@@ -65,19 +65,24 @@ class ImportGraph(python_graph.ImportGraph):
 
     def remove_import(self, *, importer: str, imported: str) -> None:
         self._rustgraph.remove_import(importer=importer, imported=imported)
+        # Can't use rust until have the import details working with rust.
         return self._pygraph.remove_import(importer=importer, imported=imported)
 
     def count_imports(self) -> int:
         return self._rustgraph.count_imports()
 
     def find_children(self, module: str) -> Set[str]:
-        # Call the Python version first to raise any exceptions.
-        self._pygraph.find_children(module)
+        # It doesn't make sense to find the children of a squashed module, as we don't store
+        # the children in the graph.
+        if self.is_module_squashed(module):
+            raise ValueError("Cannot find children of a squashed module.")
         return self._rustgraph.find_children(module)
 
     def find_descendants(self, module: str) -> Set[str]:
-        # Call the Python version first to raise any exceptions.
-        self._pygraph.find_descendants(module)
+        # It doesn't make sense to find the descendants of a squashed module, as we don't store
+        # the descendants in the graph.
+        if self.is_module_squashed(module):
+            raise ValueError("Cannot find descendants of a squashed module.")
         return self._rustgraph.find_descendants(module)
 
     def direct_import_exists(
@@ -88,7 +93,7 @@ class ImportGraph(python_graph.ImportGraph):
         )
         if result:
             # TODO This can panic if result is False.
-            self._rustgraph.direct_import_exists(
+            return self._rustgraph.direct_import_exists(
                 importer=importer, imported=imported, as_packages=as_packages
             )
         return result
@@ -116,10 +121,12 @@ class ImportGraph(python_graph.ImportGraph):
         return self._rustgraph.find_upstream_modules(module, as_package)
 
     def find_shortest_chain(self, importer: str, imported: str) -> tuple[str, ...] | None:
-        self._rustgraph.find_shortest_chain(importer, imported)
-        # Once deepcopying is implemented, this should work.
-        # return  tuple(chain) if chain else None
-        return self._pygraph.find_shortest_chain(importer, imported)
+        for module in (importer, imported):
+            if module not in self.modules:
+                raise ValueError(f"Module {module} is not present in the graph.")
+
+        chain = self._rustgraph.find_shortest_chain(importer, imported)
+        return tuple(chain) if chain else None
 
     def find_shortest_chains(
         self, importer: str, imported: str, as_packages: bool = True
