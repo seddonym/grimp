@@ -242,6 +242,11 @@ impl Graph {
     }
 
     pub fn add_import(&mut self, importer: &Module, imported: &Module) {
+        // Don't bother doing anything if it's already in the graph.
+        if self.direct_import_exists(&importer, &imported, false) {
+            return;
+        }
+
         self.add_module_if_not_in_hierarchy(importer);
         self.add_module_if_not_in_hierarchy(imported);
 
@@ -1358,6 +1363,21 @@ imports:
         let result = graph.count_imports();
 
         assert_eq!(result, 2);
+    }
+
+    #[test]
+    fn find_count_imports_treats_two_imports_between_same_modules_as_one() {
+        let mut graph = Graph::default();
+        let mypackage_foo = Module::new("mypackage.foo".to_string());
+        let mypackage_bar = Module::new("mypackage.bar".to_string());
+        graph.add_module(mypackage_foo.clone());
+        graph.add_module(mypackage_bar.clone());
+        graph.add_import(&mypackage_foo, &mypackage_bar);
+        graph.add_import(&mypackage_foo, &mypackage_bar);
+
+        let result = graph.count_imports();
+
+        assert_eq!(result, 1);
     }
 
     #[test]

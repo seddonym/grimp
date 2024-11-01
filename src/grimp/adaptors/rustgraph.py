@@ -68,8 +68,7 @@ class ImportGraph(python_graph.ImportGraph):
         return self._pygraph.remove_import(importer=importer, imported=imported)
 
     def count_imports(self) -> int:
-        self._rustgraph.count_imports()
-        return self._pygraph.count_imports()
+        return self._rustgraph.count_imports()
 
     def find_children(self, module: str) -> Set[str]:
         # Call the Python version first to raise any exceptions.
