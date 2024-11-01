@@ -5,6 +5,7 @@ from grimp.application.ports.graph import DetailedImport
 from grimp.domain.analysis import PackageDependency
 from grimp.domain.valueobjects import Layer
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
+from grimp.exceptions import ModuleNotPresent
 
 from . import graph as python_graph
 
@@ -21,9 +22,7 @@ class ImportGraph(python_graph.ImportGraph):
 
     @property
     def modules(self) -> Set[str]:
-        rmodules = self._rustgraph.get_modules()
-        pymodules = self._pygraph.modules
-        return self._pygraph.modules
+        return self._rustgraph.get_modules()
 
     def add_module(self, module: str, is_squashed: bool = False) -> None:
         self._rustgraph.add_module(module, is_squashed)
@@ -32,7 +31,6 @@ class ImportGraph(python_graph.ImportGraph):
     def remove_module(self, module: str) -> None:
         self._rustgraph.remove_module(module)
         self._pygraph.remove_module(module)
-        pass
 
     def squash_module(self, module: str) -> None:
         self._pygraph.squash_module(module)
@@ -40,9 +38,9 @@ class ImportGraph(python_graph.ImportGraph):
         self._rustgraph.squash_module(module)
 
     def is_module_squashed(self, module: str) -> bool:
-        # The rust one doesn't seem to return the correct value?
-        self._rustgraph.is_module_squashed(module)
-        return self._pygraph.is_module_squashed(module)
+        if module not in self.modules:
+            raise ModuleNotPresent(f'"{module}" not present in the graph.')
+        return self._rustgraph.is_module_squashed(module)
 
     def add_import(
         self,
@@ -74,12 +72,14 @@ class ImportGraph(python_graph.ImportGraph):
         return self._pygraph.count_imports()
 
     def find_children(self, module: str) -> Set[str]:
-        self._rustgraph.find_children(module)
-        return self._pygraph.find_children(module)
+        # Call the Python version first to raise any exceptions.
+        self._pygraph.find_children(module)
+        return self._rustgraph.find_children(module)
 
     def find_descendants(self, module: str) -> Set[str]:
-        self._rustgraph.find_descendants(module)
-        return self._pygraph.find_descendants(module)
+        # Call the Python version first to raise any exceptions.
+        self._pygraph.find_descendants(module)
+        return self._rustgraph.find_descendants(module)
 
     def direct_import_exists(
         self, *, importer: str, imported: str, as_packages: bool = False
