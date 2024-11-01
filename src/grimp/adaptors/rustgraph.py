@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import List, Optional, Sequence, Set, Tuple
-
+from copy import deepcopy
 from grimp.application.ports.graph import DetailedImport
 from grimp.domain.analysis import PackageDependency
 from grimp.domain.valueobjects import Layer
@@ -17,28 +17,32 @@ class ImportGraph(python_graph.ImportGraph):
     def __init__(self) -> None:
         super().__init__()
         self._rustgraph = rust.Graph()
+        self._pygraph = python_graph.ImportGraph()
 
     @property
     def modules(self) -> Set[str]:
-        self._rustgraph.get_modules()
-        return super().modules
+        rmodules = self._rustgraph.get_modules()
+        pymodules = self._pygraph.modules
+        return self._pygraph.modules
 
     def add_module(self, module: str, is_squashed: bool = False) -> None:
         self._rustgraph.add_module(module, is_squashed)
-        super().add_module(module, is_squashed)
+        self._pygraph.add_module(module, is_squashed)
 
     def remove_module(self, module: str) -> None:
         self._rustgraph.remove_module(module)
-        super().remove_module(module)
+        self._pygraph.remove_module(module)
+        pass
 
     def squash_module(self, module: str) -> None:
-        super().squash_module(module)
+        self._pygraph.squash_module(module)
         # TODO raise ModuleNotPresent if not in graph.
         self._rustgraph.squash_module(module)
 
     def is_module_squashed(self, module: str) -> bool:
+        # The rust one doesn't seem to return the correct value?
         self._rustgraph.is_module_squashed(module)
-        return super().is_module_squashed(module)
+        return self._pygraph.is_module_squashed(module)
 
     def add_import(
         self,
@@ -54,7 +58,7 @@ class ImportGraph(python_graph.ImportGraph):
             line_number=line_number,
             line_contents=line_contents,
         )
-        return super().add_import(
+        return self._pygraph.add_import(
             importer=importer,
             imported=imported,
             line_number=line_number,
@@ -63,24 +67,24 @@ class ImportGraph(python_graph.ImportGraph):
 
     def remove_import(self, *, importer: str, imported: str) -> None:
         self._rustgraph.remove_import(importer=importer, imported=imported)
-        return super().remove_import(importer=importer, imported=imported)
+        return self._pygraph.remove_import(importer=importer, imported=imported)
 
     def count_imports(self) -> int:
         self._rustgraph.count_imports()
-        return super().count_imports()
+        return self._pygraph.count_imports()
 
     def find_children(self, module: str) -> Set[str]:
         self._rustgraph.find_children(module)
-        return super().find_children(module)
+        return self._pygraph.find_children(module)
 
     def find_descendants(self, module: str) -> Set[str]:
         self._rustgraph.find_descendants(module)
-        return super().find_descendants(module)
+        return self._pygraph.find_descendants(module)
 
     def direct_import_exists(
         self, *, importer: str, imported: str, as_packages: bool = False
     ) -> bool:
-        result = super().direct_import_exists(
+        result = self._pygraph.direct_import_exists(
             importer=importer, imported=imported, as_packages=as_packages
         )
         if result:
@@ -92,11 +96,11 @@ class ImportGraph(python_graph.ImportGraph):
 
     def find_modules_directly_imported_by(self, module: str) -> Set[str]:
         self._rustgraph.find_modules_directly_imported_by(module)
-        return super().find_modules_directly_imported_by(module)
+        return self._pygraph.find_modules_directly_imported_by(module)
 
     def find_modules_that_directly_import(self, module: str) -> Set[str]:
-        result = super().find_modules_that_directly_import(module)
-        if module in self.modules:
+        result = self._pygraph.find_modules_that_directly_import(module)
+        if module in self._pygraph.modules:
             # TODO panics if module isn't in modules.
             self._rustgraph.find_modules_that_directly_import(module)
         return result
@@ -106,28 +110,28 @@ class ImportGraph(python_graph.ImportGraph):
         #     importer=importer,
         #     imported=imported,
         # )
-        return super().get_import_details(importer=importer, imported=imported)
+        return self._pygraph.get_import_details(importer=importer, imported=imported)
 
     def find_downstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
         self._rustgraph.find_downstream_modules(module, as_package)
-        return super().find_downstream_modules(module, as_package)
+        return self._pygraph.find_downstream_modules(module, as_package)
 
     def find_upstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
         self._rustgraph.find_upstream_modules(module, as_package)
-        return super().find_upstream_modules(module, as_package)
+        return self._pygraph.find_upstream_modules(module, as_package)
 
     def find_shortest_chain(self, importer: str, imported: str) -> tuple[str, ...] | None:
         self._rustgraph.find_shortest_chain(importer, imported)
-        return super().find_shortest_chain(importer, imported)
+        return self._pygraph.find_shortest_chain(importer, imported)
 
     def find_shortest_chains(
         self, importer: str, imported: str, as_packages: bool = True
     ) -> Set[Tuple[str, ...]]:
-        return super().find_shortest_chains(importer, imported, as_packages)
+        return self._pygraph.find_shortest_chains(importer, imported, as_packages)
 
     def chain_exists(self, importer: str, imported: str, as_packages: bool = False) -> bool:
         self._rustgraph.chain_exists(importer, imported, as_packages)
-        return super().chain_exists(importer, imported, as_packages)
+        return self._pygraph.chain_exists(importer, imported, as_packages)
 
     def find_illegal_dependencies_for_layers(
         self,
@@ -135,4 +139,25 @@ class ImportGraph(python_graph.ImportGraph):
         containers: set[str] | None = None,
     ) -> set[PackageDependency]:
         # TODO
-        return super().find_illegal_dependencies_for_layers(layers, containers)
+        return self._pygraph.find_illegal_dependencies_for_layers(layers, containers)
+
+    # Dunder methods
+    # --------------
+
+    def __deepcopy__(self, memodict: dict) -> "ImportGraph":
+        new_graph = ImportGraph()
+        new_graph._pygraph = deepcopy(self._pygraph)
+
+        # TODO - this is very inefficient, defer to rust to do this.
+        new_rustgraph = rust.Graph()
+        for module in self._rustgraph.get_modules():
+            new_rustgraph.add_module(
+                module,
+                is_squashed=self._rustgraph.is_module_squashed(module)
+            )
+
+        # TODO add imports too.
+
+        new_graph._rustgraph = new_rustgraph
+
+        return new_graph
