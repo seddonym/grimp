@@ -94,8 +94,8 @@ class ImportGraph(python_graph.ImportGraph):
         return result
 
     def find_modules_directly_imported_by(self, module: str) -> Set[str]:
-        self._rustgraph.find_modules_directly_imported_by(module)
-        return self._pygraph.find_modules_directly_imported_by(module)
+        self._pygraph.find_modules_directly_imported_by(module)
+        return self._rustgraph.find_modules_directly_imported_by(module)
 
     def find_modules_that_directly_import(self, module: str) -> Set[str]:
         result = self._pygraph.find_modules_that_directly_import(module)
