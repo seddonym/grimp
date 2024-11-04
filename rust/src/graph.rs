@@ -30,7 +30,7 @@ use petgraph::graph::EdgeIndex;
 use petgraph::stable_graph::{NodeIndex, StableGraph};
 use petgraph::visit::{Bfs, Walker};
 use petgraph::Direction;
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 // Delimiter for Python modules.
@@ -48,10 +48,9 @@ impl fmt::Display for Module {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ModuleNotPresent{
-    pub module: Module
+pub struct ModuleNotPresent {
+    pub module: Module,
 }
-
 
 impl fmt::Display for ModuleNotPresent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -188,30 +187,47 @@ impl Graph {
     }
 
     pub fn remove_module(&mut self, module: &Module) {
+        // Remove imports by module.
+        let imported_modules: Vec<Module> = self.find_modules_directly_imported_by(module).iter().map(
+            |m| (*m).clone()
+        ).collect();
+        for imported_module in imported_modules {
+            self.remove_import(&module, &imported_module);
+        }
+
+        // Remove imports of module.
+        let importer_modules: Vec<Module> = self.find_modules_that_directly_import(module).iter().map(
+            |m| (*m).clone()
+        ).collect();
+        for importer_module in importer_modules {
+            self.remove_import(&importer_module, &module);
+        }
+
+        // Remove module from hierarchy.
         if let Some(hierarchy_index) = self.hierarchy_module_indices.get_by_left(module) {
             // TODO should we check for children before removing?
             // Maybe should just make invisible instead?
             self.hierarchy.remove_node(*hierarchy_index);
             self.hierarchy_module_indices.remove_by_left(module);
         };
-
-        if let Some(imports_index) = self.imports_module_indices.get_by_left(module) {
-            self.imports.remove_node(*imports_index);
-            self.imports_module_indices.remove_by_left(module);
-        };
     }
 
     pub fn get_modules(&self) -> HashSet<&Module> {
-        self.hierarchy_module_indices.left_values().filter(
-            |module| !self.invisible_modules.contains(module)
-        ).collect()
+        self.hierarchy_module_indices
+            .left_values()
+            .filter(|module| !self.invisible_modules.contains(module))
+            .collect()
     }
 
     pub fn count_imports(&self) -> usize {
         self.imports.edge_count()
     }
 
-    pub fn get_import_details(&self, importer: &Module, imported: &Module) -> HashSet<DetailedImport> {
+    pub fn get_import_details(
+        &self,
+        importer: &Module,
+        imported: &Module,
+    ) -> HashSet<DetailedImport> {
         let key = (importer.clone(), imported.clone());
         match self.detailed_imports_map.get(&key) {
             Some(import_details) => import_details.clone(),
@@ -239,12 +255,16 @@ impl Graph {
     pub fn find_descendants(&self, module: &Module) -> Result<HashSet<&Module>, ModuleNotPresent> {
         let module_index = match self.hierarchy_module_indices.get_by_left(module) {
             Some(index) => index,
-            None => return Err(ModuleNotPresent{module: module.clone()}),
+            None => {
+                return Err(ModuleNotPresent {
+                    module: module.clone(),
+                })
+            }
         };
         Ok(Bfs::new(&self.hierarchy, *module_index)
             .iter(&self.hierarchy)
             .filter(|index| index != module_index) // Don't include the supplied module.
-            .map(|index| self.hierarchy_module_indices.get_by_right(&index).unwrap())  // This panics sometimes.
+            .map(|index| self.hierarchy_module_indices.get_by_right(&index).unwrap()) // This panics sometimes.
             .filter(|module| !self.invisible_modules.contains(module))
             .collect())
     }
@@ -288,7 +308,8 @@ impl Graph {
 
     pub fn add_detailed_import(&mut self, import: &DetailedImport) {
         let key = (import.importer.clone(), import.imported.clone());
-        self.detailed_imports_map.entry(key)
+        self.detailed_imports_map
+            .entry(key)
             .or_insert_with(HashSet::new)
             .insert(import.clone());
         self.add_import(&import.importer, &import.imported);
@@ -430,7 +451,7 @@ impl Graph {
                     .iter(&self.imports)
                     .map(|index| self.imports_module_indices.get_by_right(&index).unwrap())
                     // Exclude any modules that we are checking.
-                    .filter(|downstream_module| !modules_to_check.contains(downstream_module))
+                    .filter(|downstream_module| !modules_to_check.contains(downstream_module)),
             );
         }
 
@@ -459,10 +480,10 @@ impl Graph {
 
             downstream_modules.extend(
                 Bfs::new(&reversed_graph, module_index)
-                .iter(&reversed_graph)
-                .map(|index| self.imports_module_indices.get_by_right(&index).unwrap())
-                // Exclude any modules that we are checking.
-                .filter(|downstream_module| !modules_to_check.contains(downstream_module))
+                    .iter(&reversed_graph)
+                    .map(|index| self.imports_module_indices.get_by_right(&index).unwrap())
+                    // Exclude any modules that we are checking.
+                    .filter(|downstream_module| !modules_to_check.contains(downstream_module)),
             )
         }
 
@@ -537,12 +558,7 @@ impl Graph {
     }
 
     #[allow(unused_variables)]
-    pub fn chain_exists(
-        &self,
-        importer: &Module,
-        imported: &Module,
-        as_packages: bool,
-    ) -> bool {
+    pub fn chain_exists(&self, importer: &Module, imported: &Module, as_packages: bool) -> bool {
         // TODO should this return a Result, so we can handle the situation the importer / imported
         // having shared descendants when as_packages=true?
         let mut temp_graph;
@@ -552,7 +568,7 @@ impl Graph {
                 temp_graph.squash_module(importer);
                 temp_graph.squash_module(imported);
                 &temp_graph
-            },
+            }
             false => self,
         };
         graph.find_shortest_chain(importer, imported).is_some()
@@ -561,7 +577,12 @@ impl Graph {
     #[allow(unused_variables)]
     pub fn squash_module(&mut self, module: &Module) {
         // Get descendants and their imports.
-        let descendants: Vec<Module> = self.find_descendants(module).unwrap().into_iter().cloned().collect();
+        let descendants: Vec<Module> = self
+            .find_descendants(module)
+            .unwrap()
+            .into_iter()
+            .cloned()
+            .collect();
         let modules_imported_by_descendants: Vec<Module> = descendants
             .iter()
             .flat_map(|descendant| {
@@ -670,7 +691,7 @@ hierarchy:
 imports:
 
 "
-                .trim_start()
+            .trim_start()
         );
     }
 
@@ -743,6 +764,46 @@ imports:
     }
 
     #[test]
+    fn remove_importer_module_removes_import_details() {
+        let importer = Module::new("importer".to_string());
+        let imported = Module::new("importer".to_string());
+        let mut graph = Graph::default();
+        graph.add_detailed_import(&DetailedImport {
+            importer: importer.clone(),
+            imported: imported.clone(),
+            line_number: 99,
+            line_contents: "-".to_string(),
+        });
+
+        graph.remove_module(&importer);
+
+        assert_eq!(
+            graph.get_import_details(&importer, &imported),
+            HashSet::new()
+        );
+    }
+
+    #[test]
+    fn remove_imported_module_removes_import_details() {
+        let importer = Module::new("importer".to_string());
+        let imported = Module::new("importer".to_string());
+        let mut graph = Graph::default();
+        graph.add_detailed_import(&DetailedImport {
+            importer: importer.clone(),
+            imported: imported.clone(),
+            line_number: 99,
+            line_contents: "-".to_string(),
+        });
+
+        graph.remove_module(&imported);
+
+        assert_eq!(
+            graph.get_import_details(&importer, &imported),
+            HashSet::new()
+        );
+    }
+
+    #[test]
     fn remove_import_that_exists() {
         let importer = Module::new("importer".to_string());
         let imported = Module::new("importer".to_string());
@@ -797,14 +858,8 @@ imports:
         graph.remove_import(&blue, &green);
 
         // The other imports are still there.
-        assert_eq!(
-            graph.direct_import_exists(&blue, &yellow, false),
-            true
-        );
-        assert_eq!(
-            graph.direct_import_exists(&red, &blue, false),
-            true
-        );
+        assert_eq!(graph.direct_import_exists(&blue, &yellow, false), true);
+        assert_eq!(graph.direct_import_exists(&red, &blue, false), true);
     }
 
     #[test]
@@ -952,7 +1007,12 @@ imports:
         let green = Module::new("green".to_string());
         graph.add_module(blue.clone());
 
-        assert_eq!(graph.find_descendants(&green), Err(ModuleNotPresent{module: green.clone()}));
+        assert_eq!(
+            graph.find_descendants(&green),
+            Err(ModuleNotPresent {
+                module: green.clone()
+            })
+        );
     }
 
     #[test]
@@ -994,7 +1054,8 @@ imports:
         let mypackage_foo_blue_alpha = Module::new("mypackage.foo.blue.alpha".to_string());
         let mypackage_foo_blue_alpha_one = Module::new("mypackage.foo.blue.alpha.one".to_string());
         let mypackage_foo_blue_alpha_two = Module::new("mypackage.foo.blue.alpha.two".to_string());
-        let mypackage_foo_blue_beta_three = Module::new("mypackage.foo.blue.beta.three".to_string());
+        let mypackage_foo_blue_beta_three =
+            Module::new("mypackage.foo.blue.beta.three".to_string());
         let mypackage_bar_green_alpha = Module::new("mypackage.bar.green.alpha".to_string());
         graph.add_module(mypackage.clone());
         graph.add_module(mypackage_foo.clone());
@@ -1024,7 +1085,8 @@ imports:
         let mypackage_foo_blue_alpha = Module::new("mypackage.foo.blue.alpha".to_string());
         let mypackage_foo_blue_alpha_one = Module::new("mypackage.foo.blue.alpha.one".to_string());
         let mypackage_foo_blue_alpha_two = Module::new("mypackage.foo.blue.alpha.two".to_string());
-        let mypackage_foo_blue_beta_three = Module::new("mypackage.foo.blue.beta.three".to_string());
+        let mypackage_foo_blue_beta_three =
+            Module::new("mypackage.foo.blue.beta.three".to_string());
         let mypackage_bar_green_alpha = Module::new("mypackage.bar.green.alpha".to_string());
         let mypackage_foo_blue = Module::new("mypackage.foo.blue".to_string());
         graph.add_module(mypackage.clone());
@@ -1119,7 +1181,7 @@ hierarchy:
 imports:
     mypackage.bar -> mypackage.foo.alpha
 "
-                .trim_start()
+            .trim_start()
         );
         assert!(!graph.direct_import_exists(&mypackage_bar, &mypackage_foo, false));
     }
@@ -1147,7 +1209,7 @@ hierarchy:
 imports:
     mypackage.foo -> mypackage.bar
 "
-                .trim_start()
+            .trim_start()
         );
     }
 
@@ -1174,7 +1236,7 @@ hierarchy:
 imports:
     mypackage.foo -> mypackage.bar
 "
-                .trim_start()
+            .trim_start()
         );
     }
 
@@ -1320,10 +1382,7 @@ imports:
         graph.remove_import(&green, &blue);
         let result = graph.find_modules_that_directly_import(&blue);
 
-        assert_eq!(
-            result,
-            HashSet::from([&yellow])
-        )
+        assert_eq!(result, HashSet::from([&yellow]))
     }
 
     #[test]
@@ -1368,10 +1427,7 @@ imports:
         graph.remove_import(&blue, &green);
         let result = graph.find_modules_directly_imported_by(&blue);
 
-        assert_eq!(
-            result,
-            HashSet::from([&yellow])
-        )
+        assert_eq!(result, HashSet::from([&yellow]))
     }
 
     #[test]
@@ -1425,7 +1481,7 @@ imports:
     mypackage.red -> mypackage.blue.alpha
     mypackage.yellow -> mypackage.blue.alpha
 "
-                .trim_start()
+            .trim_start()
         );
 
         graph.squash_module(&mypackage_blue);
@@ -1450,7 +1506,7 @@ imports:
     mypackage.red -> mypackage.blue
     mypackage.yellow -> mypackage.blue
 "
-                .trim_start()
+            .trim_start()
         );
     }
 
@@ -1472,7 +1528,7 @@ hierarchy:
 imports:
 
 "
-                .trim_start()
+            .trim_start()
         );
     }
 
@@ -2090,7 +2146,6 @@ imports:
         // Add a chain.
         graph.add_import(&blue_alpha_one, &red);
         graph.add_import(&red, &green);
-
 
         let result = graph.chain_exists(&blue, &green, true);
 

@@ -11,10 +11,10 @@ use containers::check_containers_exist;
 use importgraph::ImportGraph;
 use layers::Level;
 use log::info;
-use pyo3::exceptions::PyValueError;
 use pyo3::create_exception;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyFrozenSet, PySet, PyString, PyTuple};
+use pyo3::types::{PyDict, PyFrozenSet, PyList, PySet, PyString, PyTuple};
 use std::collections::{HashMap, HashSet};
 //use petgraph::Graph;
 
@@ -46,9 +46,11 @@ impl GraphWrapper {
     }
 
     pub fn get_modules(&self) -> HashSet<String> {
-        self._graph.get_modules().iter().map(
-            |module| module.name.clone()
-        ).collect()
+        self._graph
+            .get_modules()
+            .iter()
+            .map(|module| module.name.clone())
+            .collect()
     }
 
     #[allow(unused_variables)]
@@ -125,21 +127,29 @@ impl GraphWrapper {
 
     pub fn find_descendants(&self, module: &str) -> HashSet<String> {
         self._graph
-            .find_descendants(&Module::new(module.to_string())).unwrap()
+            .find_descendants(&Module::new(module.to_string()))
+            .unwrap()
             .iter()
             .map(|descendant| descendant.name.clone())
             .collect()
     }
 
     #[pyo3(signature = (*, importer, imported, as_packages = false))]
-    pub fn direct_import_exists(&self, importer: &str, imported: &str, as_packages: bool) -> PyResult<bool> {
+    pub fn direct_import_exists(
+        &self,
+        importer: &str,
+        imported: &str,
+        as_packages: bool,
+    ) -> PyResult<bool> {
         if as_packages {
             let importer_module = Module::new(importer.to_string());
             let imported_module = Module::new(imported.to_string());
             // Raise a ValueError if they are in the same package.
             // (direct_import_exists) will panic if they are passed.
             // TODO - this is a simpler check than Python, is it enough?
-            if importer_module.is_descendant_of(&imported_module) || imported_module.is_descendant_of(&importer_module) {
+            if importer_module.is_descendant_of(&imported_module)
+                || imported_module.is_descendant_of(&importer_module)
+            {
                 return Err(PyValueError::new_err("Modules have shared descendants."));
             }
         }
@@ -167,26 +177,44 @@ impl GraphWrapper {
             .collect()
     }
 
-    // #[pyo3(signature = (*, importer, imported))]
-    // pub fn get_import_details(
-    //     &self,
-    //     importer: &str,
-    //     imported: &str,
-    // ) -> HashSet<DetailedImport> {
-    //     self._graph.get_import_details(
-    //         &Module::new(importer.to_string()),
-    //         &Module::new(imported.to_string()),
-    //     ).iter().map(
-    //         |detailed_import| PyDict::from_sequence_bound(
-    //             (
-    //                 ("importer".to_string(), &detailed_import.importer.clone()),
-    //                 ("imported".to_string(), &detailed_import.imported.clone()),
-    //                 ("line_number".to_string(), &detailed_import.line_number),
-    //                 ("line_contents".to_string(), &detailed_import.line_contents.clone()),
-    //             )
-    //         )
-    //     ).collect()
-    // }
+    #[pyo3(signature = (*, importer, imported))]
+    pub fn get_import_details<'py>(
+        &self,
+        py: Python<'py>,
+        importer: &str,
+        imported: &str,
+    ) -> PyResult<Bound<'py, PyList>> {
+        let mut vector: Vec<Bound<PyDict>> = vec![];
+
+        let mut rust_import_details_vec: Vec<DetailedImport> = self
+            ._graph
+            .get_import_details(
+                &Module::new(importer.to_string()),
+                &Module::new(imported.to_string()),
+            )
+            .into_iter()
+            .collect();
+        rust_import_details_vec.sort();
+
+        for detailed_import in rust_import_details_vec {
+            let pydict = PyDict::new_bound(py);
+            pydict.set_item(
+                "importer".to_string(),
+                detailed_import.importer.name.clone(),
+            )?;
+            pydict.set_item(
+                "imported".to_string(),
+                detailed_import.imported.name.clone(),
+            )?;
+            pydict.set_item("line_number".to_string(), detailed_import.line_number)?;
+            pydict.set_item(
+                "line_contents".to_string(),
+                detailed_import.line_contents.clone(),
+            )?;
+            vector.push(pydict);
+        }
+        Ok(PyList::new_bound(py, &vector))
+    }
 
     #[allow(unused_variables)]
     #[pyo3(signature = (module, as_package=false))]
@@ -219,26 +247,33 @@ impl GraphWrapper {
     }
 
     #[pyo3(signature = (importer, imported, as_packages=false))]
-    pub fn chain_exists(&self, importer: &str, imported: &str, as_packages: bool) -> PyResult<bool> {
+    pub fn chain_exists(
+        &self,
+        importer: &str,
+        imported: &str,
+        as_packages: bool,
+    ) -> PyResult<bool> {
         if as_packages {
             let importer_module = Module::new(importer.to_string());
             let imported_module = Module::new(imported.to_string());
             // Raise a ValueError if they are in the same package.
             // TODO - this is a simpler check than Python, is it enough?
-            if importer_module.is_descendant_of(&imported_module) || imported_module.is_descendant_of(&importer_module) {
+            if importer_module.is_descendant_of(&imported_module)
+                || imported_module.is_descendant_of(&importer_module)
+            {
                 return Err(PyValueError::new_err("Modules have shared descendants."));
             }
         }
         Ok(self._graph.chain_exists(
             &Module::new(importer.to_string()),
             &Module::new(imported.to_string()),
-            as_packages
+            as_packages,
         ))
     }
 
     pub fn clone(&self) -> GraphWrapper {
-        GraphWrapper{
-            _graph: self._graph.clone()
+        GraphWrapper {
+            _graph: self._graph.clone(),
         }
     }
 }
