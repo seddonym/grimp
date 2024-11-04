@@ -102,11 +102,10 @@ class ImportGraph(python_graph.ImportGraph):
         return set()
 
     def get_import_details(self, *, importer: str, imported: str) -> List[DetailedImport]:
-        # self._rustgraph.get_import_details(
-        #     importer=importer,
-        #     imported=imported,
-        # )
-        return self._pygraph.get_import_details(importer=importer, imported=imported)
+        return self._rustgraph.get_import_details(
+            importer=importer,
+            imported=imported,
+        )
 
     def find_downstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
         return self._rustgraph.find_downstream_modules(module, as_package)
