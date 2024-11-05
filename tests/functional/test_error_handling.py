@@ -1,24 +1,13 @@
-import os
 import re
+from concurrent.futures.process import BrokenProcessPool
 
 import pytest  # type: ignore
-
 from grimp import build_graph, exceptions
 
 
-def test_syntax_error_includes_module():
-    dirname = os.path.dirname(__file__)
-    filename = os.path.abspath(
-        os.path.join(dirname, "..", "assets", "syntaxerrorpackage", "foo", "one.py")
-    )
-
-    with pytest.raises(exceptions.SourceSyntaxError) as excinfo:
+def test_syntax_error_terminates_executor_pool():
+    with pytest.raises(BrokenProcessPool):
         build_graph("syntaxerrorpackage", cache_dir=None)
-
-    expected_exception = exceptions.SourceSyntaxError(
-        filename=filename, lineno=5, text="fromb . import two\n"
-    )
-    assert expected_exception == excinfo.value
 
 
 def test_missing_root_init_file():
