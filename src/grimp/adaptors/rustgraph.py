@@ -5,7 +5,7 @@ from grimp.application.ports.graph import DetailedImport
 from grimp.domain.analysis import PackageDependency
 from grimp.domain.valueobjects import Layer
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
-from grimp.exceptions import ModuleNotPresent
+from grimp.exceptions import ModuleNotPresent, NoSuchContainer
 from grimp.adaptors import _layers
 
 from . import graph as python_graph
@@ -136,13 +136,17 @@ class ImportGraph(python_graph.ImportGraph):
         containers: set[str] | None = None,
     ) -> set[PackageDependency]:
         layers = _layers.parse_layers(layers)
-        result = self._rustgraph.find_illegal_dependencies_for_layers(
-            layers=tuple(
-                {"layers": layer.module_tails, "independent": layer.independent}
-                for layer in layers
-            ),
-            containers=set(containers) if containers else set(),
-        )
+        try:
+            result = self._rustgraph.find_illegal_dependencies_for_layers(
+                layers=tuple(
+                    {"layers": layer.module_tails, "independent": layer.independent}
+                    for layer in layers
+                ),
+                containers=set(containers) if containers else set(),
+            )
+        except rust.NoSuchContainer as e:
+            raise NoSuchContainer(str(e))
+
         return _layers._dependencies_from_tuple(result)
         # return self._pygraph.find_illegal_dependencies_for_layers(layers, containers)
 
