@@ -117,14 +117,14 @@ pub struct Graph {
     detailed_imports_map: HashMap<(Module, Module), HashSet<DetailedImport>>,
 }
 
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct Route {
     pub heads: Vec<Module>,
     pub middle: Vec<Module>,
     pub tails: Vec<Module>,
 }
 
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct PackageDependency {
     pub importer: Module,
     pub imported: Module,
@@ -646,7 +646,7 @@ impl Graph {
 
         let perms = self._generate_module_permutations(&levels, &containers);
         println!("Permutations, {:?}", perms);
-        let dependencies = self
+        let mut dependencies: Vec<PackageDependency> = self
             ._generate_module_permutations(&levels, &containers)
             .into_iter()
             //.into_par_iter()
@@ -669,6 +669,8 @@ impl Graph {
             })
             .collect();
 
+        dependencies.sort();
+
         Ok(dependencies)
     }
 
@@ -690,13 +692,34 @@ impl Graph {
         let all_modules = self.get_modules();
 
         for quasi_container in quasi_containers {
+            println!("Container, {:?}", quasi_container);
             for (index, higher_level) in levels.iter().enumerate() {
                 for higher_layer in &higher_level.layers {
+                    println!("Higher layer, {:?}", higher_layer);
                     let higher_layer_module = _module_from_layer(&higher_layer, &quasi_container);
                     if !all_modules.contains(&higher_layer_module) {
                         continue;
                     }
+
+                    // Build the layers that mustn't import this higher layer.
+                    // That includes:
+                    // * lower layers.
+                    // * sibling layers, if the layer is independent.
                     let mut layers_forbidden_to_import_higher_layer: Vec<Module> = vec![];
+
+                    // Independence
+                    if higher_level.independent {
+                        for potential_sibling_layer in &higher_level.layers {
+                            println!("Potential sibling {:?} of {:?}", potential_sibling_layer, higher_layer_module);
+                            let sibling_module = _module_from_layer(&potential_sibling_layer, &quasi_container);
+                            if sibling_module != higher_layer_module && all_modules.contains(&sibling_module) {
+                                println!("Added {:?}", sibling_module);
+                                layers_forbidden_to_import_higher_layer.push(sibling_module);
+                            }
+
+                        }
+                    }
+
                     for lower_level in &levels[index + 1..] {
                         for lower_layer in &lower_level.layers {
                             let lower_layer_module = _module_from_layer(&lower_layer, &quasi_container);
@@ -851,6 +874,8 @@ impl Graph {
         let mut chains = vec![];
 
         loop {
+            // TODO - defend against infinite loops somehow.
+
             let found_chain: Vec<Module>;
             {
                 let chain = self.find_shortest_chain(importer, imported);
@@ -861,12 +886,14 @@ impl Graph {
 
                 found_chain = chain.unwrap().into_iter().cloned().collect();
             }
-
+            println!("Chain {:?}", &found_chain);
             // Remove chain.
             for i in 0..found_chain.len() - 1 {
+                println!("Removing {:?} -> {:?}", &found_chain[i], &found_chain[i + 1]);
                 self.remove_import(&found_chain[i], &found_chain[i + 1]);
             }
             chains.push(found_chain);
+
         }
         chains
     }
@@ -2698,6 +2725,40 @@ imports:
                     }]
                 }
             ])
+        );
+    }
+
+    #[test]
+    fn find_illegal_dependencies_for_layers_independent() {
+        let mut graph = Graph::default();
+        let blue = Module::new("blue".to_string());
+        let green  = Module::new("green".to_string());
+        let blue_alpha = Module::new("blue.alpha".to_string());
+        let green_beta = Module::new("green.beta".to_string());
+        graph.add_module(blue.clone());
+        graph.add_module(green.clone());
+        graph.add_import(&blue_alpha, &green_beta);
+
+        let levels = vec![
+            Level {
+                layers: vec![blue.name.clone(), green.name.clone()],
+                independent: true,
+            },
+        ];
+
+        let dependencies = graph.find_illegal_dependencies_for_layers(levels, HashSet::new());
+
+        assert_eq!(
+            dependencies,
+            Ok(vec![PackageDependency {
+                importer: blue.clone(),
+                imported: green.clone(),
+                routes: vec![Route {
+                    heads: vec![blue_alpha.clone()],
+                    middle: vec![],
+                    tails: vec![green_beta.clone()],
+                }]
+            }])
         );
     }
 
