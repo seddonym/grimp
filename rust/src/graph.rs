@@ -623,7 +623,7 @@ impl Graph {
             .flat_map(|level| level.layers.iter())
             .map(|module_name| Module::new(module_name.to_string()))
             .collect();
-        
+
         let dependencies = self
             ._generate_module_permutations(&levels)
             .into_iter()
@@ -702,6 +702,9 @@ impl Graph {
 
         let mut routes: Vec<Route> = vec![];
 
+        // Direct routes.
+        // TODO: do we need to pop the imports?
+        // The indirect routes should cope without removing them?
         let direct_links= temp_graph._pop_direct_imports(
             lower_layer_package, higher_layer_package
         );
@@ -713,6 +716,11 @@ impl Graph {
             });
         }
 
+        // Indirect routes.
+        for indirect_route in temp_graph._find_indirect_routes(lower_layer_package, higher_layer_package) {
+            routes.push(indirect_route);
+        }
+
         if routes.is_empty() {
             None
         } else {
@@ -722,8 +730,96 @@ impl Graph {
                 routes
             })
         }
+    }
 
+    fn _find_indirect_routes(
+        &self,
+        importer_package: &Module,
+        imported_package: &Module,
+    ) -> Vec<Route> {
+        let mut routes = vec![];
 
+        let mut temp_graph = self.clone();
+        temp_graph.squash_module(importer_package);
+        temp_graph.squash_module(imported_package);
+
+        // Find middles.
+        let mut middles: Vec<Vec<Module>> = vec![];
+        for chain in temp_graph._pop_shortest_chains(importer_package, imported_package) {
+            // Remove first and last element.
+            let mut middle: Vec<Module> = vec![];
+            let chain_length = chain.len();
+            for (index, module) in chain.iter().enumerate() {
+                if index != 0 && index != chain_length - 1 {
+                    middle.push(module.clone());
+                }
+            }
+            middles.push(middle);
+        }
+
+        // Set up importer/imported package contents.
+        let mut importer_modules: HashSet<&Module> = HashSet::from([importer_package]);
+        importer_modules.extend(self.find_descendants(&importer_package).unwrap());
+        let mut imported_modules: HashSet<&Module> = HashSet::from([imported_package]);
+        imported_modules.extend(self.find_descendants(&imported_package).unwrap());
+
+        // Build routes from middles.
+        for middle in middles {
+            // Construct heads.
+            let mut heads: Vec<Module> = vec![];
+            let first_imported_module = &middle[0];
+            for candidate_head in self.find_modules_that_directly_import(&first_imported_module) {
+                if importer_modules.contains(candidate_head) {
+                    heads.push(candidate_head.clone());
+                }
+            }
+
+            // Construct tails.
+            let mut tails: Vec<Module> = vec![];
+            let last_importer_module = &middle[middle.len() - 1];
+            for candidate_tail in self.find_modules_directly_imported_by(&last_importer_module) {
+                if imported_modules.contains(candidate_tail) {
+                    tails.push(candidate_tail.clone());
+                }
+            }
+
+            routes.push(Route {
+                heads,
+                middle,
+                tails,
+            })
+        }
+
+        routes
+    }
+
+    fn _pop_shortest_chains(
+        &mut self,
+        importer: &Module,
+        imported: &Module,
+    ) -> Vec<Vec<Module>> {
+        let mut chains = vec![];
+
+        let mut found_chain: Vec<Module> = vec![];
+        loop {
+            {
+                let chain = self.find_shortest_chain(importer, imported);
+
+                if chain.is_none() {
+                    break;
+                }
+
+                found_chain = chain.unwrap().into_iter().cloned().collect();
+            }
+
+            // Remove chain.
+            for i in 0..found_chain.len() - 1 {
+                self.remove_import(&found_chain[i], &found_chain[i + 1]);
+            }
+            chains.push(found_chain);
+
+        }
+        chains
     }
 
     /// Remove the direct imports, returning them as (importer, imported) tuples.
@@ -2422,7 +2518,7 @@ imports:
     }
 
     #[test]
-    fn find_illegal_dependencies_for_layers_no_container_one_illegal_dependency() {
+    fn find_illegal_dependencies_for_layers_no_container_direct_dependency() {
         let mut graph = Graph::default();
         let high = Module::new("high".to_string());
         let low = Module::new("low".to_string());
@@ -2448,6 +2544,41 @@ imports:
                 routes: vec![Route {
                     heads: vec![low.clone()],
                     middle: vec![],
+                    tails: vec![high.clone()],
+                }]
+            }])
+        );
+    }
+
+    #[test]
+    fn find_illegal_dependencies_for_layers_no_container_indirect_dependency() {
+        let mut graph = Graph::default();
+        let high = Module::new("high".to_string());
+        let elsewhere = Module::new("elsewhere".to_string());
+        let low = Module::new("low".to_string());
+        graph.add_import(&low, &elsewhere);
+        graph.add_import(&elsewhere, &high);
+        let levels = vec![
+            Level {
+                layers: vec![high.name.clone()],
+                independent: true,
+            },
+            Level {
+                layers: vec![low.name.clone()],
+                independent: true,
+            },
+        ];
+
+        let dependencies = graph.find_illegal_dependencies_for_layers(levels, HashSet::new());
+
+        assert_eq!(
+            dependencies,
+            Ok(vec![PackageDependency {
+                importer: low.clone(),
+                imported: high.clone(),
+                routes: vec![Route {
+                    heads: vec![low.clone()],
+                    middle: vec![elsewhere.clone()],
                     tails: vec![high.clone()],
                 }]
             }])
