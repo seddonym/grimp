@@ -57,7 +57,7 @@ class ImportGraph(python_graph.ImportGraph):
             line_number=line_number,
             line_contents=line_contents,
         )
-        return self._pygraph.add_import(
+        self._pygraph.add_import(
             importer=importer,
             imported=imported,
             line_number=line_number,
@@ -65,9 +65,8 @@ class ImportGraph(python_graph.ImportGraph):
         )
 
     def remove_import(self, *, importer: str, imported: str) -> None:
-        self._rustgraph.remove_import(importer=importer, imported=imported)
-        # Can't use rust until have the import details working with rust.
-        return self._pygraph.remove_import(importer=importer, imported=imported)
+        self._pygraph.remove_import(importer=importer, imported=imported)
+        return self._rustgraph.remove_import(importer=importer, imported=imported)
 
     def count_imports(self) -> int:
         return self._rustgraph.count_imports()
@@ -148,7 +147,6 @@ class ImportGraph(python_graph.ImportGraph):
             raise NoSuchContainer(str(e))
 
         return _layers._dependencies_from_tuple(result)
-        # return self._pygraph.find_illegal_dependencies_for_layers(layers, containers)
 
     # Dunder methods
     # --------------
