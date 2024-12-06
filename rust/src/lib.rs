@@ -5,7 +5,7 @@ mod graph;
 pub mod importgraph;
 pub mod layers;
 
-use crate::dependencies::PackageDependency;
+use crate::dependencies::OldPackageDependency;
 use crate::graph::{DetailedImport, Graph, Module};
 use containers::check_containers_exist;
 use importgraph::ImportGraph;
@@ -271,6 +271,21 @@ impl GraphWrapper {
         ))
     }
 
+    #[allow(unused_variables)]
+    #[pyo3(signature = (layers, containers=None))]
+    pub fn find_illegal_dependencies_for_layers(
+        &self,
+        layers: Vec<PyObject>,
+        containers: Option<HashSet<String>>,
+    ) -> PyResult<HashSet<String>> {
+        let levels: Vec<Level> = vec![];
+        // TODO turn the layers to levels.
+        let _ = self._graph.find_illegal_dependencies_for_layers(
+            levels,
+            containers.unwrap_or_default(),
+        );
+        Ok(HashSet::new())
+    }
     pub fn clone(&self) -> GraphWrapper {
         GraphWrapper {
             _graph: self._graph.clone(),
@@ -348,7 +363,7 @@ fn rustify_levels<'a>(levels_python: &Bound<'a, PyTuple>) -> Vec<Level> {
 
 fn convert_dependencies_to_python<'py>(
     py: Python<'py>,
-    dependencies: Vec<PackageDependency>,
+    dependencies: Vec<OldPackageDependency>,
     graph: &ImportGraph,
 ) -> PyResult<Bound<'py, PyTuple>> {
     let mut python_dependencies: Vec<Bound<'py, PyDict>> = vec![];

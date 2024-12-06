@@ -134,7 +134,7 @@ class ImportGraph(python_graph.ImportGraph):
         layers: Sequence[Layer | str | set[str]],
         containers: set[str] | None = None,
     ) -> set[PackageDependency]:
-        # TODO
+        self._rustgraph.find_illegal_dependencies_for_layers(layers, containers)
         return self._pygraph.find_illegal_dependencies_for_layers(layers, containers)
 
     # Dunder methods
