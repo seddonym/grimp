@@ -287,7 +287,10 @@ impl GraphWrapper {
             .find_illegal_dependencies_for_layers(levels, containers)
         {
             Ok(dependencies) => _convert_dependencies_to_python_new(py, &dependencies),
-            Err(error) => Err(PyValueError::new_err("TODO - error message")),
+            Err(error) => Err(NoSuchContainer::new_err(format!(
+                "Container {} does not exist.",
+                error.container
+            ))),
         }
     }
     pub fn clone(&self) -> GraphWrapper {
