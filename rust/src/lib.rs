@@ -279,6 +279,7 @@ impl GraphWrapper {
         layers: &Bound<'py, PyTuple>,
         containers: HashSet<String>,
     ) -> PyResult<Bound<'py, PyTuple>> {
+        info!("Using Rust to find illegal dependencies.");
         let levels = rustify_levels(layers);
 
         println!("\nIncoming {:?}, {:?}", levels, containers);
