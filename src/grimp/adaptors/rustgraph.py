@@ -6,6 +6,7 @@ from grimp.domain.analysis import PackageDependency
 from grimp.domain.valueobjects import Layer
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 from grimp.exceptions import ModuleNotPresent
+from grimp.adaptors import _layers
 
 from . import graph as python_graph
 
@@ -134,8 +135,16 @@ class ImportGraph(python_graph.ImportGraph):
         layers: Sequence[Layer | str | set[str]],
         containers: set[str] | None = None,
     ) -> set[PackageDependency]:
-        self._rustgraph.find_illegal_dependencies_for_layers(layers, containers)
-        return self._pygraph.find_illegal_dependencies_for_layers(layers, containers)
+        layers = _layers.parse_layers(layers)
+        result = self._rustgraph.find_illegal_dependencies_for_layers(
+            layers=tuple(
+                {"layers": layer.module_tails, "independent": layer.independent}
+                for layer in layers
+            ),
+            containers=set(containers) if containers else set(),
+        )
+        return _layers._dependencies_from_tuple(result)
+        # return self._pygraph.find_illegal_dependencies_for_layers(layers, containers)
 
     # Dunder methods
     # --------------

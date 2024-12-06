@@ -633,7 +633,7 @@ impl Graph {
             .collect();
 
         let perms = self._generate_module_permutations(&levels, &containers);
-        println!("Perms, {:?}", perms);
+        println!("Permus, {:?}", perms);
         let dependencies = self
             ._generate_module_permutations(&levels, &containers)
             .into_iter()
@@ -834,7 +834,7 @@ impl Graph {
         let mut chains = vec![];
 
         loop {
-            let mut found_chain: Vec<Module> = vec![];
+            let found_chain: Vec<Module>;
             {
                 let chain = self.find_shortest_chain(importer, imported);
 

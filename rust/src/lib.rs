@@ -6,7 +6,7 @@ pub mod importgraph;
 pub mod layers;
 
 use crate::dependencies::OldPackageDependency;
-use crate::graph::{DetailedImport, Graph, Module};
+use crate::graph::{DetailedImport, Graph, Module, PackageDependency};
 use containers::check_containers_exist;
 use importgraph::ImportGraph;
 use layers::Level;
@@ -272,19 +272,23 @@ impl GraphWrapper {
     }
 
     #[allow(unused_variables)]
-    #[pyo3(signature = (layers, containers=None))]
-    pub fn find_illegal_dependencies_for_layers(
+    #[pyo3(signature = (layers, containers))]
+    pub fn find_illegal_dependencies_for_layers<'py>(
         &self,
-        layers: Vec<PyObject>,
-        containers: Option<HashSet<String>>,
-    ) -> PyResult<HashSet<String>> {
-        let levels: Vec<Level> = vec![];
-        // TODO turn the layers to levels.
-        let _ = self._graph.find_illegal_dependencies_for_layers(
-            levels,
-            containers.unwrap_or_default(),
-        );
-        Ok(HashSet::new())
+        py: Python<'py>,
+        layers: &Bound<'py, PyTuple>,
+        containers: HashSet<String>,
+    ) -> PyResult<Bound<'py, PyTuple>> {
+        let levels = rustify_levels(layers);
+
+        println!("\nIncoming {:?}, {:?}", levels, containers);
+        match self
+            ._graph
+            .find_illegal_dependencies_for_layers(levels, containers)
+        {
+            Ok(dependencies) => _convert_dependencies_to_python_new(py, &dependencies),
+            Err(error) => Err(PyValueError::new_err("TODO - error message")),
+        }
     }
     pub fn clone(&self) -> GraphWrapper {
         GraphWrapper {
@@ -391,6 +395,48 @@ fn convert_dependencies_to_python<'py>(
                 .tails
                 .iter()
                 .map(|i| PyString::new_bound(py, graph.names_by_id[&i]))
+                .collect();
+            route.set_item("tails", PyFrozenSet::new_bound(py, &tails)?)?;
+
+            python_routes.push(route);
+        }
+
+        python_dependency.set_item("routes", PyTuple::new_bound(py, python_routes))?;
+        python_dependencies.push(python_dependency)
+    }
+
+    Ok(PyTuple::new_bound(py, python_dependencies))
+}
+
+fn _convert_dependencies_to_python_new<'py>(
+    py: Python<'py>,
+    dependencies: &Vec<PackageDependency>,
+) -> PyResult<Bound<'py, PyTuple>> {
+    let mut python_dependencies: Vec<Bound<'py, PyDict>> = vec![];
+
+    for rust_dependency in dependencies {
+        let python_dependency = PyDict::new_bound(py);
+        python_dependency.set_item("imported", &rust_dependency.imported.name)?;
+        python_dependency.set_item("importer", &rust_dependency.importer.name)?;
+        let mut python_routes: Vec<Bound<'py, PyDict>> = vec![];
+        for rust_route in &rust_dependency.routes {
+            let route = PyDict::new_bound(py);
+            let heads: Vec<Bound<'py, PyString>> = rust_route
+                .heads
+                .iter()
+                .map(|module| PyString::new_bound(py, &module.name))
+                .collect();
+            route.set_item("heads", PyFrozenSet::new_bound(py, &heads)?)?;
+            let middle: Vec<Bound<'py, PyString>> = rust_route
+                .middle
+                .iter()
+                .map(|module| PyString::new_bound(py, &module.name))
+                .collect();
+            route.set_item("middle", PyTuple::new_bound(py, &middle))?;
+            let tails: Vec<Bound<'py, PyString>> = rust_route
+                .tails
+                .iter()
+                .map(|module| PyString::new_bound(py, &module.name))
                 .collect();
             route.set_item("tails", PyFrozenSet::new_bound(py, &tails)?)?;
 
