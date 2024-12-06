@@ -33,7 +33,7 @@ use petgraph::visit::{Bfs, Walker};
 use petgraph::Direction;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-//use std::time::Instant;
+use std::time::Instant;
 
 use crate::layers::Level;
 
@@ -137,6 +137,18 @@ fn _module_from_layer(layer: &str, container: &Option<Module>) -> Module {
         None => layer.to_string(),
     };
     Module::new(module_name)
+}
+
+fn _log_illegal_route_count(dependency_or_none: &Option<PackageDependency>, duration_in_s: u64) {
+    let route_count = match dependency_or_none {
+        Some(dependency) => dependency.routes.len(),
+        None => 0,
+    };
+    let pluralized = if route_count == 1 { "" } else { "s" };
+    info!(
+        "Found {} illegal route{} in {}s.",
+        route_count, pluralized, duration_in_s
+    );
 }
 
 impl Graph {
@@ -645,14 +657,14 @@ impl Graph {
                     "Searching for import chains from {} to {}...",
                     lower_layer_package, higher_layer_package
                 );
-                // let now = Instant::now();
+                let now = Instant::now();
                 let dependency_or_none = self._search_for_package_dependency(
                     &higher_layer_package,
                     &lower_layer_package,
                     &all_layers,
                     &container,
                 );
-                // self._log_illegal_route_count(&dependency_or_none, now.elapsed().as_secs());
+                _log_illegal_route_count(&dependency_or_none, now.elapsed().as_secs());
                 dependency_or_none
             })
             .collect();
