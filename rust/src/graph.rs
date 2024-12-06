@@ -131,6 +131,14 @@ pub struct PackageDependency {
     pub routes: Vec<Route>,
 }
 
+fn _module_from_layer(layer: &str, container: &Option<Module>) -> Module {
+    let module_name = match container {
+        Some(container) => format!("{}{}{}", container.name, DELIMITER, layer),
+        None => layer.to_string(),
+    };
+    Module::new(module_name)
+}
+
 impl Graph {
     pub fn pretty_str(&self) -> String {
         let mut hierarchy: Vec<String> = vec![];
@@ -618,17 +626,19 @@ impl Graph {
             }
         }
 
-        let all_layers: Vec<Module> = levels
+        let all_layers: Vec<String> = levels
             .iter()
             .flat_map(|level| level.layers.iter())
-            .map(|module_name| Module::new(module_name.to_string()))
+            .map(|module_name| module_name.to_string())
             .collect();
 
+        let perms = self._generate_module_permutations(&levels, &containers);
+        println!("Perms, {:?}", perms);
         let dependencies = self
-            ._generate_module_permutations(&levels)
+            ._generate_module_permutations(&levels, &containers)
             .into_iter()
             //.into_par_iter()
-            .filter_map(|(higher_layer_package, lower_layer_package)| {
+            .filter_map(|(higher_layer_package, lower_layer_package, container)| {
                 // TODO: it's inefficient to do this for sibling layers, as we don't need
                 // to clone and trim the graph for identical pairs.
                 info!(
@@ -640,6 +650,7 @@ impl Graph {
                     &higher_layer_package,
                     &lower_layer_package,
                     &all_layers,
+                    &container,
                 );
                 // self._log_illegal_route_count(&dependency_or_none, now.elapsed().as_secs());
                 dependency_or_none
@@ -651,25 +662,46 @@ impl Graph {
 
     // Return every permutation of modules that exist in the graph
     /// in which the second should not import the first.
-    fn _generate_module_permutations(&self, levels: &Vec<Level>) -> Vec<(Module, Module)> {
-        let mut permutations: Vec<(Module, Module)> = vec![];
+    /// The third item in the tuple is the relevant container, if used.
+    fn _generate_module_permutations(
+        &self,
+        levels: &Vec<Level>,
+        containers: &HashSet<String>,
+    ) -> Vec<(Module, Module, Option<Module>)> {
+        let mut permutations: Vec<(Module, Module, Option<Module>)> = vec![];
 
-        for (index, higher_level) in levels.iter().enumerate() {
-            for higher_layer in &higher_level.layers {
-                let higher_layer_module = Module {
-                    name: higher_layer.clone(),
-                };
-                let mut layers_forbidden_to_import_higher_layer: Vec<Module> = vec![];
-                for lower_level in &levels[index + 1..] {
-                    for lower_layer in &lower_level.layers {
-                        layers_forbidden_to_import_higher_layer
-                            .push(Module::new(lower_layer.clone()));
+        let quasi_containers: Vec<Option<Module>> = if containers.is_empty() {
+            vec![None]
+        } else {
+            containers.iter().map(|i| Some(Module::new(i.to_string()))).collect()
+        };
+        let all_modules = self.get_modules();
+
+        for quasi_container in quasi_containers {
+            for (index, higher_level) in levels.iter().enumerate() {
+                for higher_layer in &higher_level.layers {
+                    let higher_layer_module = _module_from_layer(&higher_layer, &quasi_container);
+                    if !all_modules.contains(&higher_layer_module) {
+                        continue;
                     }
-                }
+                    let mut layers_forbidden_to_import_higher_layer: Vec<Module> = vec![];
+                    for lower_level in &levels[index + 1..] {
+                        for lower_layer in &lower_level.layers {
+                            let lower_layer_module = _module_from_layer(&lower_layer, &quasi_container);
+                            if all_modules.contains(&lower_layer_module) {
+                                layers_forbidden_to_import_higher_layer.push(lower_layer_module);
+                            }
+                        }
+                    }
 
-                // Add to permutations.
-                for forbidden in layers_forbidden_to_import_higher_layer {
-                    permutations.push((higher_layer_module.clone(), forbidden.clone()));
+                    // Add to permutations.
+                    for forbidden in layers_forbidden_to_import_higher_layer {
+                        permutations.push((
+                            higher_layer_module.clone(),
+                            forbidden.clone(),
+                            quasi_container.clone(),
+                        ));
+                    }
                 }
             }
         }
@@ -681,19 +713,23 @@ impl Graph {
         &self,
         higher_layer_package: &Module,
         lower_layer_package: &Module,
-        layers: &Vec<Module>,
+        layers: &Vec<String>,
+        container: &Option<Module>,
     ) -> Option<PackageDependency> {
+        println!("Searching {:?}->{:?}, layers {:?} [{:?}]", lower_layer_package, higher_layer_package, layers, container);
+
         let mut temp_graph = self.clone();
 
         // Remove other layers.
         let mut modules_to_remove: Vec<Module> = vec![];
         for layer in layers {
-            if layer != higher_layer_package && layer != lower_layer_package {
+            let layer_module = _module_from_layer(&layer, &container);
+            if layer_module != *higher_layer_package && layer_module != *lower_layer_package {
                 // Remove this subpackage.
-                for descendant in temp_graph.find_descendants(&layer).unwrap() {
+                for descendant in temp_graph.find_descendants(&layer_module).unwrap() {
                     modules_to_remove.push(descendant.clone());
                 }
-                modules_to_remove.push(layer.clone());
+                modules_to_remove.push(layer_module.clone());
             }
         }
         for module_to_remove in modules_to_remove.clone() {
@@ -705,11 +741,10 @@ impl Graph {
         // Direct routes.
         // TODO: do we need to pop the imports?
         // The indirect routes should cope without removing them?
-        let direct_links= temp_graph._pop_direct_imports(
-            lower_layer_package, higher_layer_package
-        );
+        let direct_links =
+            temp_graph._pop_direct_imports(lower_layer_package, higher_layer_package);
         for (importer, imported) in direct_links {
-            routes.push(Route{
+            routes.push(Route {
                 heads: vec![importer],
                 middle: vec![],
                 tails: vec![imported],
@@ -717,17 +752,19 @@ impl Graph {
         }
 
         // Indirect routes.
-        for indirect_route in temp_graph._find_indirect_routes(lower_layer_package, higher_layer_package) {
+        for indirect_route in
+            temp_graph._find_indirect_routes(lower_layer_package, higher_layer_package)
+        {
             routes.push(indirect_route);
         }
 
         if routes.is_empty() {
             None
         } else {
-            Some(PackageDependency{
+            Some(PackageDependency {
                 importer: lower_layer_package.clone(),
                 imported: higher_layer_package.clone(),
-                routes
+                routes,
             })
         }
     }
@@ -793,15 +830,11 @@ impl Graph {
         routes
     }
 
-    fn _pop_shortest_chains(
-        &mut self,
-        importer: &Module,
-        imported: &Module,
-    ) -> Vec<Vec<Module>> {
+    fn _pop_shortest_chains(&mut self, importer: &Module, imported: &Module) -> Vec<Vec<Module>> {
         let mut chains = vec![];
 
-        let mut found_chain: Vec<Module> = vec![];
         loop {
+            let mut found_chain: Vec<Module> = vec![];
             {
                 let chain = self.find_shortest_chain(importer, imported);
 
@@ -817,7 +850,6 @@ impl Graph {
                 self.remove_import(&found_chain[i], &found_chain[i + 1]);
             }
             chains.push(found_chain);
-
         }
         chains
     }
@@ -831,12 +863,22 @@ impl Graph {
         let mut imports = HashSet::new();
 
         let mut lower_layer_modules = HashSet::from([lower_layer_module.clone()]);
-        for descendant in self.find_descendants(lower_layer_module).unwrap().iter().cloned() {
+        for descendant in self
+            .find_descendants(lower_layer_module)
+            .unwrap()
+            .iter()
+            .cloned()
+        {
             lower_layer_modules.insert(descendant.clone());
         }
 
         let mut higher_layer_modules = HashSet::from([higher_layer_module.clone()]);
-        for descendant in self.find_descendants(higher_layer_module).unwrap().iter().cloned() {
+        for descendant in self
+            .find_descendants(higher_layer_module)
+            .unwrap()
+            .iter()
+            .cloned()
+        {
             higher_layer_modules.insert(descendant.clone());
         }
 
@@ -846,7 +888,6 @@ impl Graph {
                     imports.insert((lower_layer_module.clone(), imported_module.clone()));
                 }
             }
-
         }
 
         // Remove imports.
@@ -855,7 +896,6 @@ impl Graph {
         }
 
         imports
-
     }
 
     #[allow(unused_variables)]
@@ -2582,6 +2622,65 @@ imports:
                     tails: vec![high.clone()],
                 }]
             }])
+        );
+    }
+
+    #[test]
+    fn find_illegal_dependencies_for_layers_containers() {
+        let mut graph = Graph::default();
+        let blue_high = Module::new("blue.high".to_string());
+        let blue_high_alpha = Module::new("blue.high.alpha".to_string());
+        let blue_low = Module::new("blue.low".to_string());
+        let blue_low_beta = Module::new("blue.low.beta".to_string());
+        let green_high = Module::new("green.high".to_string());
+        let green_high_gamma = Module::new("green.high.gamma".to_string());
+        let green_low = Module::new("green.low".to_string());
+        let green_low_delta = Module::new("green.low.delta".to_string());
+        graph.add_module(Module::new("blue".to_string()));
+        graph.add_module(blue_high.clone());
+        graph.add_module(blue_low.clone());
+        graph.add_module(Module::new("green".to_string()));
+        graph.add_module(green_high.clone());
+        graph.add_module(green_low.clone());
+        graph.add_import(&blue_low_beta, &blue_high_alpha);
+        graph.add_import(&green_low_delta, &green_high_gamma);
+
+        let levels = vec![
+            Level {
+                layers: vec!["high".to_string()],
+                independent: true,
+            },
+            Level {
+                layers: vec!["low".to_string()],
+                independent: true,
+            },
+        ];
+        let containers = HashSet::from(["blue".to_string(), "green".to_string()]);
+
+        let dependencies = graph.find_illegal_dependencies_for_layers(levels, containers);
+
+        assert_eq!(
+            dependencies,
+            Ok(vec![
+                PackageDependency {
+                    importer: blue_low.clone(),
+                    imported: blue_high.clone(),
+                    routes: vec![Route {
+                        heads: vec![blue_low_beta.clone()],
+                        middle: vec![],
+                        tails: vec![blue_high_alpha.clone()],
+                    }]
+                },
+                PackageDependency {
+                    importer: green_low.clone(),
+                    imported: green_high.clone(),
+                    routes: vec![Route {
+                        heads: vec![green_low_delta.clone()],
+                        middle: vec![],
+                        tails: vec![green_high_gamma.clone()],
+                    }]
+                }
+            ])
         );
     }
 
