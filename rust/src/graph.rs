@@ -33,6 +33,8 @@ use petgraph::Direction;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
+use crate::layers::Level;
+
 // Delimiter for Python modules.
 const DELIMITER: char = '.';
 
@@ -50,6 +52,11 @@ impl fmt::Display for Module {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModuleNotPresent {
     pub module: Module,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NoSuchContainer {
+    pub container: String,
 }
 
 impl fmt::Display for ModuleNotPresent {
@@ -106,6 +113,20 @@ pub struct Graph {
     // Invisible modules exist in the hierarchy but haven't been explicitly added to the graph.
     invisible_modules: HashSet<Module>,
     detailed_imports_map: HashMap<(Module, Module), HashSet<DetailedImport>>,
+}
+
+#[derive(PartialEq, Eq, Hash, Debug)]
+pub struct Route {
+    pub heads: Vec<Module>,
+    pub middle: Vec<Module>,
+    pub tails: Vec<Module>,
+}
+
+#[derive(PartialEq, Eq, Hash, Debug)]
+pub struct PackageDependency {
+    pub importer: Module,
+    pub imported: Module,
+    pub routes: Vec<Route>,
 }
 
 impl Graph {
@@ -188,17 +209,21 @@ impl Graph {
 
     pub fn remove_module(&mut self, module: &Module) {
         // Remove imports by module.
-        let imported_modules: Vec<Module> = self.find_modules_directly_imported_by(module).iter().map(
-            |m| (*m).clone()
-        ).collect();
+        let imported_modules: Vec<Module> = self
+            .find_modules_directly_imported_by(module)
+            .iter()
+            .map(|m| (*m).clone())
+            .collect();
         for imported_module in imported_modules {
             self.remove_import(&module, &imported_module);
         }
 
         // Remove imports of module.
-        let importer_modules: Vec<Module> = self.find_modules_that_directly_import(module).iter().map(
-            |m| (*m).clone()
-        ).collect();
+        let importer_modules: Vec<Module> = self
+            .find_modules_that_directly_import(module)
+            .iter()
+            .map(|m| (*m).clone())
+            .collect();
         for importer_module in importer_modules {
             self.remove_import(&importer_module, &module);
         }
@@ -575,6 +600,24 @@ impl Graph {
     }
 
     #[allow(unused_variables)]
+    pub fn find_illegal_dependencies_for_layers(
+        &self,
+        levels: Vec<Level>,
+        containers: HashSet<String>,
+    ) -> Result<Vec<PackageDependency>, NoSuchContainer> {
+        let modules = self.get_modules();
+        for container in containers.iter() {
+            let container_module = Module::new(container.clone());
+            if !modules.contains(&container_module) {
+                return Err(NoSuchContainer {
+                    container: container.clone(),
+                });
+            }
+        }
+        Ok(vec![])
+    }
+
+    #[allow(unused_variables)]
     pub fn squash_module(&mut self, module: &Module) {
         // Get descendants and their imports.
         let descendants: Vec<Module> = self
@@ -634,6 +677,7 @@ impl Graph {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layers::Level;
 
     #[test]
     fn modules_when_empty() {
@@ -2176,6 +2220,67 @@ imports:
         let result = graph.chain_exists(&green, &blue, true);
 
         assert_eq!(result, false);
+    }
+
+    #[test]
+    fn find_illegal_dependencies_for_layers_empty_everything() {
+        let graph = Graph::default();
+
+        let dependencies = graph.find_illegal_dependencies_for_layers(vec![], HashSet::new());
+
+        assert_eq!(dependencies, Ok(vec![]));
+    }
+
+    #[test]
+    fn find_illegal_dependencies_for_layers_no_such_container() {
+        let graph = Graph::default();
+        let container = "nonexistent_container".to_string();
+
+        let dependencies =
+            graph.find_illegal_dependencies_for_layers(vec![], HashSet::from([container.clone()]));
+
+        assert_eq!(
+            dependencies,
+            Err(NoSuchContainer {
+                container: container
+            })
+        );
+    }
+
+    #[test]
+    fn find_illegal_dependencies_for_layers_nonexistent_layers_no_container() {
+        let graph = Graph::default();
+        let level = Level{
+            layers: vec!["nonexistent".to_string()],
+            independent: true,
+        };
+
+        let dependencies =
+            graph.find_illegal_dependencies_for_layers(vec![level], HashSet::new());
+
+        assert_eq!(
+            dependencies,
+            Ok(vec![])
+        );
+    }
+
+    #[test]
+    fn find_illegal_dependencies_for_layers_nonexistent_layers_with_container() {
+        let mut graph = Graph::default();
+        graph.add_module(Module::new("mypackage".to_string()));
+        let level = Level{
+            layers: vec!["nonexistent".to_string()],
+            independent: true,
+        };
+        let container = "mypackage".to_string();
+
+        let dependencies =
+            graph.find_illegal_dependencies_for_layers(vec![level], HashSet::from([container]));
+
+        assert_eq!(
+            dependencies,
+            Ok(vec![])
+        );
     }
 
     #[test]
