@@ -633,7 +633,7 @@ impl Graph {
             .collect();
 
         let perms = self._generate_module_permutations(&levels, &containers);
-        println!("Permus, {:?}", perms);
+        println!("Permutations, {:?}", perms);
         let dependencies = self
             ._generate_module_permutations(&levels, &containers)
             .into_iter()
@@ -726,8 +726,13 @@ impl Graph {
             let layer_module = _module_from_layer(&layer, &container);
             if layer_module != *higher_layer_package && layer_module != *lower_layer_package {
                 // Remove this subpackage.
-                for descendant in temp_graph.find_descendants(&layer_module).unwrap() {
-                    modules_to_remove.push(descendant.clone());
+                match temp_graph.find_descendants(&layer_module) {
+                    Ok(descendants) => {
+                        for descendant in descendants {
+                            modules_to_remove.push(descendant.clone())
+                        }
+                    },
+                    Err(_) => ()  // ModuleNotPresent.
                 }
                 modules_to_remove.push(layer_module.clone());
             }
