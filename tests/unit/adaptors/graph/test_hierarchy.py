@@ -1,6 +1,7 @@
 import pytest  # type: ignore
 
-from grimp.adaptors.graph import ImportGraph
+from grimp.adaptors.rustgraph import ImportGraph
+from grimp.exceptions import ModuleNotPresent
 
 
 @pytest.mark.parametrize(
@@ -17,6 +18,12 @@ def test_find_children(module, expected_result):
 
     assert expected_result == graph.find_children(module)
 
+def test_find_children_raises_exception_for_missing_module():
+    graph = ImportGraph()
+    graph.add_module("foo.a.one")
+
+    with pytest.raises(ModuleNotPresent):
+        graph.find_children("foo.a")
 
 def test_find_children_raises_exception_for_squashed_module():
     graph = ImportGraph()
@@ -56,3 +63,40 @@ def test_find_descendants_raises_exception_for_squashed_module():
 
     with pytest.raises(ValueError, match="Cannot find descendants of a squashed module."):
         graph.find_descendants(module)
+
+
+def test_find_descendants_works_with_gaps():
+    graph = ImportGraph()
+    graph.add_module("mypackage.foo")
+    # We do not add "mypackage.foo.blue" - there's a gap.
+    graph.add_module("mypackage.foo.blue.alpha")
+    graph.add_module("mypackage.foo.blue.alpha.one")
+    graph.add_module("mypackage.foo.blue.alpha.two")
+    graph.add_module("mypackage.foo.blue.beta.three")
+    graph.add_module("mypackage.bar.green.alpha")
+
+    result = graph.find_descendants("mypackage.foo")
+
+    assert result == {
+        "mypackage.foo.blue.alpha",
+        "mypackage.foo.blue.alpha.one",
+        "mypackage.foo.blue.alpha.two",
+        "mypackage.foo.blue.beta.three",
+    }
+
+def test_find_descendants_works_if_modules_added_in_different_order():
+    graph = ImportGraph()
+    graph.add_module("mypackage.foo")
+    graph.add_module("mypackage.foo.blue.alpha")
+    graph.add_module("mypackage.foo.blue.alpha.one")
+    graph.add_module("mypackage.bar.green.beta")
+    # Add the middle item in the hierarchy last.
+    graph.add_module("mypackage.foo.blue")
+
+    result = graph.find_descendants("mypackage.foo")
+
+    assert result == {
+        "mypackage.foo.blue",
+        "mypackage.foo.blue.alpha",
+        "mypackage.foo.blue.alpha.one",
+    }

@@ -2,7 +2,7 @@ from typing import Set, Tuple
 
 import pytest  # type: ignore
 
-from grimp.adaptors.graph import ImportGraph
+from grimp.adaptors.rustgraph import ImportGraph
 
 
 @pytest.mark.parametrize(
@@ -25,13 +25,13 @@ def test_find_downstream_modules(module, as_package, expected_result):
 
     graph.add_module(external, is_squashed=True)
 
-    graph.add_import(imported=a, importer=b)
-    graph.add_import(imported=a, importer=c)
-    graph.add_import(imported=c, importer=d)
-    graph.add_import(imported=d, importer=e)
-    graph.add_import(imported=f, importer=b)
-    graph.add_import(imported=f, importer=g)
-    graph.add_import(imported=external, importer=d)
+    graph.add_import(importer=b, imported=a)
+    graph.add_import(importer=c, imported=a)
+    graph.add_import(importer=d, imported=c)
+    graph.add_import(importer=e, imported=d)
+    graph.add_import(importer=b, imported=f)
+    graph.add_import(importer=g, imported=f)
+    graph.add_import(importer=d, imported=external)
 
     assert expected_result == graph.find_downstream_modules(module, as_package=as_package)
 
@@ -41,6 +41,7 @@ def test_find_downstream_modules(module, as_package, expected_result):
     (
         ("foo.d", False, {"foo.d.c", "foo.a"}),
         ("foo.b.g", False, set()),
+        # Note: foo.d.c is not included in the upstreams because that's internal to the package.
         ("foo.d", True, {"foo.a", "foo.a.f", "foo.b.g"}),
         ("foo.b.g", True, set()),
         ("bar", True, {"foo.a.f", "foo.b.g"}),
@@ -56,13 +57,13 @@ def test_find_upstream_modules(module, as_package, expected_result):
 
     graph.add_module(external, is_squashed=True)
 
-    graph.add_import(imported=a, importer=b)
-    graph.add_import(imported=a, importer=c)
-    graph.add_import(imported=c, importer=d)
-    graph.add_import(imported=d, importer=e)
-    graph.add_import(imported=f, importer=b)
-    graph.add_import(imported=g, importer=f)
-    graph.add_import(imported=f, importer=external)
+    graph.add_import(importer=b, imported=a)
+    graph.add_import(importer=c, imported=a)
+    graph.add_import(importer=d, imported=c)
+    graph.add_import(importer=e, imported=d)
+    graph.add_import(importer=b, imported=f)
+    graph.add_import(importer=f, imported=g)
+    graph.add_import(importer=external, imported=f)
 
     assert expected_result == graph.find_upstream_modules(module, as_package=as_package)
 
@@ -501,6 +502,9 @@ class TestFindShortestChains:
         # Importer is child of imported (but doesn't import). This doesn't
         # make sense if as_packages is True, so it should raise an exception.
         ("b.two", "b", True, ValueError()),
+        # Importer is child of imported (but doesn't import). This doesn't
+        # make sense if as_packages is True, so it should raise an exception.
+        ("b", "b.two", True, ValueError()),
         # Importer's child imports imported's child (b.two.green -> a.one.green).
         ("b.two", "a.one", True, True),
         # Importer's grandchild directly imports imported's grandchild

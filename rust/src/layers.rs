@@ -1,4 +1,4 @@
-use crate::dependencies::{PackageDependency, Route};
+use crate::dependencies::{OldPackageDependency, OldRoute};
 use crate::importgraph::ImportGraph;
 
 use log::info;
@@ -17,7 +17,7 @@ pub fn find_illegal_dependencies<'a>(
     graph: &'a ImportGraph,
     levels: &'a Vec<Level>,
     containers: &'a HashSet<String>,
-) -> Vec<PackageDependency> {
+) -> Vec<OldPackageDependency> {
     let layers = _layers_from_levels(levels);
 
     _generate_module_permutations(graph, levels, containers)
@@ -121,7 +121,7 @@ fn _search_for_package_dependency<'a>(
     layers: &'a Vec<&'a str>,
     container: &'a Option<String>,
     graph: &'a ImportGraph,
-) -> Option<PackageDependency> {
+) -> Option<OldPackageDependency> {
     let mut temp_graph = graph.clone();
     _remove_other_layers(
         &mut temp_graph,
@@ -129,13 +129,13 @@ fn _search_for_package_dependency<'a>(
         container,
         (higher_layer_package, lower_layer_package),
     );
-    let mut routes: Vec<Route> = vec![];
+    let mut routes: Vec<OldRoute> = vec![];
 
     // Direct routes.
     let direct_links =
         _pop_direct_imports(higher_layer_package, lower_layer_package, &mut temp_graph);
     for (importer, imported) in direct_links {
-        routes.push(Route {
+        routes.push(OldRoute {
             heads: vec![importer],
             middle: vec![],
             tails: vec![imported],
@@ -151,7 +151,7 @@ fn _search_for_package_dependency<'a>(
     if routes.is_empty() {
         None
     } else {
-        Some(PackageDependency {
+        Some(OldPackageDependency {
             imported: graph.ids_by_name[&higher_layer_package],
             importer: graph.ids_by_name[&lower_layer_package],
             routes,
@@ -217,7 +217,7 @@ fn _get_indirect_routes<'a>(
     imported_package: &'a str,
     importer_package: &'a str,
     graph: &'a ImportGraph,
-) -> Vec<Route> {
+) -> Vec<OldRoute> {
     // Squashes the two packages.
     // Gets a list of paths between them, called middles.
     // Add the heads and tails to the middles.
@@ -252,7 +252,7 @@ fn _find_middles<'a>(
     middles
 }
 
-fn _log_illegal_route_count(dependency_or_none: &Option<PackageDependency>, duration_in_s: u64) {
+fn _log_illegal_route_count(dependency_or_none: &Option<OldPackageDependency>, duration_in_s: u64) {
     let route_count = match dependency_or_none {
         Some(dependency) => dependency.routes.len(),
         None => 0,
@@ -269,7 +269,7 @@ fn _middles_to_routes<'a>(
     middles: Vec<Vec<u32>>,
     importer: &'a str,
     imported: &'a str,
-) -> Vec<Route> {
+) -> Vec<OldRoute> {
     let mut routes = vec![];
     let importer_id = graph.ids_by_name[&importer];
     let imported_id = graph.ids_by_name[&imported];
@@ -302,7 +302,7 @@ fn _middles_to_routes<'a>(
                 tails.push(*candidate_module);
             }
         }
-        routes.push(Route {
+        routes.push(OldRoute {
             heads,
             middle,
             tails,
@@ -361,35 +361,35 @@ mod tests {
         assert_eq!(
             dependencies,
             vec![
-                PackageDependency {
+                OldPackageDependency {
                     importer: *graph.ids_by_name.get("low").unwrap(),
                     imported: *graph.ids_by_name.get("high").unwrap(),
                     routes: vec![
-                        Route {
+                        OldRoute {
                             heads: vec![*graph.ids_by_name.get("low.green.alpha").unwrap()],
                             middle: vec![],
                             tails: vec![*graph.ids_by_name.get("high.yellow").unwrap()],
                         },
-                        Route {
+                        OldRoute {
                             heads: vec![*graph.ids_by_name.get("low.blue").unwrap()],
                             middle: vec![*graph.ids_by_name.get("utils").unwrap()],
                             tails: vec![*graph.ids_by_name.get("high.red").unwrap()],
                         },
                     ],
                 },
-                PackageDependency {
+                OldPackageDependency {
                     importer: *graph.ids_by_name.get("mid_a").unwrap(),
                     imported: *graph.ids_by_name.get("mid_b").unwrap(),
-                    routes: vec![Route {
+                    routes: vec![OldRoute {
                         heads: vec![*graph.ids_by_name.get("mid_a").unwrap()],
                         middle: vec![],
                         tails: vec![*graph.ids_by_name.get("mid_b").unwrap()],
                     },],
                 },
-                PackageDependency {
+                OldPackageDependency {
                     importer: *graph.ids_by_name.get("mid_b").unwrap(),
                     imported: *graph.ids_by_name.get("mid_c").unwrap(),
-                    routes: vec![Route {
+                    routes: vec![OldRoute {
                         heads: vec![*graph.ids_by_name.get("mid_b").unwrap()],
                         middle: vec![],
                         tails: vec![*graph.ids_by_name.get("mid_c").unwrap()],
@@ -431,16 +431,16 @@ mod tests {
 
         assert_eq!(
             dependencies,
-            vec![PackageDependency {
+            vec![OldPackageDependency {
                 importer: *graph.ids_by_name.get("mypackage.low").unwrap(),
                 imported: *graph.ids_by_name.get("mypackage.high").unwrap(),
                 routes: vec![
-                    Route {
+                    OldRoute {
                         heads: vec![*graph.ids_by_name.get("mypackage.low.green.alpha").unwrap()],
                         middle: vec![],
                         tails: vec![*graph.ids_by_name.get("mypackage.high.yellow").unwrap()],
                     },
-                    Route {
+                    OldRoute {
                         heads: vec![*graph.ids_by_name.get("mypackage.low.blue").unwrap()],
                         middle: vec![*graph.ids_by_name.get("mypackage.utils").unwrap()],
                         tails: vec![*graph.ids_by_name.get("mypackage.high.red").unwrap()],
