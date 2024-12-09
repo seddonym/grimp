@@ -12,8 +12,8 @@ find_downstream_modules - DONE
 find_shortest_chain - DONE
     find_shortest_chains - TODO
 chain_exists - DONE
-    find_illegal_dependencies_for_layers - TODO
-add_module - DONE - need to add is_squashed
+find_illegal_dependencies_for_layers - DONE
+add_module - DONE
 remove_module - DONE
 add_import - DONE
 remove_import - DONE
@@ -577,19 +577,21 @@ impl Graph {
         &self,
         importer: &Module,
         imported: &Module,
+        as_packages: bool,
     ) -> HashSet<Vec<&Module>> {
         let mut chains = HashSet::new();
 
         let mut importer_modules: HashSet<&Module> = HashSet::from([importer]);
-        // TODO don't do this if module is squashed?
-        for descendant in self.find_descendants(&importer).unwrap() {
-            importer_modules.insert(descendant);
-        }
-
         let mut imported_modules: HashSet<&Module> = HashSet::from([imported]);
+
         // TODO don't do this if module is squashed?
-        for descendant in self.find_descendants(&imported).unwrap() {
-            imported_modules.insert(descendant);
+        if as_packages {
+            for descendant in self.find_descendants(&importer).unwrap() {
+                importer_modules.insert(descendant);
+            }
+            for descendant in self.find_descendants(&imported).unwrap() {
+                imported_modules.insert(descendant);
+            }
         }
 
         // TODO - Error if modules have shared descendants.

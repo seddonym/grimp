@@ -124,7 +124,7 @@ class ImportGraph(python_graph.ImportGraph):
     def find_shortest_chains(
         self, importer: str, imported: str, as_packages: bool = True
     ) -> Set[Tuple[str, ...]]:
-        return self._pygraph.find_shortest_chains(importer, imported, as_packages)
+        return self._rustgraph.find_shortest_chains(importer, imported, as_packages)
 
     def chain_exists(self, importer: str, imported: str, as_packages: bool = False) -> bool:
         return self._rustgraph.chain_exists(importer, imported, as_packages)
