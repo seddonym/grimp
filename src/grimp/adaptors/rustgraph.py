@@ -1,17 +1,15 @@
 from __future__ import annotations
 from typing import List, Optional, Sequence, Set, Tuple
-from copy import deepcopy
 from grimp.application.ports.graph import DetailedImport
 from grimp.domain.analysis import PackageDependency
-from grimp.domain.valueobjects import Layer
+from grimp.domain.valueobjects import Layer, Module
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 from grimp.exceptions import ModuleNotPresent, NoSuchContainer
 from grimp.adaptors import _layers
+from grimp.application.ports import graph
 
-from . import graph as python_graph
 
-
-class ImportGraph(python_graph.ImportGraph):
+class ImportGraph(graph.ImportGraph):
     """
     Rust-backed implementation of the ImportGraph.
     """
@@ -19,24 +17,49 @@ class ImportGraph(python_graph.ImportGraph):
     def __init__(self) -> None:
         super().__init__()
         self._rustgraph = rust.Graph()
-        self._pygraph = python_graph.ImportGraph()
 
     @property
     def modules(self) -> Set[str]:
         return self._rustgraph.get_modules()
 
     def add_module(self, module: str, is_squashed: bool = False) -> None:
+        ancestor_squashed_module = self._find_ancestor_squashed_module(module)
+        if ancestor_squashed_module:
+            raise ValueError(
+                f"Module is a descendant of squashed module {ancestor_squashed_module}."
+            )
+
+        if module in self.modules:
+            if self.is_module_squashed(module) != is_squashed:
+                raise ValueError(
+                    "Cannot add a squashed module when it is already present in the graph as "
+                    "an unsquashed module, or vice versa."
+                )
         self._rustgraph.add_module(module, is_squashed)
-        self._pygraph.add_module(module, is_squashed)
 
     def remove_module(self, module: str) -> None:
         self._rustgraph.remove_module(module)
-        self._pygraph.remove_module(module)
 
     def squash_module(self, module: str) -> None:
-        self._pygraph.squash_module(module)
-        # TODO raise ModuleNotPresent if not in graph.
+        if module not in self.modules:
+            raise ModuleNotPresent(f'"{module}" not present in the graph.')
         self._rustgraph.squash_module(module)
+
+    def _find_ancestor_squashed_module(self, module: str) -> Optional[str]:
+        """
+        Return the name of a squashed module that is an ancestor of the supplied module, or None
+        if no such module exists.
+        """
+        try:
+            parent = Module(module).parent.name
+        except ValueError:
+            # The module has no more ancestors.
+            return None
+
+        if parent in self.modules and self.is_module_squashed(parent):
+            return parent
+        else:
+            return self._find_ancestor_squashed_module(parent)
 
     def is_module_squashed(self, module: str) -> bool:
         if module not in self.modules:
@@ -57,15 +80,8 @@ class ImportGraph(python_graph.ImportGraph):
             line_number=line_number,
             line_contents=line_contents,
         )
-        self._pygraph.add_import(
-            importer=importer,
-            imported=imported,
-            line_number=line_number,
-            line_contents=line_contents,
-        )
 
     def remove_import(self, *, importer: str, imported: str) -> None:
-        self._pygraph.remove_import(importer=importer, imported=imported)
         return self._rustgraph.remove_import(importer=importer, imported=imported)
 
     def count_imports(self) -> int:
@@ -153,6 +169,5 @@ class ImportGraph(python_graph.ImportGraph):
 
     def __deepcopy__(self, memodict: dict) -> "ImportGraph":
         new_graph = ImportGraph()
-        new_graph._pygraph = deepcopy(self._pygraph)
         new_graph._rustgraph = self._rustgraph.clone()
         return new_graph
