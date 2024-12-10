@@ -1,7 +1,6 @@
-use _rustgrimp::importgraph::ImportGraph;
-use _rustgrimp::layers::{find_illegal_dependencies, Level};
+use _rustgrimp::graph::{Graph, Level, Module};
 use serde_json::{Map, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs;
 
 #[test]
@@ -9,15 +8,23 @@ fn test_large_graph() {
     let data = fs::read_to_string("tests/large_graph.json").expect("Unable to read file");
     let value: Value = serde_json::from_str(&data).unwrap();
     let items: &Map<String, Value> = value.as_object().unwrap();
-    let mut importeds_by_importer: HashMap<&str, HashSet<&str>> = HashMap::new();
+    let mut graph = Graph::default();
     for (importer, importeds_value) in items.iter() {
-        let mut importeds = HashSet::new();
         for imported in importeds_value.as_array().unwrap() {
-            importeds.insert(imported.as_str().unwrap());
+            graph.add_import(
+                &Module {
+                    name: importer.to_string(),
+                },
+                &Module {
+                    name: imported.to_string(),
+                },
+            );
         }
-        importeds_by_importer.insert(importer, importeds);
     }
-    let graph = ImportGraph::new(importeds_by_importer);
+    // TODO: for some reason this isn't populated in large_graph.json. Possibly there are other
+    // things missing too, which may be why find_illegal_dependencies_for_layers doesn't currently
+    // return any illegal dependencies.
+    graph.add_module(Module{name: "mypackage".to_string()});
 
     let levels = vec![
         Level {
@@ -43,5 +50,5 @@ fn test_large_graph() {
     ];
     let containers = HashSet::from(["mypackage".to_string()]);
 
-    find_illegal_dependencies(&graph, &levels, &containers);
+    graph.find_illegal_dependencies_for_layers(levels, containers).unwrap();
 }

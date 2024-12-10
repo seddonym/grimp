@@ -1,7 +1,7 @@
 import pytest
 import json
 from pathlib import Path
-from grimp.adaptors.graph import ImportGraph
+from grimp.adaptors.rustgraph import ImportGraph
 
 
 @pytest.fixture(scope="module")
