@@ -1,11 +1,10 @@
 from __future__ import annotations
-from typing import List, Optional, Sequence, Set, Tuple
+from typing import List, Optional, Sequence, Set, Tuple, TypedDict
 from grimp.application.ports.graph import DetailedImport
-from grimp.domain.analysis import PackageDependency
+from grimp.domain.analysis import PackageDependency, Route
 from grimp.domain.valueobjects import Layer, Module
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 from grimp.exceptions import ModuleNotPresent, NoSuchContainer
-from grimp.adaptors import _layers
 from grimp.application.ports import graph
 
 
@@ -150,7 +149,7 @@ class ImportGraph(graph.ImportGraph):
         layers: Sequence[Layer | str | set[str]],
         containers: set[str] | None = None,
     ) -> set[PackageDependency]:
-        layers = _layers.parse_layers(layers)
+        layers = _parse_layers(layers)
         try:
             result = self._rustgraph.find_illegal_dependencies_for_layers(
                 layers=tuple(
@@ -162,7 +161,7 @@ class ImportGraph(graph.ImportGraph):
         except rust.NoSuchContainer as e:
             raise NoSuchContainer(str(e))
 
-        return _layers._dependencies_from_tuple(result)
+        return _dependencies_from_tuple(result)
 
     # Dunder methods
     # --------------
@@ -171,3 +170,50 @@ class ImportGraph(graph.ImportGraph):
         new_graph = ImportGraph()
         new_graph._rustgraph = self._rustgraph.clone()
         return new_graph
+
+
+class _RustRoute(TypedDict):
+    heads: frozenset[str]
+    middle: tuple[str, ...]
+    tails: frozenset[str]
+
+
+class _RustPackageDependency(TypedDict):
+    importer: str
+    imported: str
+    routes: tuple[_RustRoute, ...]
+
+def _parse_layers(layers: Sequence[Layer | str | set[str]]) -> tuple[Layer, ...]:
+    """
+    Convert the passed raw `layers` into `Layer`s.
+    """
+    out_layers = []
+    for layer in layers:
+        if isinstance(layer, Layer):
+            out_layers.append(layer)
+        elif isinstance(layer, str):
+            out_layers.append(Layer(layer, independent=True))
+        else:
+            out_layers.append(Layer(*tuple(layer), independent=True))
+    return tuple(out_layers)
+
+def _dependencies_from_tuple(
+    rust_package_dependency_tuple: tuple[_RustPackageDependency, ...]
+) -> set[PackageDependency]:
+    return {
+        PackageDependency(
+            imported=dep_dict["imported"],
+            importer=dep_dict["importer"],
+            routes=frozenset(
+                {
+                    Route(
+                        heads=route_dict["heads"],
+                        middle=route_dict["middle"],
+                        tails=route_dict["tails"],
+                    )
+                    for route_dict in dep_dict["routes"]
+                }
+            ),
+        )
+        for dep_dict in rust_package_dependency_tuple
+    }
