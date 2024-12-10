@@ -204,6 +204,10 @@ impl Graph {
             self.invisible_modules.remove(&module);
             return;
         }
+        // If this module is already in the graph, don't do anything.
+        if self.hierarchy_module_indices.get_by_left(&module).is_some() {
+            return;
+        }
 
         let module_index = self.hierarchy.add_node(module.clone());
         self.hierarchy_module_indices
@@ -433,22 +437,11 @@ impl Graph {
             Some(imported_index) => *imported_index,
             None => return HashSet::new(),
         };
-        println!(
-            "module, {:?}, imported_index {:?}",
-            imported, imported_index
-        );
         let importer_indices: HashSet<NodeIndex> = self
             .imports
             .neighbors_directed(imported_index, Direction::Incoming)
             .collect();
 
-        println!("importer indices {:?}", importer_indices);
-        for i in importer_indices.iter() {
-            println!(
-                "Importer {:?}",
-                self.imports_module_indices.get_by_right(i).unwrap()
-            );
-        }
         let importers: HashSet<&Module> = importer_indices
             .iter()
             .map(|importer_index| {
@@ -595,8 +588,12 @@ impl Graph {
             for descendant in self.find_descendants(imported).unwrap() {
                 upstream_modules.insert(descendant.clone());
             }
-            if upstream_modules.intersection(&downstream_modules).next().is_some() {
-                return Err("Modules have shared descendants.".to_string())
+            if upstream_modules
+                .intersection(&downstream_modules)
+                .next()
+                .is_some()
+            {
+                return Err("Modules have shared descendants.".to_string());
             }
         }
 
@@ -610,7 +607,8 @@ impl Graph {
             }
         }
         for downstream_module in &downstream_modules {
-            for imported_module in temp_graph.find_modules_directly_imported_by(&downstream_module) {
+            for imported_module in temp_graph.find_modules_directly_imported_by(&downstream_module)
+            {
                 if downstream_modules.contains(&imported_module) {
                     imports_to_remove.push((downstream_module.clone(), imported_module.clone()));
                 }
@@ -648,7 +646,9 @@ impl Graph {
                 for (importer_to_add, imported_to_add) in &map_of_imports[&imported_module] {
                     temp_graph.add_import(&importer_to_add, &imported_to_add);
                 }
-                if let Some(chain) = temp_graph.find_shortest_chain(importer_module, imported_module) {
+                if let Some(chain) =
+                    temp_graph.find_shortest_chain(importer_module, imported_module)
+                {
                     chains.insert(chain.iter().cloned().map(|module| module.clone()).collect());
                 }
                 // Remove imports relating to imported module again.
@@ -705,7 +705,7 @@ impl Graph {
             .collect();
 
         let perms = self._generate_module_permutations(&levels, &containers);
-        println!("Permutations, {:?}", perms);
+
         let mut dependencies: Vec<PackageDependency> = self
             ._generate_module_permutations(&levels, &containers)
             .into_iter()
@@ -747,15 +747,16 @@ impl Graph {
         let quasi_containers: Vec<Option<Module>> = if containers.is_empty() {
             vec![None]
         } else {
-            containers.iter().map(|i| Some(Module::new(i.to_string()))).collect()
+            containers
+                .iter()
+                .map(|i| Some(Module::new(i.to_string())))
+                .collect()
         };
         let all_modules = self.get_modules();
 
         for quasi_container in quasi_containers {
-            println!("Container, {:?}", quasi_container);
             for (index, higher_level) in levels.iter().enumerate() {
                 for higher_layer in &higher_level.layers {
-                    println!("Higher layer, {:?}", higher_layer);
                     let higher_layer_module = _module_from_layer(&higher_layer, &quasi_container);
                     if !all_modules.contains(&higher_layer_module) {
                         continue;
@@ -770,19 +771,20 @@ impl Graph {
                     // Independence
                     if higher_level.independent {
                         for potential_sibling_layer in &higher_level.layers {
-                            println!("Potential sibling {:?} of {:?}", potential_sibling_layer, higher_layer_module);
-                            let sibling_module = _module_from_layer(&potential_sibling_layer, &quasi_container);
-                            if sibling_module != higher_layer_module && all_modules.contains(&sibling_module) {
-                                println!("Added {:?}", sibling_module);
+                            let sibling_module =
+                                _module_from_layer(&potential_sibling_layer, &quasi_container);
+                            if sibling_module != higher_layer_module
+                                && all_modules.contains(&sibling_module)
+                            {
                                 layers_forbidden_to_import_higher_layer.push(sibling_module);
                             }
-
                         }
                     }
 
                     for lower_level in &levels[index + 1..] {
                         for lower_layer in &lower_level.layers {
-                            let lower_layer_module = _module_from_layer(&lower_layer, &quasi_container);
+                            let lower_layer_module =
+                                _module_from_layer(&lower_layer, &quasi_container);
                             if all_modules.contains(&lower_layer_module) {
                                 layers_forbidden_to_import_higher_layer.push(lower_layer_module);
                             }
@@ -811,8 +813,6 @@ impl Graph {
         layers: &Vec<String>,
         container: &Option<Module>,
     ) -> Option<PackageDependency> {
-        println!("Searching {:?}->{:?}, layers {:?} [{:?}]", lower_layer_package, higher_layer_package, layers, container);
-
         let mut temp_graph = self.clone();
 
         // Remove other layers.
@@ -826,8 +826,8 @@ impl Graph {
                         for descendant in descendants {
                             modules_to_remove.push(descendant.clone())
                         }
-                    },
-                    Err(_) => ()  // ModuleNotPresent.
+                    }
+                    Err(_) => (), // ModuleNotPresent.
                 }
                 modules_to_remove.push(layer_module.clone());
             }
@@ -946,14 +946,11 @@ impl Graph {
 
                 found_chain = chain.unwrap().into_iter().cloned().collect();
             }
-            println!("Chain {:?}", &found_chain);
             // Remove chain.
             for i in 0..found_chain.len() - 1 {
-                println!("Removing {:?} -> {:?}", &found_chain[i], &found_chain[i + 1]);
                 self.remove_import(&found_chain[i], &found_chain[i + 1]);
             }
             chains.push(found_chain);
-
         }
         chains
     }
@@ -2792,19 +2789,17 @@ imports:
     fn find_illegal_dependencies_for_layers_independent() {
         let mut graph = Graph::default();
         let blue = Module::new("blue".to_string());
-        let green  = Module::new("green".to_string());
+        let green = Module::new("green".to_string());
         let blue_alpha = Module::new("blue.alpha".to_string());
         let green_beta = Module::new("green.beta".to_string());
         graph.add_module(blue.clone());
         graph.add_module(green.clone());
         graph.add_import(&blue_alpha, &green_beta);
 
-        let levels = vec![
-            Level {
-                layers: vec![blue.name.clone(), green.name.clone()],
-                independent: true,
-            },
-        ];
+        let levels = vec![Level {
+            layers: vec![blue.name.clone(), green.name.clone()],
+            independent: true,
+        }];
 
         let dependencies = graph.find_illegal_dependencies_for_layers(levels, HashSet::new());
 

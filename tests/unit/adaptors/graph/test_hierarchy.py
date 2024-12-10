@@ -34,6 +34,17 @@ def test_find_children_raises_exception_for_squashed_module():
     with pytest.raises(ValueError, match="Cannot find children of a squashed module."):
         graph.find_children(module)
 
+def test_adding_same_child_module_twice_does_not_corrupt_hierarchy():
+    graph = ImportGraph()
+    graph.add_module("mypackage.blue")
+    graph.add_module("mypackage.blue.alpha")
+    graph.add_module("mypackage.blue")  # Add for second time.
+    graph.add_module("mypackage.blue.beta")
+
+    result = graph.find_children("mypackage.blue")
+
+    assert result == {"mypackage.blue.alpha", "mypackage.blue.beta"}
+
 
 @pytest.mark.parametrize(
     "module, expected_result",
@@ -100,3 +111,4 @@ def test_find_descendants_works_if_modules_added_in_different_order():
         "mypackage.foo.blue.alpha",
         "mypackage.foo.blue.alpha.one",
     }
+

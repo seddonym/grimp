@@ -11,4 +11,3 @@ pub struct OldPackageDependency {
     pub imported: u32,
     pub routes: Vec<OldRoute>,
 }
-
