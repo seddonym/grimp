@@ -61,6 +61,8 @@ pub struct NoSuchContainer {
     pub container: String,
 }
 
+pub struct ModulesHaveSharedDescendants {}
+
 impl fmt::Display for ModuleNotPresent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\"{}\" not present in the graph", self.module.name)
@@ -578,7 +580,7 @@ impl Graph {
         importer: &Module,
         imported: &Module,
         as_packages: bool,
-    ) -> HashSet<Vec<Module>> {
+    ) -> Result<HashSet<Vec<Module>>, String> {
         let mut chains = HashSet::new();
         let mut temp_graph = self.clone();
 
@@ -593,9 +595,10 @@ impl Graph {
             for descendant in self.find_descendants(imported).unwrap() {
                 upstream_modules.insert(descendant.clone());
             }
+            if upstream_modules.intersection(&downstream_modules).next().is_some() {
+                return Err("Modules have shared descendants.".to_string())
+            }
         }
-
-        // TODO - Error if modules have shared descendants.
 
         // Remove imports within the packages.
         let mut imports_to_remove: Vec<(Module, Module)> = vec![];
@@ -614,7 +617,6 @@ impl Graph {
             }
         }
         for (importer_to_remove, imported_to_remove) in imports_to_remove {
-            println!("Removing {:?} -> {:?}", importer_to_remove.name, imported_to_remove.name);
             temp_graph.remove_import(&importer_to_remove, &imported_to_remove);
         }
 
@@ -659,7 +661,7 @@ impl Graph {
                 temp_graph.remove_import(&importer_to_remove, &imported_to_remove);
             }
         }
-        chains
+        Ok(chains)
     }
 
     #[allow(unused_variables)]
@@ -2352,7 +2354,7 @@ imports:
 
         let result = graph.find_shortest_chains(&blue, &green, true);
 
-        assert_eq!(result, HashSet::new())
+        assert_eq!(result, Ok(HashSet::new()));
     }
 
     #[test]
@@ -2377,7 +2379,7 @@ imports:
 
         let result = graph.find_shortest_chains(&blue, &green, true);
 
-        assert_eq!(result, HashSet::from([vec![blue, red, green],]))
+        assert_eq!(result, Ok(HashSet::from([vec![blue, red, green],])));
     }
 
     #[test]
@@ -2404,7 +2406,7 @@ imports:
 
         let result = graph.find_shortest_chains(&blue, &green, true);
 
-        assert_eq!(result, HashSet::from([vec![blue, red, green_alpha]]))
+        assert_eq!(result, Ok(HashSet::from([vec![blue, red, green_alpha]])));
     }
 
     #[test]
@@ -2435,7 +2437,7 @@ imports:
 
         assert_eq!(
             result,
-            HashSet::from([vec![blue, red, green_alpha_one],])
+            Ok(HashSet::from([vec![blue, red, green_alpha_one],]))
         )
     }
 
@@ -2463,7 +2465,7 @@ imports:
 
         let result = graph.find_shortest_chains(&blue, &green, true);
 
-        assert_eq!(result, HashSet::from([vec![blue_alpha, red, green],]))
+        assert_eq!(result, Ok(HashSet::from([vec![blue_alpha, red, green],])));
     }
 
     #[test]
@@ -2494,7 +2496,7 @@ imports:
 
         assert_eq!(
             result,
-            HashSet::from([vec![blue_alpha_one, red, green],])
+            Ok(HashSet::from([vec![blue_alpha_one, red, green],]))
         )
     }
 

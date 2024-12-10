@@ -253,12 +253,12 @@ impl GraphWrapper {
         importer: &str,
         imported: &str,
         as_packages: bool,
-    ) -> Bound<'py, PySet> {
+    ) -> PyResult<Bound<'py, PySet>> {
         let rust_chains: HashSet<Vec<Module>> = self._graph.find_shortest_chains(
             &Module::new(importer.to_string()),
             &Module::new(imported.to_string()),
             as_packages,
-        );
+        ).map_err(|string| PyValueError::new_err(string))?;
 
         let mut tuple_chains: Vec<Bound<'py, PyTuple>> = vec![];
         for rust_chain in rust_chains.iter() {
@@ -269,7 +269,7 @@ impl GraphWrapper {
             let tuple = PyTuple::new_bound(py, &module_names);
             tuple_chains.push(tuple);
         }
-        PySet::new_bound(py, &tuple_chains).unwrap()
+        Ok(PySet::new_bound(py, &tuple_chains).unwrap())
     }
 
     #[pyo3(signature = (importer, imported, as_packages=false))]

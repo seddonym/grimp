@@ -170,6 +170,40 @@ class TestFindShortestChain:
 
 
 class TestFindShortestChains:
+    @pytest.mark.parametrize(
+        "importer, imported", (
+            ("green", "green.one"),
+            ("green.one", "green"),
+        )
+    )
+    def test_modules_with_shared_descendants_raises_value_error_when_as_packages_true(self, importer: str, imported: str):
+        graph = ImportGraph()
+        graph.add_module(importer)
+        graph.add_module(imported)
+
+        with pytest.raises(ValueError, match="Modules have shared descendants."):
+            graph.find_shortest_chains(
+                importer=importer, imported=imported, as_packages=True
+            )
+
+    @pytest.mark.parametrize(
+        "importer, imported", (
+            ("green", "green.one"),
+            ("green.one", "green"),
+        )
+    )
+    def test_modules_with_shared_descendants_allowed_when_as_packages_false(self, importer: str, imported: str):
+        graph = ImportGraph()
+        middle = "middle"
+        graph.add_import(importer=importer, imported=middle)
+        graph.add_import(importer=middle, imported=imported)
+
+        result = graph.find_shortest_chains(
+            importer=importer, imported=imported, as_packages=False
+        )
+
+        assert result == {(importer, middle, imported)}
+
     @pytest.mark.parametrize("as_packages", (False, True))
     def test_top_level_import(self, as_packages: bool):
         graph = ImportGraph()
