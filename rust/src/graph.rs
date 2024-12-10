@@ -1,25 +1,4 @@
 /*
-modules (get_modules) DONE
-find_children - DONE
-find_descendants - DONE
-direct_import_exists - DONE
-find_modules_directly_imported_by - DONE
-find_modules_that_directly_import -  DONE
-get_import_details - DONE
-count_imports - DONE
-find_upstream_modules - DONE
-find_downstream_modules - DONE
-find_shortest_chain - DONE
-    find_shortest_chains - TODO
-chain_exists - DONE
-find_illegal_dependencies_for_layers - DONE
-add_module - DONE
-remove_module - DONE
-add_import - DONE
-remove_import - DONE
-squash_module - DONE
-is_module_squashed - DONE
-
 Also, sensible behaviour when passing modules that don't exist in the graph.
 */
 #![allow(dead_code)]
@@ -35,7 +14,12 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::time::Instant;
 
-use crate::layers::Level;
+/// A group of layers at the same level in the layering.
+#[derive(PartialEq, Eq, Hash, Debug)]
+pub struct Level {
+    pub layers: Vec<String>,
+    pub independent: bool,
+}
 
 // Delimiter for Python modules.
 const DELIMITER: char = '.';
@@ -1059,7 +1043,6 @@ impl Graph {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::layers::Level;
 
     #[test]
     fn modules_when_empty() {
