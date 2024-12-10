@@ -341,6 +341,25 @@ class TestFindShortestChains:
 
         assert result == expected_result
 
+    def test_chains_within_packages_are_not_included(self):
+        graph = ImportGraph()
+
+        graph.add_module("importer_package")
+        graph.add_module("imported_package")
+
+        # Chain via importer package.
+        graph.add_import(importer="importer_package.one", imported="importer_package.two")
+        graph.add_import(importer="importer_package.two", imported="importer_package.three")
+        graph.add_import(importer="importer_package.three", imported="imported_package.four")
+        graph.add_import(importer="imported_package.four", imported="imported_package.five")
+        graph.add_import(importer="imported_package.five", imported="imported_package.six")
+
+        result = graph.find_shortest_chains(importer="importer_package", imported="imported_package")
+
+        assert result == {
+            ("importer_package.three", "imported_package.four")
+        }
+
     def test_chains_via_importer_package_dont_stop_longer_chains_being_included(self):
         graph = ImportGraph()
 

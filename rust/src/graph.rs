@@ -572,35 +572,91 @@ impl Graph {
         Some(chain)
     }
 
-    // https://github.com/seddonym/grimp/blob/2b37bd9268655f99439f376625e08151a075a5bd/src/grimp/adaptors/graph.py#L290
+    // https://github.com/seddonym/grimp/blob/master/src/grimp/adaptors/graph.py#L290
     pub fn find_shortest_chains(
         &self,
         importer: &Module,
         imported: &Module,
         as_packages: bool,
-    ) -> HashSet<Vec<&Module>> {
+    ) -> HashSet<Vec<Module>> {
         let mut chains = HashSet::new();
+        let mut temp_graph = self.clone();
 
-        let mut importer_modules: HashSet<&Module> = HashSet::from([importer]);
-        let mut imported_modules: HashSet<&Module> = HashSet::from([imported]);
+        let mut downstream_modules: HashSet<Module> = HashSet::from([importer.clone()]);
+        let mut upstream_modules: HashSet<Module> = HashSet::from([imported.clone()]);
 
         // TODO don't do this if module is squashed?
         if as_packages {
-            for descendant in self.find_descendants(&importer).unwrap() {
-                importer_modules.insert(descendant);
+            for descendant in self.find_descendants(importer).unwrap() {
+                downstream_modules.insert(descendant.clone());
             }
-            for descendant in self.find_descendants(&imported).unwrap() {
-                imported_modules.insert(descendant);
+            for descendant in self.find_descendants(imported).unwrap() {
+                upstream_modules.insert(descendant.clone());
             }
         }
 
         // TODO - Error if modules have shared descendants.
 
-        for importer_module in importer_modules {
-            for imported_module in &imported_modules {
-                if let Some(chain) = self.find_shortest_chain(importer_module, imported_module) {
-                    chains.insert(chain);
+        // Remove imports within the packages.
+        let mut imports_to_remove: Vec<(Module, Module)> = vec![];
+        for upstream_module in &upstream_modules {
+            for imported_module in temp_graph.find_modules_directly_imported_by(&upstream_module) {
+                if upstream_modules.contains(&imported_module) {
+                    imports_to_remove.push((upstream_module.clone(), imported_module.clone()));
                 }
+            }
+        }
+        for downstream_module in &downstream_modules {
+            for imported_module in temp_graph.find_modules_directly_imported_by(&downstream_module) {
+                if downstream_modules.contains(&imported_module) {
+                    imports_to_remove.push((downstream_module.clone(), imported_module.clone()));
+                }
+            }
+        }
+        for (importer_to_remove, imported_to_remove) in imports_to_remove {
+            println!("Removing {:?} -> {:?}", importer_to_remove.name, imported_to_remove.name);
+            temp_graph.remove_import(&importer_to_remove, &imported_to_remove);
+        }
+
+        // Keep track of imports into/out of upstream/downstream packages, and remove them.
+        let mut map_of_imports: HashMap<Module, HashSet<(Module, Module)>> = HashMap::new();
+        for module in upstream_modules.union(&downstream_modules) {
+            let mut imports_to_or_from_module = HashSet::new();
+            for imported_module in temp_graph.find_modules_directly_imported_by(&module) {
+                imports_to_or_from_module.insert((module.clone(), imported_module.clone()));
+            }
+            for importer_module in temp_graph.find_modules_that_directly_import(&module) {
+                imports_to_or_from_module.insert((importer_module.clone(), module.clone()));
+            }
+            map_of_imports.insert(module.clone(), imports_to_or_from_module);
+        }
+        for imports in map_of_imports.values() {
+            for (importer_to_remove, imported_to_remove) in imports {
+                temp_graph.remove_import(&importer_to_remove, &imported_to_remove);
+            }
+        }
+
+        for importer_module in &downstream_modules {
+            // Reveal imports to/from importer module.
+            for (importer_to_add, imported_to_add) in &map_of_imports[&importer_module] {
+                temp_graph.add_import(&importer_to_add, &imported_to_add);
+            }
+            for imported_module in &upstream_modules {
+                // Reveal imports to/from imported module.
+                for (importer_to_add, imported_to_add) in &map_of_imports[&imported_module] {
+                    temp_graph.add_import(&importer_to_add, &imported_to_add);
+                }
+                if let Some(chain) = temp_graph.find_shortest_chain(importer_module, imported_module) {
+                    chains.insert(chain.iter().cloned().map(|module| module.clone()).collect());
+                }
+                // Remove imports relating to imported module again.
+                for (importer_to_remove, imported_to_remove) in &map_of_imports[&imported_module] {
+                    temp_graph.remove_import(&importer_to_remove, &imported_to_remove);
+                }
+            }
+            // Remove imports relating to importer module again.
+            for (importer_to_remove, imported_to_remove) in &map_of_imports[&importer_module] {
+                temp_graph.remove_import(&importer_to_remove, &imported_to_remove);
             }
         }
         chains
@@ -2294,7 +2350,7 @@ imports:
         graph.add_import(&purple, &blue);
         graph.add_import(&green, &purple);
 
-        let result = graph.find_shortest_chains(&blue, &green);
+        let result = graph.find_shortest_chains(&blue, &green, true);
 
         assert_eq!(result, HashSet::new())
     }
@@ -2319,9 +2375,9 @@ imports:
         graph.add_import(&purple, &blue);
         graph.add_import(&green, &purple);
 
-        let result = graph.find_shortest_chains(&blue, &green);
+        let result = graph.find_shortest_chains(&blue, &green, true);
 
-        assert_eq!(result, HashSet::from([vec![&blue, &red, &green],]))
+        assert_eq!(result, HashSet::from([vec![blue, red, green],]))
     }
 
     #[test]
@@ -2346,9 +2402,9 @@ imports:
         graph.add_import(&purple, &blue);
         graph.add_import(&green, &purple);
 
-        let result = graph.find_shortest_chains(&blue, &green);
+        let result = graph.find_shortest_chains(&blue, &green, true);
 
-        assert_eq!(result, HashSet::from([vec![&blue, &red, &green_alpha],]))
+        assert_eq!(result, HashSet::from([vec![blue, red, green_alpha]]))
     }
 
     #[test]
@@ -2375,11 +2431,11 @@ imports:
         graph.add_import(&purple, &blue);
         graph.add_import(&green, &purple);
 
-        let result = graph.find_shortest_chains(&blue, &green);
+        let result = graph.find_shortest_chains(&blue, &green, true);
 
         assert_eq!(
             result,
-            HashSet::from([vec![&blue, &red, &green_alpha_one],])
+            HashSet::from([vec![blue, red, green_alpha_one],])
         )
     }
 
@@ -2405,9 +2461,9 @@ imports:
         graph.add_import(&purple, &blue);
         graph.add_import(&green, &purple);
 
-        let result = graph.find_shortest_chains(&blue, &green);
+        let result = graph.find_shortest_chains(&blue, &green, true);
 
-        assert_eq!(result, HashSet::from([vec![&blue_alpha, &red, &green],]))
+        assert_eq!(result, HashSet::from([vec![blue_alpha, red, green],]))
     }
 
     #[test]
@@ -2434,11 +2490,11 @@ imports:
         graph.add_import(&purple, &blue);
         graph.add_import(&green, &purple);
 
-        let result = graph.find_shortest_chains(&blue, &green);
+        let result = graph.find_shortest_chains(&blue, &green, true);
 
         assert_eq!(
             result,
-            HashSet::from([vec![&blue_alpha_one, &red, &green],])
+            HashSet::from([vec![blue_alpha_one, red, green],])
         )
     }
 

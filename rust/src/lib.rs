@@ -254,7 +254,7 @@ impl GraphWrapper {
         imported: &str,
         as_packages: bool,
     ) -> Bound<'py, PySet> {
-        let rust_chains: HashSet<Vec<&Module>> = self._graph.find_shortest_chains(
+        let rust_chains: HashSet<Vec<Module>> = self._graph.find_shortest_chains(
             &Module::new(importer.to_string()),
             &Module::new(imported.to_string()),
             as_packages,
