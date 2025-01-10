@@ -1,8 +1,3 @@
-/*
-Also, sensible behaviour when passing modules that don't exist in the graph.
-*/
-#![allow(dead_code)]
-
 use bimap::BiMap;
 use log::info;
 use petgraph::algo::astar;
@@ -382,7 +377,6 @@ impl Graph {
     }
 
     // Note: this will panic if importer and imported are in the same package.
-    #[allow(unused_variables)]
     pub fn direct_import_exists(
         &self,
         importer: &Module,
@@ -552,7 +546,6 @@ impl Graph {
         Some(chain)
     }
 
-    // https://github.com/seddonym/grimp/blob/master/src/grimp/adaptors/graph.py#L290
     pub fn find_shortest_chains(
         &self,
         importer: &Module,
@@ -649,7 +642,6 @@ impl Graph {
         Ok(chains)
     }
 
-    #[allow(unused_variables)]
     pub fn chain_exists(&self, importer: &Module, imported: &Module, as_packages: bool) -> bool {
         // TODO should this return a Result, so we can handle the situation the importer / imported
         // having shared descendants when as_packages=true?
@@ -666,7 +658,6 @@ impl Graph {
         graph.find_shortest_chain(importer, imported).is_some()
     }
 
-    #[allow(unused_variables)]
     pub fn find_illegal_dependencies_for_layers(
         &self,
         levels: Vec<Level>,
@@ -688,8 +679,6 @@ impl Graph {
             .flat_map(|level| level.layers.iter())
             .map(|module_name| module_name.to_string())
             .collect();
-
-        let perms = self._generate_module_permutations(&levels, &containers);
 
         let mut dependencies: Vec<PackageDependency> = self
             ._generate_module_permutations(&levels, &containers)
@@ -984,7 +973,6 @@ impl Graph {
         imports
     }
 
-    #[allow(unused_variables)]
     pub fn squash_module(&mut self, module: &Module) {
         // Get descendants and their imports.
         let descendants: Vec<Module> = self
@@ -1029,6 +1017,19 @@ impl Graph {
 
     pub fn is_module_squashed(&self, module: &Module) -> bool {
         self.squashed_modules.contains(module)
+    }
+
+    /// Return the squashed module that is the nearest ancestor of the supplied module,
+    /// if such an ancestor exists.
+    pub fn find_ancestor_squashed_module(&self, module: &Module) -> Option<Module> {
+        if module.is_root() {
+            return None;
+        }
+        let parent = Module::new_parent(&module);
+        if self.is_module_squashed(&parent) {
+            return Some(parent);
+        }
+        self.find_ancestor_squashed_module(&parent)
     }
 
     fn add_module_if_not_in_hierarchy(&mut self, module: &Module) {
