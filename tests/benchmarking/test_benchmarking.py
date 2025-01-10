@@ -2,6 +2,7 @@ import pytest
 import json
 from pathlib import Path
 from grimp.adaptors.graph import ImportGraph
+from grimp import PackageDependency, Route
 import grimp
 
 
@@ -16,6 +17,21 @@ def large_graph():
             graph.add_import(importer=importer, imported=imported)
 
     return graph
+
+
+TOP_LEVEL_LAYERS = ("plugins", "application", "domain", "data")
+DEEP_PACKAGE = "mypackage.plugins.5634303718.1007553798.8198145119"
+DEEP_LAYERS = (
+    f"{DEEP_PACKAGE}.application.3242334296.1991886645",
+    f"{DEEP_PACKAGE}.application.3242334296.6397984863",
+    f"{DEEP_PACKAGE}.application.3242334296.9009030339",
+    f"{DEEP_PACKAGE}.application.3242334296.6666171185",
+    f"{DEEP_PACKAGE}.application.3242334296.1693068682",
+    f"{DEEP_PACKAGE}.application.3242334296.1752284225",
+    f"{DEEP_PACKAGE}.application.3242334296.9089085203",
+    f"{DEEP_PACKAGE}.application.3242334296.5033127033",
+    f"{DEEP_PACKAGE}.application.3242334296.2454157946",
+)
 
 
 def test_build_django(benchmark):
@@ -34,30 +50,172 @@ def test_build_django(benchmark):
 def test_top_level_large_graph(large_graph, benchmark):
     benchmark(
         lambda: large_graph.find_illegal_dependencies_for_layers(
-            layers=("plugins", "application", "domain", "data"),
+            layers=TOP_LEVEL_LAYERS,
             containers=("mypackage",),
         )
     )
 
 
 def test_deep_layers_large_graph(large_graph, benchmark):
-    layers = (
-        "mypackage.plugins.5634303718.1007553798.8198145119.application.3242334296.1991886645",
-        "mypackage.plugins.5634303718.1007553798.8198145119.application.3242334296.6397984863",
-        "mypackage.plugins.5634303718.1007553798.8198145119.application.3242334296.9009030339",
-        "mypackage.plugins.5634303718.1007553798.8198145119.application.3242334296.6666171185",
-        "mypackage.plugins.5634303718.1007553798.8198145119.application.3242334296.1693068682",
-        "mypackage.plugins.5634303718.1007553798.8198145119.application.3242334296.1752284225",
-        "mypackage.plugins.5634303718.1007553798.8198145119.application.3242334296.9089085203",
-        "mypackage.plugins.5634303718.1007553798.8198145119.application.3242334296.5033127033",
-        "mypackage.plugins.5634303718.1007553798.8198145119.application.3242334296.2454157946",
-    )
-    fn = lambda: large_graph.find_illegal_dependencies_for_layers(
-        layers=layers,
-    )
+    fn = lambda: large_graph.find_illegal_dependencies_for_layers(layers=DEEP_LAYERS)
     if hasattr(benchmark, "pendantic"):
         # Running with pytest-benchmark
         benchmark.pedantic(fn, rounds=3)
     else:
         # Running with codspeed.
         benchmark(fn)
+
+
+# Result checks
+# -------------
+# These tests aren't benchmarks, but they execute the same code as the benchmarks to check the
+# behaviour hasn't changed.
+
+
+def test_top_level_large_graph_result_check(large_graph):
+    result = large_graph.find_illegal_dependencies_for_layers(
+        layers=TOP_LEVEL_LAYERS,
+        containers=("mypackage",),
+    )
+
+    assert result == set()
+
+
+def test_deep_layers_large_graph_result_check(large_graph):
+    result = large_graph.find_illegal_dependencies_for_layers(layers=DEEP_LAYERS)
+    assert result == {
+        PackageDependency(
+            importer=f"{DEEP_PACKAGE}.application.3242334296.2454157946",
+            imported=f"{DEEP_PACKAGE}.application.3242334296.9089085203",
+            routes=frozenset(
+                {
+                    Route(
+                        heads=frozenset({f"{DEEP_PACKAGE}.application.3242334296.2454157946"}),
+                        middle=(),
+                        tails=frozenset({f"{DEEP_PACKAGE}.application.3242334296.9089085203"}),
+                    )
+                }
+            ),
+        ),
+        PackageDependency(
+            importer=f"{DEEP_PACKAGE}.application.3242334296.5033127033",
+            imported=f"{DEEP_PACKAGE}.application.3242334296.9089085203",
+            routes=frozenset(
+                {
+                    Route(
+                        heads=frozenset({f"{DEEP_PACKAGE}.application.3242334296.5033127033"}),
+                        middle=(),
+                        tails=frozenset({f"{DEEP_PACKAGE}.application.3242334296.9089085203"}),
+                    )
+                }
+            ),
+        ),
+        PackageDependency(
+            importer=f"{DEEP_PACKAGE}.application.3242334296.9089085203",
+            imported=f"{DEEP_PACKAGE}.application.3242334296.1693068682",
+            routes=frozenset(
+                {
+                    Route(
+                        heads=frozenset(
+                            {
+                                f"{DEEP_PACKAGE}.application.3242334296.9089085203.4296536723",
+                                f"{DEEP_PACKAGE}.application.3242334296.9089085203.4641062780",
+                            }
+                        ),
+                        middle=(f"{DEEP_PACKAGE}.application.3242334296",),
+                        tails=frozenset({f"{DEEP_PACKAGE}.application.3242334296.1693068682"}),
+                    )
+                }
+            ),
+        ),
+        PackageDependency(
+            importer=f"{DEEP_PACKAGE}.application.3242334296.9089085203",
+            imported=f"{DEEP_PACKAGE}.application.3242334296.1752284225",
+            routes=frozenset(
+                {
+                    Route(
+                        heads=frozenset(
+                            {
+                                f"{DEEP_PACKAGE}.application.3242334296.9089085203.4296536723",
+                                f"{DEEP_PACKAGE}.application.3242334296.9089085203.4641062780",
+                            }
+                        ),
+                        middle=(f"{DEEP_PACKAGE}.application.3242334296",),
+                        tails=frozenset({f"{DEEP_PACKAGE}.application.3242334296.1752284225"}),
+                    )
+                }
+            ),
+        ),
+        PackageDependency(
+            importer=f"{DEEP_PACKAGE}.application.3242334296.9089085203",
+            imported=f"{DEEP_PACKAGE}.application.3242334296.1991886645",
+            routes=frozenset(
+                {
+                    Route(
+                        heads=frozenset(
+                            {
+                                f"{DEEP_PACKAGE}.application.3242334296.9089085203.4296536723",
+                                f"{DEEP_PACKAGE}.application.3242334296.9089085203.4641062780",
+                            }
+                        ),
+                        middle=(f"{DEEP_PACKAGE}.application.3242334296",),
+                        tails=frozenset({f"{DEEP_PACKAGE}.application.3242334296.1991886645"}),
+                    )
+                }
+            ),
+        ),
+        PackageDependency(
+            importer=f"{DEEP_PACKAGE}.application.3242334296.9089085203",
+            imported=f"{DEEP_PACKAGE}.application.3242334296.6397984863",
+            routes=frozenset(
+                {
+                    Route(
+                        heads=frozenset(
+                            {
+                                f"{DEEP_PACKAGE}.application.3242334296.9089085203.4296536723",
+                                f"{DEEP_PACKAGE}.application.3242334296.9089085203.4641062780",
+                            }
+                        ),
+                        middle=(f"{DEEP_PACKAGE}.application.3242334296",),
+                        tails=frozenset({f"{DEEP_PACKAGE}.application.3242334296.6397984863"}),
+                    )
+                }
+            ),
+        ),
+        PackageDependency(
+            importer=f"{DEEP_PACKAGE}.application.3242334296.9089085203",
+            imported=f"{DEEP_PACKAGE}.application.3242334296.6666171185",
+            routes=frozenset(
+                {
+                    Route(
+                        heads=frozenset(
+                            {
+                                f"{DEEP_PACKAGE}.application.3242334296.9089085203.4296536723",
+                                f"{DEEP_PACKAGE}.application.3242334296.9089085203.4641062780",
+                            }
+                        ),
+                        middle=(f"{DEEP_PACKAGE}.application.3242334296",),
+                        tails=frozenset({f"{DEEP_PACKAGE}.application.3242334296.6666171185"}),
+                    )
+                }
+            ),
+        ),
+        PackageDependency(
+            importer=f"{DEEP_PACKAGE}.application.3242334296.9089085203",
+            imported=f"{DEEP_PACKAGE}.application.3242334296.9009030339",
+            routes=frozenset(
+                {
+                    Route(
+                        heads=frozenset(
+                            {
+                                f"{DEEP_PACKAGE}.application.3242334296.9089085203.4296536723",
+                                f"{DEEP_PACKAGE}.application.3242334296.9089085203.4641062780",
+                            }
+                        ),
+                        middle=(f"{DEEP_PACKAGE}.application.3242334296",),
+                        tails=frozenset({f"{DEEP_PACKAGE}.application.3242334296.9009030339"}),
+                    )
+                }
+            ),
+        ),
+    }
