@@ -2,7 +2,7 @@ import pytest
 import json
 from pathlib import Path
 from grimp.adaptors.rustgraph import ImportGraph
-
+import grimp
 
 @pytest.fixture(scope="module")
 def large_graph():
@@ -41,6 +41,16 @@ def test_deep_layers_large_graph(large_graph, benchmark):
     fn = lambda: large_graph.find_illegal_dependencies_for_layers(
         layers=layers,
     )
+    if hasattr(benchmark, "pendantic"):
+        # Running with pytest-benchmark
+        benchmark.pedantic(fn, rounds=3)
+    else:
+        # Running with codspeed.
+        benchmark(fn)
+
+
+def test_build_django(benchmark):
+    fn = lambda: grimp.build_graph("django")
     if hasattr(benchmark, "pendantic"):
         # Running with pytest-benchmark
         benchmark.pedantic(fn, rounds=3)
