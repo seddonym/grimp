@@ -13,6 +13,7 @@ use pyo3::create_exception;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyFrozenSet, PySet, PyString, PyTuple};
 use std::collections::{HashMap, HashSet};
+pub mod graph;
 
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
