@@ -25,13 +25,13 @@ def test_find_downstream_modules(module, as_package, expected_result):
 
     graph.add_module(external, is_squashed=True)
 
-    graph.add_import(imported=a, importer=b)
-    graph.add_import(imported=a, importer=c)
-    graph.add_import(imported=c, importer=d)
-    graph.add_import(imported=d, importer=e)
-    graph.add_import(imported=f, importer=b)
-    graph.add_import(imported=f, importer=g)
-    graph.add_import(imported=external, importer=d)
+    graph.add_import(importer=b, imported=a)
+    graph.add_import(importer=c, imported=a)
+    graph.add_import(importer=d, imported=c)
+    graph.add_import(importer=e, imported=d)
+    graph.add_import(importer=b, imported=f)
+    graph.add_import(importer=g, imported=f)
+    graph.add_import(importer=d, imported=external)
 
     assert expected_result == graph.find_downstream_modules(module, as_package=as_package)
 
@@ -56,13 +56,13 @@ def test_find_upstream_modules(module, as_package, expected_result):
 
     graph.add_module(external, is_squashed=True)
 
-    graph.add_import(imported=a, importer=b)
-    graph.add_import(imported=a, importer=c)
-    graph.add_import(imported=c, importer=d)
-    graph.add_import(imported=d, importer=e)
-    graph.add_import(imported=f, importer=b)
-    graph.add_import(imported=g, importer=f)
-    graph.add_import(imported=f, importer=external)
+    graph.add_import(importer=b, imported=a)
+    graph.add_import(importer=c, imported=a)
+    graph.add_import(importer=d, imported=c)
+    graph.add_import(importer=e, imported=d)
+    graph.add_import(importer=b, imported=f)
+    graph.add_import(importer=f, imported=g)
+    graph.add_import(importer=external, imported=f)
 
     assert expected_result == graph.find_upstream_modules(module, as_package=as_package)
 
