@@ -4,30 +4,28 @@ from grimp.adaptors.graph import ImportGraph
 from grimp.exceptions import ModuleNotPresent
 
 
-def test_add_module():
-    graph = ImportGraph()
-    module = "foo"
+class TestAddModule:
+    def test_add_module(self):
+        graph = ImportGraph()
+        module = "foo"
 
-    graph.add_module(module)
+        graph.add_module(module)
 
-    assert graph.modules == {module}
+        assert graph.modules == {module}
+
+    def test_add_module_does_not_add_ancestors_too(self):
+        graph = ImportGraph()
+        module = "mypackage.foo.bar"
+
+        graph.add_module(module)
+
+        assert graph.modules == {"mypackage.foo.bar"}
 
 
 class TestRemoveModule:
-    def test_removes_module_from_modules(self):
-        graph = ImportGraph()
-        a, b = {"mypackage.blue", "mypackage.green"}
-
-        graph.add_module(a)
-        graph.add_module(b)
-        graph.add_import(importer=a, imported=b)
-
-        graph.remove_module(b)
-        assert graph.modules == {a}
-
     def test_removes_module_removes_import_details_for_imported(self):
         graph = ImportGraph()
-        a, b, c = {"mypackage.blue", "mypackage.green", "mypackage.yellow"}
+        a, b, c = "mypackage.blue", "mypackage.green", "mypackage.yellow"
 
         graph.add_import(
             importer=a,
@@ -53,9 +51,20 @@ class TestRemoveModule:
             }
         ]
 
+    def test_removes_module_from_modules(self):
+        graph = ImportGraph()
+        a, b = "mypackage.blue", "mypackage.green"
+
+        graph.add_module(a)
+        graph.add_module(b)
+        graph.add_import(importer=a, imported=b)
+
+        graph.remove_module(b)
+        assert graph.modules == {a}
+
     def test_removes_module_removes_import_details_for_importer(self):
         graph = ImportGraph()
-        a, b, c = {"mypackage.blue", "mypackage.green", "mypackage.yellow"}
+        a, b, c = "mypackage.blue", "mypackage.green", "mypackage.yellow"
 
         graph.add_import(
             importer=b,
@@ -83,7 +92,7 @@ class TestRemoveModule:
 
     def test_removing_non_existent_module_doesnt_error(self):
         graph = ImportGraph()
-        a, b = {"mypackage.blue", "mypackage.green"}
+        a, b = "mypackage.blue", "mypackage.green"
 
         graph.add_module(a)
         graph.add_module(b)
@@ -174,7 +183,7 @@ class TestRemoveImport:
 
     def test_removes_from_import_details(self):
         graph = ImportGraph()
-        a, b, c = {"mypackage.blue", "mypackage.green", "mypackage.yellow"}
+        a, b, c = "mypackage.blue", "mypackage.green", "mypackage.yellow"
 
         graph.add_import(
             importer=a,
