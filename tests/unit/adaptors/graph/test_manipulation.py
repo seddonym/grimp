@@ -27,7 +27,7 @@ class TestRemoveModule:
 
     def test_removes_module_removes_import_details_for_imported(self):
         graph = ImportGraph()
-        a, b, c = {"mypackage.blue", "mypackage.green", "mypackage.yellow"}
+        a, b, c = "mypackage.blue", "mypackage.green", "mypackage.yellow"
 
         graph.add_import(
             importer=a,
@@ -55,7 +55,7 @@ class TestRemoveModule:
 
     def test_removes_module_removes_import_details_for_importer(self):
         graph = ImportGraph()
-        a, b, c = {"mypackage.blue", "mypackage.green", "mypackage.yellow"}
+        a, b, c = "mypackage.blue", "mypackage.green", "mypackage.yellow"
 
         graph.add_import(
             importer=b,
@@ -83,7 +83,7 @@ class TestRemoveModule:
 
     def test_removing_non_existent_module_doesnt_error(self):
         graph = ImportGraph()
-        a, b = {"mypackage.blue", "mypackage.green"}
+        a, b = "mypackage.blue", "mypackage.green"
 
         graph.add_module(a)
         graph.add_module(b)
@@ -174,7 +174,7 @@ class TestRemoveImport:
 
     def test_removes_from_import_details(self):
         graph = ImportGraph()
-        a, b, c = {"mypackage.blue", "mypackage.green", "mypackage.yellow"}
+        a, b, c = "mypackage.blue", "mypackage.green", "mypackage.yellow"
 
         graph.add_import(
             importer=a,
