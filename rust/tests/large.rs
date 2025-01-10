@@ -1,7 +1,6 @@
-use _rustgrimp::importgraph::ImportGraph;
-use _rustgrimp::layers::{find_illegal_dependencies, Level};
+use _rustgrimp::graph::{Graph, Level, Module};
 use serde_json::{Map, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs;
 
 #[test]
@@ -9,15 +8,19 @@ fn test_large_graph_deep_layers() {
     let data = fs::read_to_string("tests/large_graph.json").expect("Unable to read file");
     let value: Value = serde_json::from_str(&data).unwrap();
     let items: &Map<String, Value> = value.as_object().unwrap();
-    let mut importeds_by_importer: HashMap<&str, HashSet<&str>> = HashMap::new();
+    let mut graph = Graph::default();
     for (importer, importeds_value) in items.iter() {
-        let mut importeds = HashSet::new();
         for imported in importeds_value.as_array().unwrap() {
-            importeds.insert(imported.as_str().unwrap());
+            graph.add_import(
+                &Module {
+                    name: importer.clone(),
+                },
+                &Module {
+                    name: imported.as_str().unwrap().to_string(),
+                },
+            );
         }
-        importeds_by_importer.insert(importer, importeds);
     }
-    let graph = ImportGraph::new(importeds_by_importer);
 
     let deep_layers = vec![
         "mypackage.plugins.5634303718.1007553798.8198145119.application.3242334296.1991886645",
@@ -39,7 +42,9 @@ fn test_large_graph_deep_layers() {
         .collect();
     let containers = HashSet::new();
 
-    let deps = find_illegal_dependencies(&graph, &levels, &containers);
+    let deps = graph
+        .find_illegal_dependencies_for_layers(levels, containers)
+        .unwrap();
 
     assert_eq!(deps.len(), 8);
 }
