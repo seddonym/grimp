@@ -88,3 +88,53 @@ To run a subset of tests::
 To run all the test environments in *parallel* (you need to ``pip install detox``)::
 
     detox
+
+
+Benchmarking
+============
+
+Codspeed
+--------
+
+A few benchmarks are run automatically on pull requests, using `Codspeed <https://codspeed.io/>`_.
+Once the benchmarks have completed, a report will be included as a comment on the pull request.
+
+Codspeed also shows flame graphs which can help track down why a change might have impacted performance.
+
+Local benchmarking
+------------------
+
+It's also possible to run local benchmarks, which can be helpful if you want to quickly compare performance
+across different versions of the code.
+
+To benchmark a particular version of the code, run ``tox -ebenchmark``. This command creates a report that will be
+stored in a local file (ignored by Git).
+
+You can then see how your latest benchmark compares with earlier ones, by running:
+
+``pytest-benchmark compare --group-by=func --sort=name --columns=mean``
+
+This will display a list of all the benchmarks you've run locally, ordered from earlier to later.
+
+Profiling
+=========
+
+Codspeed
+--------
+
+The easiest way to profile code is to look at the Codspeed flamegraph, automatically generated during benchmarking
+(see above).
+
+Profiling Rust code locally
+---------------------------
+
+Rust integration tests can be profiled using `Cargo Flamegraph <https://github.com/flamegraph-rs/flamegraph>`_
+(which will need to be installed first, e.g. using ``cargo install flamegraph``).
+
+Navigate to the ``rust`` directory in this package.
+
+Run cargo flamegraph on the relevant test. E.g. to profile ``rust/tests/large.rs``, run:
+
+``sudo cargo flamegraph --root --test large``
+
+This will create a file called ``flamegraph.svg``, which you can open to view the flamegraph.
