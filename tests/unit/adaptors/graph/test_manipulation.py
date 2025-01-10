@@ -13,18 +13,16 @@ class TestAddModule:
 
         assert graph.modules == {module}
 
-class TestRemoveModule:
-    def test_removes_module_from_modules(self):
+    def test_add_module_does_not_add_ancestors_too(self):
         graph = ImportGraph()
-        a, b = {"mypackage.blue", "mypackage.green"}
+        module = "mypackage.foo.bar"
 
-        graph.add_module(a)
-        graph.add_module(b)
-        graph.add_import(importer=a, imported=b)
+        graph.add_module(module)
 
-        graph.remove_module(b)
-        assert graph.modules == {a}
+        assert graph.modules == {"mypackage.foo.bar"}
 
+
+class TestRemoveModule:
     def test_removes_module_removes_import_details_for_imported(self):
         graph = ImportGraph()
         a, b, c = "mypackage.blue", "mypackage.green", "mypackage.yellow"
@@ -52,6 +50,17 @@ class TestRemoveModule:
                 "line_number": 2,
             }
         ]
+
+    def test_removes_module_from_modules(self):
+        graph = ImportGraph()
+        a, b = "mypackage.blue", "mypackage.green"
+
+        graph.add_module(a)
+        graph.add_module(b)
+        graph.add_import(importer=a, imported=b)
+
+        graph.remove_module(b)
+        assert graph.modules == {a}
 
     def test_removes_module_removes_import_details_for_importer(self):
         graph = ImportGraph()
