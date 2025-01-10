@@ -4,14 +4,14 @@ from grimp.adaptors.graph import ImportGraph
 from grimp.exceptions import ModuleNotPresent
 
 
-def test_add_module():
-    graph = ImportGraph()
-    module = "foo"
+class TestAddModule:
+    def test_add_module(self):
+        graph = ImportGraph()
+        module = "foo"
 
-    graph.add_module(module)
+        graph.add_module(module)
 
-    assert graph.modules == {module}
-
+        assert graph.modules == {module}
 
 class TestRemoveModule:
     def test_removes_module_from_modules(self):
