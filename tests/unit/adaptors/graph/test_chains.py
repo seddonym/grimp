@@ -41,6 +41,7 @@ def test_find_downstream_modules(module, as_package, expected_result):
     (
         ("foo.d", False, {"foo.d.c", "foo.a"}),
         ("foo.b.g", False, set()),
+        # Note: foo.d.c is not included in the upstreams because that's internal to the package.
         ("foo.d", True, {"foo.a", "foo.a.f", "foo.b.g"}),
         ("foo.b.g", True, set()),
         ("bar", True, {"foo.a.f", "foo.b.g"}),
@@ -169,6 +170,44 @@ class TestFindShortestChain:
 
 
 class TestFindShortestChains:
+    @pytest.mark.parametrize(
+        "importer, imported",
+        (
+            ("green", "green.one"),
+            ("green.one", "green"),
+        ),
+    )
+    def test_modules_with_shared_descendants_raises_value_error_when_as_packages_true(
+        self, importer: str, imported: str
+    ):
+        graph = ImportGraph()
+        graph.add_module(importer)
+        graph.add_module(imported)
+
+        with pytest.raises(ValueError, match="Modules have shared descendants."):
+            graph.find_shortest_chains(importer=importer, imported=imported, as_packages=True)
+
+    @pytest.mark.parametrize(
+        "importer, imported",
+        (
+            ("green", "green.one"),
+            ("green.one", "green"),
+        ),
+    )
+    def test_modules_with_shared_descendants_allowed_when_as_packages_false(
+        self, importer: str, imported: str
+    ):
+        graph = ImportGraph()
+        middle = "middle"
+        graph.add_import(importer=importer, imported=middle)
+        graph.add_import(importer=middle, imported=imported)
+
+        result = graph.find_shortest_chains(
+            importer=importer, imported=imported, as_packages=False
+        )
+
+        assert result == {(importer, middle, imported)}
+
     @pytest.mark.parametrize("as_packages", (False, True))
     def test_top_level_import(self, as_packages: bool):
         graph = ImportGraph()
@@ -340,6 +379,25 @@ class TestFindShortestChains:
 
         assert result == expected_result
 
+    def test_chains_within_packages_are_not_included(self):
+        graph = ImportGraph()
+
+        graph.add_module("importer_package")
+        graph.add_module("imported_package")
+
+        # Chain via importer package.
+        graph.add_import(importer="importer_package.one", imported="importer_package.two")
+        graph.add_import(importer="importer_package.two", imported="importer_package.three")
+        graph.add_import(importer="importer_package.three", imported="imported_package.four")
+        graph.add_import(importer="imported_package.four", imported="imported_package.five")
+        graph.add_import(importer="imported_package.five", imported="imported_package.six")
+
+        result = graph.find_shortest_chains(
+            importer="importer_package", imported="imported_package"
+        )
+
+        assert result == {("importer_package.three", "imported_package.four")}
+
     def test_chains_via_importer_package_dont_stop_longer_chains_being_included(self):
         graph = ImportGraph()
 
@@ -501,6 +559,9 @@ class TestFindShortestChains:
         # Importer is child of imported (but doesn't import). This doesn't
         # make sense if as_packages is True, so it should raise an exception.
         ("b.two", "b", True, ValueError()),
+        # Importer is child of imported (but doesn't import). This doesn't
+        # make sense if as_packages is True, so it should raise an exception.
+        ("b", "b.two", True, ValueError()),
         # Importer's child imports imported's child (b.two.green -> a.one.green).
         ("b.two", "a.one", True, True),
         # Importer's grandchild directly imports imported's grandchild
