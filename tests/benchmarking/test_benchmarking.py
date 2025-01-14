@@ -34,10 +34,30 @@ DEEP_LAYERS = (
 )
 
 
-def test_build_django(benchmark):
+def test_build_django_uncached(benchmark):
     """
     Benchmarks building a graph of real package - in this case Django.
+
+    In this benchmark, the cache is turned off.
     """
+    fn = lambda: grimp.build_graph("django", cache_dir=None)
+    if hasattr(benchmark, "pendantic"):
+        # Running with pytest-benchmark
+        benchmark.pedantic(fn, rounds=3)
+    else:
+        # Running with codspeed.
+        benchmark(fn)
+
+
+def test_build_django_from_cache(benchmark):
+    """
+    Benchmarks building a graph of real package - in this case Django.
+
+    This benchmark uses the cache.
+    """
+    # Populate the cache first, before beginning the benchmark.
+    grimp.build_graph("django")
+
     fn = lambda: grimp.build_graph("django")
     if hasattr(benchmark, "pendantic"):
         # Running with pytest-benchmark
