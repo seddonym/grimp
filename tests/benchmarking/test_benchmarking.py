@@ -41,7 +41,7 @@ def test_build_django_uncached(benchmark):
     In this benchmark, the cache is turned off.
     """
     fn = lambda: grimp.build_graph("django", cache_dir=None)
-    if hasattr(benchmark, "pendantic"):
+    if hasattr(benchmark, "pedantic"):
         # Running with pytest-benchmark
         benchmark.pedantic(fn, rounds=3)
     else:
@@ -59,7 +59,7 @@ def test_build_django_from_cache(benchmark):
     grimp.build_graph("django")
 
     fn = lambda: grimp.build_graph("django")
-    if hasattr(benchmark, "pendantic"):
+    if hasattr(benchmark, "pedantic"):
         # Running with pytest-benchmark
         benchmark.pedantic(fn, rounds=3)
     else:
@@ -78,7 +78,7 @@ def test_top_level_large_graph(large_graph, benchmark):
 
 def test_deep_layers_large_graph(large_graph, benchmark):
     fn = lambda: large_graph.find_illegal_dependencies_for_layers(layers=DEEP_LAYERS)
-    if hasattr(benchmark, "pendantic"):
+    if hasattr(benchmark, "pedantic"):
         # Running with pytest-benchmark
         benchmark.pedantic(fn, rounds=3)
     else:
