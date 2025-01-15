@@ -12,12 +12,8 @@ fn test_large_graph_deep_layers() {
     for (importer, importeds_value) in items.iter() {
         for imported in importeds_value.as_array().unwrap() {
             graph.add_import(
-                &Module {
-                    name: importer.clone(),
-                },
-                &Module {
-                    name: imported.as_str().unwrap().to_string(),
-                },
+		&Module::new(importer.clone()),
+		&Module::new(imported.as_str().expect("Failed to convert python value to str").to_string()),
             );
         }
     }

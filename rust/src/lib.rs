@@ -8,6 +8,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyFrozenSet, PyList, PySet, PyString, PyTuple};
 use rustc_hash::FxHashSet;
 
+use std::sync::Arc;
+
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -34,11 +36,11 @@ impl GraphWrapper {
         }
     }
 
-    pub fn get_modules(&self) -> FxHashSet<String> {
+    pub fn get_modules(&self) -> FxHashSet<Module> {
         self._graph
             .get_modules()
             .iter()
-            .map(|module| module.name.clone())
+            .map(|module| (*module).clone())
             .collect()
     }
 
@@ -125,20 +127,20 @@ impl GraphWrapper {
         self._graph.count_imports()
     }
 
-    pub fn find_children(&self, module: &str) -> FxHashSet<String> {
+    pub fn find_children(&self, module: &str) -> FxHashSet<Module> {
         self._graph
             .find_children(&Module::new(module.to_string()))
             .iter()
-            .map(|child| child.name.clone())
+            .map(|child| (*child).clone())
             .collect()
     }
 
-    pub fn find_descendants(&self, module: &str) -> FxHashSet<String> {
+    pub fn find_descendants(&self, module: &str) -> FxHashSet<Module> {
         self._graph
             .find_descendants(&Module::new(module.to_string()))
             .unwrap()
             .iter()
-            .map(|descendant| descendant.name.clone())
+            .map(|descendant| (*descendant).clone())
             .collect()
     }
 
@@ -169,19 +171,19 @@ impl GraphWrapper {
         ))
     }
 
-    pub fn find_modules_directly_imported_by(&self, module: &str) -> FxHashSet<String> {
+    pub fn find_modules_directly_imported_by(&self, module: &str) -> FxHashSet<Module> {
         self._graph
             .find_modules_directly_imported_by(&Module::new(module.to_string()))
             .iter()
-            .map(|imported| imported.name.clone())
+            .map(|imported| (*imported).clone())
             .collect()
     }
 
-    pub fn find_modules_that_directly_import(&self, module: &str) -> FxHashSet<String> {
+    pub fn find_modules_that_directly_import(&self, module: &str) -> FxHashSet<Module> {
         self._graph
             .find_modules_that_directly_import(&Module::new(module.to_string()))
             .iter()
-            .map(|importer| importer.name.clone())
+            .map(|importer| (*importer).clone())
             .collect()
     }
 
@@ -208,11 +210,11 @@ impl GraphWrapper {
             let pydict = PyDict::new(py);
             pydict.set_item(
                 "importer".to_string(),
-                detailed_import.importer.name.clone(),
+                detailed_import.importer.clone(),
             )?;
             pydict.set_item(
                 "imported".to_string(),
-                detailed_import.imported.name.clone(),
+                detailed_import.imported.clone(),
             )?;
             pydict.set_item("line_number".to_string(), detailed_import.line_number)?;
             pydict.set_item(
@@ -226,32 +228,32 @@ impl GraphWrapper {
 
     #[allow(unused_variables)]
     #[pyo3(signature = (module, as_package=false))]
-    pub fn find_downstream_modules(&self, module: &str, as_package: bool) -> FxHashSet<String> {
+    pub fn find_downstream_modules(&self, module: &str, as_package: bool) -> FxHashSet<Module> {
         // Turn the Modules to Strings.
         self._graph
             .find_downstream_modules(&Module::new(module.to_string()), as_package)
             .iter()
-            .map(|downstream| downstream.name.clone())
+            .map(|downstream| (*downstream).clone())
             .collect()
     }
 
     #[allow(unused_variables)]
     #[pyo3(signature = (module, as_package=false))]
-    pub fn find_upstream_modules(&self, module: &str, as_package: bool) -> FxHashSet<String> {
+    pub fn find_upstream_modules(&self, module: &str, as_package: bool) -> FxHashSet<Module> {
         self._graph
             .find_upstream_modules(&Module::new(module.to_string()), as_package)
             .iter()
-            .map(|upstream| upstream.name.clone())
+            .map(|upstream| (*upstream).clone())
             .collect()
     }
 
-    pub fn find_shortest_chain(&self, importer: &str, imported: &str) -> Option<Vec<String>> {
+    pub fn find_shortest_chain(&self, importer: &str, imported: &str) -> Option<Vec<Module>> {
         let chain = self._graph.find_shortest_chain(
             &Module::new(importer.to_string()),
             &Module::new(imported.to_string()),
         )?;
 
-        Some(chain.iter().map(|module| module.name.clone()).collect())
+        Some(chain.iter().map(|module| (*module).clone()).collect())
     }
 
     #[pyo3(signature = (importer, imported, as_packages=true))]
@@ -370,8 +372,8 @@ fn _convert_dependencies_to_python<'py>(
 
     for rust_dependency in dependencies {
         let python_dependency = PyDict::new(py);
-        python_dependency.set_item("imported", &rust_dependency.imported.name)?;
-        python_dependency.set_item("importer", &rust_dependency.importer.name)?;
+        python_dependency.set_item("imported", rust_dependency.imported.clone())?;
+        python_dependency.set_item("importer", rust_dependency.importer.clone())?;
         let mut python_routes: Vec<Bound<'py, PyDict>> = vec![];
         for rust_route in &rust_dependency.routes {
             let route = PyDict::new(py);

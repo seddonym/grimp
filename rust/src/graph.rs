@@ -9,6 +9,7 @@ use rayon::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt;
 use std::time::Instant;
+use std::sync::Arc;
 
 /// A group of layers at the same level in the layering.
 #[derive(PartialEq, Eq, Hash, Debug)]
@@ -22,7 +23,7 @@ const DELIMITER: char = '.';
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Module {
-    pub name: String,
+    pub name: Arc<String>,
 }
 
 impl fmt::Display for Module {
@@ -49,9 +50,21 @@ impl fmt::Display for ModuleNotPresent {
     }
 }
 
+impl<'py> pyo3::IntoPyObject<'py> for Module {
+    type Target = pyo3::types::PyString;
+    type Output = pyo3::Bound<'py, Self::Target>;
+    type Error = std::convert::Infallible;
+
+    #[inline]
+    fn into_pyobject(self, py: pyo3::Python<'py>) -> Result<Self::Output, Self::Error> {
+	let n = &*self.name;
+	n.into_pyobject(py)
+    }
+}
+
 impl Module {
     pub fn new(name: String) -> Module {
-        Module { name }
+        Module { name: Arc::new(name), }
     }
 
     // Returns whether the module is a root-level package.
@@ -1077,7 +1090,7 @@ mod tests {
 
         let result = graph.get_modules();
 
-        assert_eq!(result, FxHashSet::from_iter([&mypackage]));
+        assert_eq!(result, FxHashSet::from_iter([mypackage]));
     }
 
     #[test]
@@ -1088,7 +1101,7 @@ mod tests {
 
         let result = graph.get_modules();
 
-        assert_eq!(result, FxHashSet::from_iter([&mypackage]));
+        assert_eq!(result, FxHashSet::from_iter([mypackage]));
     }
 
     #[test]
@@ -1101,7 +1114,7 @@ mod tests {
 
         let result = graph.get_modules();
 
-        assert_eq!(result, FxHashSet::from_iter([&mypackage, &mypackage_foo]));
+        assert_eq!(result, FxHashSet::from_iter([mypackage, mypackage_foo]));
         assert_eq!(
             graph.pretty_str(),
             "
@@ -1125,7 +1138,7 @@ imports:
         graph.remove_module(&mypackage_foo);
 
         let result = graph.get_modules();
-        assert_eq!(result, FxHashSet::from_iter([&mypackage]));
+        assert_eq!(result, FxHashSet::from_iter([mypackage]));
     }
 
     #[test]
@@ -1145,8 +1158,8 @@ imports:
         assert_eq!(
             result,
             FxHashSet::from_iter([
-                &mypackage,
-                &mypackage_foo_alpha, // To be consistent with previous versions of Grimp.
+                mypackage,
+                mypackage_foo_alpha, // To be consistent with previous versions of Grimp.
             ])
         );
     }
@@ -1170,7 +1183,7 @@ imports:
         let result = graph.get_modules();
         assert_eq!(
             result,
-            FxHashSet::from_iter([&mypackage, &mypackage_foo_alpha, &importer, &imported])
+            FxHashSet::from_iter([mypackage.clone(), mypackage_foo_alpha.clone(), importer.clone(), imported.clone()])
         );
         assert_eq!(
             graph.direct_import_exists(&importer, &mypackage_foo, false),
@@ -1239,7 +1252,7 @@ imports:
         // ...but the modules are still there.
         assert_eq!(
             graph.get_modules(),
-            FxHashSet::from_iter([&importer, &imported])
+            FxHashSet::from_iter([importer, imported])
         );
     }
 
@@ -1256,7 +1269,7 @@ imports:
         // The modules are still there.
         assert_eq!(
             graph.get_modules(),
-            FxHashSet::from_iter([&importer, &imported])
+            FxHashSet::from_iter([importer, imported])
         );
     }
 
@@ -1625,7 +1638,7 @@ imports:
 
         assert_eq!(
             graph.get_modules(),
-            FxHashSet::from_iter([&mypackage_bar, &mypackage_foo])
+            FxHashSet::from_iter([mypackage_bar.clone(), mypackage_foo.clone()])
         );
         assert!(graph.direct_import_exists(&mypackage_foo, &mypackage_bar, false));
         assert_eq!(
@@ -1652,7 +1665,7 @@ imports:
 
         assert_eq!(
             graph.get_modules(),
-            FxHashSet::from_iter([&mypackage_bar, &mypackage_foo])
+            FxHashSet::from_iter([mypackage_bar.clone(), mypackage_foo.clone()])
         );
         assert!(graph.direct_import_exists(&mypackage_foo, &mypackage_bar, false));
         assert_eq!(
