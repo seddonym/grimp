@@ -1,6 +1,6 @@
 use _rustgrimp::graph::{Graph, Level, Module};
+use rustc_hash::FxHashSet;
 use serde_json::{Map, Value};
-use std::collections::HashSet;
 use std::fs;
 
 #[test]
@@ -40,7 +40,7 @@ fn test_large_graph_deep_layers() {
             layers: vec![layer.to_string()],
         })
         .collect();
-    let containers = HashSet::new();
+    let containers = FxHashSet::default();
 
     let deps = graph
         .find_illegal_dependencies_for_layers(levels, containers)
