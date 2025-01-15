@@ -6,7 +6,7 @@ use petgraph::stable_graph::{NodeIndex, StableGraph};
 use petgraph::visit::{Bfs, Walker};
 use petgraph::Direction;
 use rayon::prelude::*;
-use std::collections::{HashMap, HashSet};
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt;
 use std::time::Instant;
 
@@ -93,10 +93,10 @@ pub struct Graph {
     hierarchy: StableGraph<Module, ()>,
     imports_module_indices: BiMap<Module, NodeIndex>,
     imports: StableGraph<Module, ()>,
-    squashed_modules: HashSet<Module>,
+    squashed_modules: FxHashSet<Module>,
     // Invisible modules exist in the hierarchy but haven't been explicitly added to the graph.
-    invisible_modules: HashSet<Module>,
-    detailed_imports_map: HashMap<(Module, Module), HashSet<DetailedImport>>,
+    invisible_modules: FxHashSet<Module>,
+    detailed_imports_map: FxHashMap<(Module, Module), FxHashSet<DetailedImport>>,
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
@@ -245,7 +245,7 @@ impl Graph {
         };
     }
 
-    pub fn get_modules(&self) -> HashSet<&Module> {
+    pub fn get_modules(&self) -> FxHashSet<&Module> {
         self.hierarchy_module_indices
             .left_values()
             .filter(|module| !self.invisible_modules.contains(module))
@@ -260,23 +260,23 @@ impl Graph {
         &self,
         importer: &Module,
         imported: &Module,
-    ) -> HashSet<DetailedImport> {
+    ) -> FxHashSet<DetailedImport> {
         let key = (importer.clone(), imported.clone());
         match self.detailed_imports_map.get(&key) {
             Some(import_details) => import_details.clone(),
-            None => HashSet::new(),
+            None => FxHashSet::default(),
         }
     }
 
-    pub fn find_children(&self, module: &Module) -> HashSet<&Module> {
+    pub fn find_children(&self, module: &Module) -> FxHashSet<&Module> {
         if self.invisible_modules.contains(module) {
-            return HashSet::new();
+            return FxHashSet::default();
         }
         let module_index = match self.hierarchy_module_indices.get_by_left(module) {
             Some(index) => index,
             // Module does not exist.
             // TODO: should this return a result, to handle if module is not in graph?
-            None => return HashSet::new(),
+            None => return FxHashSet::default(),
         };
         self.hierarchy
             .neighbors(*module_index)
@@ -285,7 +285,10 @@ impl Graph {
             .collect()
     }
 
-    pub fn find_descendants(&self, module: &Module) -> Result<HashSet<&Module>, ModuleNotPresent> {
+    pub fn find_descendants(
+        &self,
+        module: &Module,
+    ) -> Result<FxHashSet<&Module>, ModuleNotPresent> {
         let module_index = match self.hierarchy_module_indices.get_by_left(module) {
             Some(index) => index,
             None => {
@@ -343,7 +346,7 @@ impl Graph {
         let key = (import.importer.clone(), import.imported.clone());
         self.detailed_imports_map
             .entry(key)
-            .or_insert_with(HashSet::new)
+            .or_insert_with(FxHashSet::default)
             .insert(import.clone());
         self.add_import(&import.importer, &import.imported);
     }
@@ -411,17 +414,17 @@ impl Graph {
             .contains_edge(importer_index, imported_index)
     }
 
-    pub fn find_modules_that_directly_import(&self, imported: &Module) -> HashSet<&Module> {
+    pub fn find_modules_that_directly_import(&self, imported: &Module) -> FxHashSet<&Module> {
         let imported_index = match self.imports_module_indices.get_by_left(imported) {
             Some(imported_index) => *imported_index,
-            None => return HashSet::new(),
+            None => return FxHashSet::default(),
         };
-        let importer_indices: HashSet<NodeIndex> = self
+        let importer_indices: FxHashSet<NodeIndex> = self
             .imports
             .neighbors_directed(imported_index, Direction::Incoming)
             .collect();
 
-        let importers: HashSet<&Module> = importer_indices
+        let importers: FxHashSet<&Module> = importer_indices
             .iter()
             .map(|importer_index| {
                 self.imports_module_indices
@@ -432,17 +435,17 @@ impl Graph {
         importers
     }
 
-    pub fn find_modules_directly_imported_by(&self, importer: &Module) -> HashSet<&Module> {
+    pub fn find_modules_directly_imported_by(&self, importer: &Module) -> FxHashSet<&Module> {
         let importer_index = match self.imports_module_indices.get_by_left(importer) {
             Some(importer_index) => *importer_index,
-            None => return HashSet::new(),
+            None => return FxHashSet::default(),
         };
-        let imported_indices: HashSet<NodeIndex> = self
+        let imported_indices: FxHashSet<NodeIndex> = self
             .imports
             .neighbors_directed(importer_index, Direction::Outgoing)
             .collect();
 
-        let importeds: HashSet<&Module> = imported_indices
+        let importeds: FxHashSet<&Module> = imported_indices
             .iter()
             .map(|imported_index| {
                 self.imports_module_indices
@@ -453,12 +456,14 @@ impl Graph {
         importeds
     }
 
-    pub fn find_upstream_modules(&self, module: &Module, as_package: bool) -> HashSet<&Module> {
-        let mut upstream_modules = HashSet::new();
+    pub fn find_upstream_modules(&self, module: &Module, as_package: bool) -> FxHashSet<&Module> {
+        let mut upstream_modules = FxHashSet::default();
 
-        let mut modules_to_check: HashSet<&Module> = HashSet::from([module]);
+        let mut modules_to_check: FxHashSet<&Module> = FxHashSet::from_iter([module]);
         if as_package {
-            let descendants = self.find_descendants(&module).unwrap_or(HashSet::new());
+            let descendants = self
+                .find_descendants(&module)
+                .unwrap_or(FxHashSet::default());
             modules_to_check.extend(descendants.into_iter());
         };
 
@@ -479,12 +484,14 @@ impl Graph {
         upstream_modules
     }
 
-    pub fn find_downstream_modules(&self, module: &Module, as_package: bool) -> HashSet<&Module> {
-        let mut downstream_modules = HashSet::new();
+    pub fn find_downstream_modules(&self, module: &Module, as_package: bool) -> FxHashSet<&Module> {
+        let mut downstream_modules = FxHashSet::default();
 
-        let mut modules_to_check: HashSet<&Module> = HashSet::from([module]);
+        let mut modules_to_check: FxHashSet<&Module> = FxHashSet::from_iter([module]);
         if as_package {
-            let descendants = self.find_descendants(&module).unwrap_or(HashSet::new());
+            let descendants = self
+                .find_descendants(&module)
+                .unwrap_or(FxHashSet::default());
             modules_to_check.extend(descendants.into_iter());
         };
 
@@ -551,12 +558,12 @@ impl Graph {
         importer: &Module,
         imported: &Module,
         as_packages: bool,
-    ) -> Result<HashSet<Vec<Module>>, String> {
-        let mut chains = HashSet::new();
+    ) -> Result<FxHashSet<Vec<Module>>, String> {
+        let mut chains = FxHashSet::default();
         let mut temp_graph = self.clone();
 
-        let mut downstream_modules: HashSet<Module> = HashSet::from([importer.clone()]);
-        let mut upstream_modules: HashSet<Module> = HashSet::from([imported.clone()]);
+        let mut downstream_modules: FxHashSet<Module> = FxHashSet::from_iter([importer.clone()]);
+        let mut upstream_modules: FxHashSet<Module> = FxHashSet::from_iter([imported.clone()]);
 
         // TODO don't do this if module is squashed?
         if as_packages {
@@ -597,9 +604,10 @@ impl Graph {
         }
 
         // Keep track of imports into/out of upstream/downstream packages, and remove them.
-        let mut map_of_imports: HashMap<Module, HashSet<(Module, Module)>> = HashMap::new();
+        let mut map_of_imports: FxHashMap<Module, FxHashSet<(Module, Module)>> =
+            FxHashMap::default();
         for module in upstream_modules.union(&downstream_modules) {
-            let mut imports_to_or_from_module = HashSet::new();
+            let mut imports_to_or_from_module = FxHashSet::default();
             for imported_module in temp_graph.find_modules_directly_imported_by(&module) {
                 imports_to_or_from_module.insert((module.clone(), imported_module.clone()));
             }
@@ -661,7 +669,7 @@ impl Graph {
     pub fn find_illegal_dependencies_for_layers(
         &self,
         levels: Vec<Level>,
-        containers: HashSet<String>,
+        containers: FxHashSet<String>,
     ) -> Result<Vec<PackageDependency>, NoSuchContainer> {
         // Check that containers exist.
         let modules = self.get_modules();
@@ -714,7 +722,7 @@ impl Graph {
     fn _generate_module_permutations(
         &self,
         levels: &Vec<Level>,
-        containers: &HashSet<String>,
+        containers: &FxHashSet<String>,
     ) -> Vec<(Module, Module, Option<Module>)> {
         let mut permutations: Vec<(Module, Module, Option<Module>)> = vec![];
 
@@ -869,9 +877,9 @@ impl Graph {
         }
 
         // Set up importer/imported package contents.
-        let mut importer_modules: HashSet<&Module> = HashSet::from([importer_package]);
+        let mut importer_modules: FxHashSet<&Module> = FxHashSet::from_iter([importer_package]);
         importer_modules.extend(self.find_descendants(&importer_package).unwrap());
-        let mut imported_modules: HashSet<&Module> = HashSet::from([imported_package]);
+        let mut imported_modules: FxHashSet<&Module> = FxHashSet::from_iter([imported_package]);
         imported_modules.extend(self.find_descendants(&imported_package).unwrap());
 
         // Build routes from middles.
@@ -934,10 +942,10 @@ impl Graph {
         &mut self,
         lower_layer_module: &Module,
         higher_layer_module: &Module,
-    ) -> HashSet<(Module, Module)> {
-        let mut imports = HashSet::new();
+    ) -> FxHashSet<(Module, Module)> {
+        let mut imports = FxHashSet::default();
 
-        let mut lower_layer_modules = HashSet::from([lower_layer_module.clone()]);
+        let mut lower_layer_modules = FxHashSet::from_iter([lower_layer_module.clone()]);
         for descendant in self
             .find_descendants(lower_layer_module)
             .unwrap()
@@ -947,7 +955,7 @@ impl Graph {
             lower_layer_modules.insert(descendant.clone());
         }
 
-        let mut higher_layer_modules = HashSet::from([higher_layer_module.clone()]);
+        let mut higher_layer_modules = FxHashSet::from_iter([higher_layer_module.clone()]);
         for descendant in self
             .find_descendants(higher_layer_module)
             .unwrap()
@@ -1050,7 +1058,7 @@ mod tests {
     fn modules_when_empty() {
         let graph = Graph::default();
 
-        assert_eq!(graph.get_modules(), HashSet::new());
+        assert_eq!(graph.get_modules(), FxHashSet::default());
     }
 
     #[test]
@@ -1069,7 +1077,7 @@ mod tests {
 
         let result = graph.get_modules();
 
-        assert_eq!(result, HashSet::from([&mypackage]));
+        assert_eq!(result, FxHashSet::from_iter([&mypackage]));
     }
 
     #[test]
@@ -1080,7 +1088,7 @@ mod tests {
 
         let result = graph.get_modules();
 
-        assert_eq!(result, HashSet::from([&mypackage]));
+        assert_eq!(result, FxHashSet::from_iter([&mypackage]));
     }
 
     #[test]
@@ -1093,7 +1101,7 @@ mod tests {
 
         let result = graph.get_modules();
 
-        assert_eq!(result, HashSet::from([&mypackage, &mypackage_foo]));
+        assert_eq!(result, FxHashSet::from_iter([&mypackage, &mypackage_foo]));
         assert_eq!(
             graph.pretty_str(),
             "
@@ -1117,7 +1125,7 @@ imports:
         graph.remove_module(&mypackage_foo);
 
         let result = graph.get_modules();
-        assert_eq!(result, HashSet::from([&mypackage]));
+        assert_eq!(result, FxHashSet::from_iter([&mypackage]));
     }
 
     #[test]
@@ -1136,7 +1144,7 @@ imports:
         let result = graph.get_modules();
         assert_eq!(
             result,
-            HashSet::from([
+            FxHashSet::from_iter([
                 &mypackage,
                 &mypackage_foo_alpha, // To be consistent with previous versions of Grimp.
             ])
@@ -1162,7 +1170,7 @@ imports:
         let result = graph.get_modules();
         assert_eq!(
             result,
-            HashSet::from([&mypackage, &mypackage_foo_alpha, &importer, &imported])
+            FxHashSet::from_iter([&mypackage, &mypackage_foo_alpha, &importer, &imported])
         );
         assert_eq!(
             graph.direct_import_exists(&importer, &mypackage_foo, false),
@@ -1190,7 +1198,7 @@ imports:
 
         assert_eq!(
             graph.get_import_details(&importer, &imported),
-            HashSet::new()
+            FxHashSet::default()
         );
     }
 
@@ -1210,7 +1218,7 @@ imports:
 
         assert_eq!(
             graph.get_import_details(&importer, &imported),
-            HashSet::new()
+            FxHashSet::default()
         );
     }
 
@@ -1229,7 +1237,10 @@ imports:
             false
         );
         // ...but the modules are still there.
-        assert_eq!(graph.get_modules(), HashSet::from([&importer, &imported]));
+        assert_eq!(
+            graph.get_modules(),
+            FxHashSet::from_iter([&importer, &imported])
+        );
     }
 
     #[test]
@@ -1243,7 +1254,10 @@ imports:
         graph.remove_import(&importer, &imported);
 
         // The modules are still there.
-        assert_eq!(graph.get_modules(), HashSet::from([&importer, &imported]));
+        assert_eq!(
+            graph.get_modules(),
+            FxHashSet::from_iter([&importer, &imported])
+        );
     }
 
     #[test]
@@ -1336,7 +1350,7 @@ imports:
         graph.add_module(mypackage.clone());
         graph.add_module(mypackage_foo.clone());
 
-        assert_eq!(graph.find_children(&mypackage_foo), HashSet::new());
+        assert_eq!(graph.find_children(&mypackage_foo), FxHashSet::default());
     }
 
     #[test]
@@ -1352,7 +1366,7 @@ imports:
 
         assert_eq!(
             graph.find_children(&mypackage),
-            HashSet::from([&mypackage_foo, &mypackage_bar])
+            FxHashSet::from_iter([&mypackage_foo, &mypackage_bar])
         );
     }
 
@@ -1369,7 +1383,7 @@ imports:
 
         assert_eq!(
             graph.find_children(&mypackage),
-            HashSet::from([&mypackage_foo, &mypackage_bar])
+            FxHashSet::from_iter([&mypackage_foo, &mypackage_bar])
         );
     }
 
@@ -1385,7 +1399,7 @@ imports:
 
         assert_eq!(
             graph.find_children(&Module::new("mypackage".to_string())),
-            HashSet::new()
+            FxHashSet::default()
         );
     }
 
@@ -1408,7 +1422,10 @@ imports:
         graph.add_module(mypackage_foo_alpha_green.clone());
         graph.add_module(mypackage_foo_beta.clone());
 
-        assert_eq!(graph.find_descendants(&mypackage_bar), Ok(HashSet::new()));
+        assert_eq!(
+            graph.find_descendants(&mypackage_bar),
+            Ok(FxHashSet::default())
+        );
     }
 
     #[test]
@@ -1447,7 +1464,7 @@ imports:
 
         assert_eq!(
             graph.find_descendants(&mypackage_foo),
-            Ok(HashSet::from([
+            Ok(FxHashSet::from_iter([
                 &mypackage_foo_alpha,
                 &mypackage_foo_alpha_blue,
                 &mypackage_foo_alpha_green,
@@ -1479,7 +1496,7 @@ imports:
         assert_eq!(
             graph.find_descendants(&mypackage_foo),
             // mypackage.foo.blue is not included.
-            Ok(HashSet::from([
+            Ok(FxHashSet::from_iter([
                 &mypackage_foo_blue_alpha,
                 &mypackage_foo_blue_alpha_one,
                 &mypackage_foo_blue_alpha_two,
@@ -1512,7 +1529,7 @@ imports:
 
         assert_eq!(
             graph.find_descendants(&mypackage_foo),
-            Ok(HashSet::from([
+            Ok(FxHashSet::from_iter([
                 &mypackage_foo_blue, // Should be included.
                 &mypackage_foo_blue_alpha,
                 &mypackage_foo_blue_alpha_one,
@@ -1608,7 +1625,7 @@ imports:
 
         assert_eq!(
             graph.get_modules(),
-            HashSet::from([&mypackage_bar, &mypackage_foo])
+            FxHashSet::from_iter([&mypackage_bar, &mypackage_foo])
         );
         assert!(graph.direct_import_exists(&mypackage_foo, &mypackage_bar, false));
         assert_eq!(
@@ -1635,7 +1652,7 @@ imports:
 
         assert_eq!(
             graph.get_modules(),
-            HashSet::from([&mypackage_bar, &mypackage_foo])
+            FxHashSet::from_iter([&mypackage_bar, &mypackage_foo])
         );
         assert!(graph.direct_import_exists(&mypackage_foo, &mypackage_bar, false));
         assert_eq!(
@@ -1777,7 +1794,7 @@ imports:
 
         assert_eq!(
             result,
-            HashSet::from([&mypackage_foo_alpha, &anotherpackage])
+            FxHashSet::from_iter([&mypackage_foo_alpha, &anotherpackage])
         )
     }
 
@@ -1793,7 +1810,7 @@ imports:
         graph.remove_import(&green, &blue);
         let result = graph.find_modules_that_directly_import(&blue);
 
-        assert_eq!(result, HashSet::from([&yellow]))
+        assert_eq!(result, FxHashSet::from_iter([&yellow]))
     }
 
     #[test]
@@ -1822,7 +1839,7 @@ imports:
 
         assert_eq!(
             result,
-            HashSet::from([&mypackage_foo_alpha, &anotherpackage])
+            FxHashSet::from_iter([&mypackage_foo_alpha, &anotherpackage])
         )
     }
 
@@ -1838,7 +1855,7 @@ imports:
         graph.remove_import(&blue, &green);
         let result = graph.find_modules_directly_imported_by(&blue);
 
-        assert_eq!(result, HashSet::from([&yellow]))
+        assert_eq!(result, FxHashSet::from_iter([&yellow]))
     }
 
     #[test]
@@ -2059,7 +2076,10 @@ imports:
 
         let result = graph.find_upstream_modules(&blue, false);
 
-        assert_eq!(result, HashSet::from([&green, &red, &yellow, &purple]))
+        assert_eq!(
+            result,
+            FxHashSet::from_iter([&green, &red, &yellow, &purple])
+        )
     }
 
     #[test]
@@ -2069,7 +2089,7 @@ imports:
 
         let result = graph.find_upstream_modules(&blue, false);
 
-        assert_eq!(result, HashSet::new())
+        assert_eq!(result, FxHashSet::default())
     }
 
     #[test]
@@ -2106,7 +2126,10 @@ imports:
 
         let result = graph.find_upstream_modules(&blue, true);
 
-        assert_eq!(result, HashSet::from([&green, &yellow, &purple, &brown]))
+        assert_eq!(
+            result,
+            FxHashSet::from_iter([&green, &yellow, &purple, &brown])
+        )
     }
 
     #[test]
@@ -2138,7 +2161,7 @@ imports:
 
         let result = graph.find_downstream_modules(&purple, false);
 
-        assert_eq!(result, HashSet::from([&yellow, &green, &blue]))
+        assert_eq!(result, FxHashSet::from_iter([&yellow, &green, &blue]))
     }
 
     #[test]
@@ -2148,7 +2171,7 @@ imports:
 
         let result = graph.find_downstream_modules(&blue, false);
 
-        assert_eq!(result, HashSet::new())
+        assert_eq!(result, FxHashSet::default())
     }
 
     #[test]
@@ -2185,7 +2208,10 @@ imports:
 
         let result = graph.find_downstream_modules(&blue, true);
 
-        assert_eq!(result, HashSet::from([&green, &yellow, &purple, &brown]))
+        assert_eq!(
+            result,
+            FxHashSet::from_iter([&green, &yellow, &purple, &brown])
+        )
     }
 
     // find_shortest_chain
@@ -2336,7 +2362,7 @@ imports:
 
         let result = graph.find_shortest_chains(&blue, &green, true);
 
-        assert_eq!(result, Ok(HashSet::new()));
+        assert_eq!(result, Ok(FxHashSet::default()));
     }
 
     #[test]
@@ -2361,7 +2387,7 @@ imports:
 
         let result = graph.find_shortest_chains(&blue, &green, true);
 
-        assert_eq!(result, Ok(HashSet::from([vec![blue, red, green],])));
+        assert_eq!(result, Ok(FxHashSet::from_iter([vec![blue, red, green],])));
     }
 
     #[test]
@@ -2388,7 +2414,10 @@ imports:
 
         let result = graph.find_shortest_chains(&blue, &green, true);
 
-        assert_eq!(result, Ok(HashSet::from([vec![blue, red, green_alpha]])));
+        assert_eq!(
+            result,
+            Ok(FxHashSet::from_iter([vec![blue, red, green_alpha]]))
+        );
     }
 
     #[test]
@@ -2419,7 +2448,7 @@ imports:
 
         assert_eq!(
             result,
-            Ok(HashSet::from([vec![blue, red, green_alpha_one],]))
+            Ok(FxHashSet::from_iter([vec![blue, red, green_alpha_one],]))
         )
     }
 
@@ -2447,7 +2476,10 @@ imports:
 
         let result = graph.find_shortest_chains(&blue, &green, true);
 
-        assert_eq!(result, Ok(HashSet::from([vec![blue_alpha, red, green],])));
+        assert_eq!(
+            result,
+            Ok(FxHashSet::from_iter([vec![blue_alpha, red, green],]))
+        );
     }
 
     #[test]
@@ -2478,7 +2510,7 @@ imports:
 
         assert_eq!(
             result,
-            Ok(HashSet::from([vec![blue_alpha_one, red, green],]))
+            Ok(FxHashSet::from_iter([vec![blue_alpha_one, red, green],]))
         )
     }
 
@@ -2593,7 +2625,7 @@ imports:
     fn find_illegal_dependencies_for_layers_empty_everything() {
         let graph = Graph::default();
 
-        let dependencies = graph.find_illegal_dependencies_for_layers(vec![], HashSet::new());
+        let dependencies = graph.find_illegal_dependencies_for_layers(vec![], FxHashSet::default());
 
         assert_eq!(dependencies, Ok(vec![]));
     }
@@ -2603,8 +2635,10 @@ imports:
         let graph = Graph::default();
         let container = "nonexistent_container".to_string();
 
-        let dependencies =
-            graph.find_illegal_dependencies_for_layers(vec![], HashSet::from([container.clone()]));
+        let dependencies = graph.find_illegal_dependencies_for_layers(
+            vec![],
+            FxHashSet::from_iter([container.clone()]),
+        );
 
         assert_eq!(
             dependencies,
@@ -2622,7 +2656,8 @@ imports:
             independent: true,
         };
 
-        let dependencies = graph.find_illegal_dependencies_for_layers(vec![level], HashSet::new());
+        let dependencies =
+            graph.find_illegal_dependencies_for_layers(vec![level], FxHashSet::default());
 
         assert_eq!(dependencies, Ok(vec![]));
     }
@@ -2637,8 +2672,8 @@ imports:
         };
         let container = "mypackage".to_string();
 
-        let dependencies =
-            graph.find_illegal_dependencies_for_layers(vec![level], HashSet::from([container]));
+        let dependencies = graph
+            .find_illegal_dependencies_for_layers(vec![level], FxHashSet::from_iter([container]));
 
         assert_eq!(dependencies, Ok(vec![]));
     }
@@ -2660,7 +2695,7 @@ imports:
             },
         ];
 
-        let dependencies = graph.find_illegal_dependencies_for_layers(levels, HashSet::new());
+        let dependencies = graph.find_illegal_dependencies_for_layers(levels, FxHashSet::default());
 
         assert_eq!(
             dependencies,
@@ -2695,7 +2730,7 @@ imports:
             },
         ];
 
-        let dependencies = graph.find_illegal_dependencies_for_layers(levels, HashSet::new());
+        let dependencies = graph.find_illegal_dependencies_for_layers(levels, FxHashSet::default());
 
         assert_eq!(
             dependencies,
@@ -2741,7 +2776,7 @@ imports:
                 independent: true,
             },
         ];
-        let containers = HashSet::from(["blue".to_string(), "green".to_string()]);
+        let containers = FxHashSet::from_iter(["blue".to_string(), "green".to_string()]);
 
         let dependencies = graph.find_illegal_dependencies_for_layers(levels, containers);
 
@@ -2786,7 +2821,7 @@ imports:
             independent: true,
         }];
 
-        let dependencies = graph.find_illegal_dependencies_for_layers(levels, HashSet::new());
+        let dependencies = graph.find_illegal_dependencies_for_layers(levels, FxHashSet::default());
 
         assert_eq!(
             dependencies,
@@ -2810,7 +2845,7 @@ imports:
 
         let result = graph.get_import_details(&importer, &imported);
 
-        assert_eq!(result, HashSet::new());
+        assert_eq!(result, FxHashSet::default());
     }
 
     #[test]
@@ -2822,7 +2857,7 @@ imports:
 
         let result = graph.get_import_details(&importer, &imported);
 
-        assert_eq!(result, HashSet::new());
+        assert_eq!(result, FxHashSet::default());
     }
 
     #[test]
@@ -2847,7 +2882,7 @@ imports:
 
         let result = graph.get_import_details(&importer, &imported);
 
-        assert_eq!(result, HashSet::from([import]));
+        assert_eq!(result, FxHashSet::from_iter([import]));
     }
 
     #[test]
@@ -2872,7 +2907,10 @@ imports:
 
         let result = graph.get_import_details(&blue, &green);
 
-        assert_eq!(result, HashSet::from([blue_to_green_a, blue_to_green_b]));
+        assert_eq!(
+            result,
+            FxHashSet::from_iter([blue_to_green_a, blue_to_green_b])
+        );
     }
 
     #[test]
@@ -2898,7 +2936,7 @@ imports:
 
         let result = graph.get_import_details(&importer, &imported);
 
-        assert_eq!(result, HashSet::new());
+        assert_eq!(result, FxHashSet::default());
     }
 
     #[test]
@@ -2924,6 +2962,6 @@ imports:
 
         let result = graph.get_import_details(&importer, &imported);
 
-        assert_eq!(result, HashSet::from([import]));
+        assert_eq!(result, FxHashSet::from_iter([import]));
     }
 }

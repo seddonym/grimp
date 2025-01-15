@@ -6,7 +6,7 @@ use pyo3::create_exception;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyFrozenSet, PyList, PySet, PyString, PyTuple};
-use std::collections::HashSet;
+use rustc_hash::FxHashSet;
 
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -34,7 +34,7 @@ impl GraphWrapper {
         }
     }
 
-    pub fn get_modules(&self) -> HashSet<String> {
+    pub fn get_modules(&self) -> FxHashSet<String> {
         self._graph
             .get_modules()
             .iter()
@@ -125,7 +125,7 @@ impl GraphWrapper {
         self._graph.count_imports()
     }
 
-    pub fn find_children(&self, module: &str) -> HashSet<String> {
+    pub fn find_children(&self, module: &str) -> FxHashSet<String> {
         self._graph
             .find_children(&Module::new(module.to_string()))
             .iter()
@@ -133,7 +133,7 @@ impl GraphWrapper {
             .collect()
     }
 
-    pub fn find_descendants(&self, module: &str) -> HashSet<String> {
+    pub fn find_descendants(&self, module: &str) -> FxHashSet<String> {
         self._graph
             .find_descendants(&Module::new(module.to_string()))
             .unwrap()
@@ -169,7 +169,7 @@ impl GraphWrapper {
         ))
     }
 
-    pub fn find_modules_directly_imported_by(&self, module: &str) -> HashSet<String> {
+    pub fn find_modules_directly_imported_by(&self, module: &str) -> FxHashSet<String> {
         self._graph
             .find_modules_directly_imported_by(&Module::new(module.to_string()))
             .iter()
@@ -177,7 +177,7 @@ impl GraphWrapper {
             .collect()
     }
 
-    pub fn find_modules_that_directly_import(&self, module: &str) -> HashSet<String> {
+    pub fn find_modules_that_directly_import(&self, module: &str) -> FxHashSet<String> {
         self._graph
             .find_modules_that_directly_import(&Module::new(module.to_string()))
             .iter()
@@ -226,7 +226,7 @@ impl GraphWrapper {
 
     #[allow(unused_variables)]
     #[pyo3(signature = (module, as_package=false))]
-    pub fn find_downstream_modules(&self, module: &str, as_package: bool) -> HashSet<String> {
+    pub fn find_downstream_modules(&self, module: &str, as_package: bool) -> FxHashSet<String> {
         // Turn the Modules to Strings.
         self._graph
             .find_downstream_modules(&Module::new(module.to_string()), as_package)
@@ -237,7 +237,7 @@ impl GraphWrapper {
 
     #[allow(unused_variables)]
     #[pyo3(signature = (module, as_package=false))]
-    pub fn find_upstream_modules(&self, module: &str, as_package: bool) -> HashSet<String> {
+    pub fn find_upstream_modules(&self, module: &str, as_package: bool) -> FxHashSet<String> {
         self._graph
             .find_upstream_modules(&Module::new(module.to_string()), as_package)
             .iter()
@@ -262,7 +262,7 @@ impl GraphWrapper {
         imported: &str,
         as_packages: bool,
     ) -> PyResult<Bound<'py, PySet>> {
-        let rust_chains: HashSet<Vec<Module>> = self
+        let rust_chains: FxHashSet<Vec<Module>> = self
             ._graph
             .find_shortest_chains(
                 &Module::new(importer.to_string()),
@@ -308,18 +308,16 @@ impl GraphWrapper {
         ))
     }
 
-    #[allow(unused_variables)]
     #[pyo3(signature = (layers, containers))]
     pub fn find_illegal_dependencies_for_layers<'py>(
         &self,
         py: Python<'py>,
         layers: &Bound<'py, PyTuple>,
-        containers: HashSet<String>,
+        containers: FxHashSet<String>,
     ) -> PyResult<Bound<'py, PyTuple>> {
         info!("Using Rust to find illegal dependencies.");
         let levels = rustify_levels(layers);
 
-        println!("\nIncoming {:?}, {:?}", levels, containers);
         let dependencies = py.allow_threads(|| {
             self._graph
                 .find_illegal_dependencies_for_layers(levels, containers)
@@ -343,7 +341,7 @@ fn rustify_levels<'a>(levels_python: &Bound<'a, PyTuple>) -> Vec<Level> {
     let mut rust_levels: Vec<Level> = vec![];
     for level_python in levels_python.into_iter() {
         let level_dict = level_python.downcast::<PyDict>().unwrap();
-        let layers: HashSet<String> = level_dict
+        let layers: FxHashSet<String> = level_dict
             .get_item("layers")
             .unwrap()
             .unwrap()
@@ -431,15 +429,15 @@ mod tests {
             let elements = vec![
                 pydict! (py, {
                     "independent" => true,
-                    "layers" => HashSet::from(["high"]),
+                    "layers" => FxHashSet::from_iter(["high"]),
                 }),
                 pydict! (py, {
                     "independent" => true,
-                    "layers" => HashSet::from(["medium"]),
+                    "layers" => FxHashSet::from_iter(["medium"]),
                 }),
                 pydict! (py, {
                     "independent" => true,
-                    "layers" => HashSet::from(["low"]),
+                    "layers" => FxHashSet::from_iter(["low"]),
                 }),
             ];
             let python_levels = PyTuple::new(py, elements)?;
@@ -476,19 +474,19 @@ mod tests {
             let elements = vec![
                 pydict! (py, {
                     "independent" => true,
-                    "layers" => HashSet::from(["high"]),
+                    "layers" => FxHashSet::from_iter(["high"]),
                 }),
                 pydict! (py, {
                     "independent" => true,
-                    "layers" => HashSet::from(["blue", "green", "orange"]),
+                    "layers" => FxHashSet::from_iter(["blue", "green", "orange"]),
                 }),
                 pydict! (py, {
                     "independent" => false,
-                    "layers" => HashSet::from(["red", "yellow"]),
+                    "layers" => FxHashSet::from_iter(["red", "yellow"]),
                 }),
                 pydict! (py, {
                     "independent" => true,
-                    "layers" => HashSet::from(["low"]),
+                    "layers" => FxHashSet::from_iter(["low"]),
                 }),
             ];
             let python_levels = PyTuple::new(py, elements)?;
