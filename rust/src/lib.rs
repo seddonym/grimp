@@ -1,4 +1,5 @@
 pub mod graph;
+mod hierarchy;
 
 use crate::graph::{DetailedImport, Graph, Level, Module, PackageDependency};
 use log::info;

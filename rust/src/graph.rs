@@ -1,3 +1,4 @@
+use crate::hierarchy::ModuleHierarchy;
 use bimap::BiMap;
 use log::info;
 use petgraph::algo::astar;
@@ -88,6 +89,8 @@ pub struct DetailedImport {
 
 #[derive(Default, Clone)]
 pub struct Graph {
+    module_hierarchy: ModuleHierarchy,
+
     // Bidirectional lookup between Module and NodeIndex.
     hierarchy_module_indices: BiMap<Module, NodeIndex>,
     hierarchy: StableGraph<Module, ()>,
@@ -179,70 +182,19 @@ impl Graph {
     }
 
     pub fn add_module(&mut self, module: Module) {
-        // If this module is already in the graph, but invisible, just make it visible.
-        if self.invisible_modules.contains(&module) {
-            self.invisible_modules.remove(&module);
-            return;
-        }
-        // If this module is already in the graph, don't do anything.
-        if self.hierarchy_module_indices.get_by_left(&module).is_some() {
-            return;
-        }
-
-        let module_index = self.hierarchy.add_node(module.clone());
-        self.hierarchy_module_indices
-            .insert(module.clone(), module_index);
-
-        // Add this module to the hierarchy.
-        if !module.is_root() {
-            let parent = Module::new_parent(&module);
-
-            let parent_index = match self.hierarchy_module_indices.get_by_left(&parent) {
-                Some(index) => index,
-                None => {
-                    // If the parent isn't already in the graph, add it, but as an invisible module.
-                    self.add_module(parent.clone());
-                    self.invisible_modules.insert(parent.clone());
-                    self.hierarchy_module_indices.get_by_left(&parent).unwrap()
-                }
-            };
-            self.hierarchy.add_edge(*parent_index, module_index, ());
-        }
+        self.module_hierarchy.add_module(&module.name).unwrap();
     }
 
     pub fn add_squashed_module(&mut self, module: Module) {
-        self.add_module(module.clone());
-        self.squashed_modules.insert(module);
+        let module = self.module_hierarchy.add_module(&module.name).unwrap();
+        self.module_hierarchy.mark_squashed(module).unwrap();
     }
 
     pub fn remove_module(&mut self, module: &Module) {
-        // Remove imports by module.
-        let imported_modules: Vec<Module> = self
-            .find_modules_directly_imported_by(module)
-            .iter()
-            .map(|m| (*m).clone())
-            .collect();
-        for imported_module in imported_modules {
-            self.remove_import(&module, &imported_module);
+        if let Some(module) = self.module_hierarchy.get_by_name(&module.name) {
+            self.module_hierarchy.remove_module(module.token()).unwrap()
+            // TODO(peter) Remove imports
         }
-
-        // Remove imports of module.
-        let importer_modules: Vec<Module> = self
-            .find_modules_that_directly_import(module)
-            .iter()
-            .map(|m| (*m).clone())
-            .collect();
-        for importer_module in importer_modules {
-            self.remove_import(&importer_module, &module);
-        }
-
-        // Remove module from hierarchy.
-        if let Some(hierarchy_index) = self.hierarchy_module_indices.get_by_left(module) {
-            // TODO should we check for children before removing?
-            // Maybe should just make invisible instead?
-            self.hierarchy.remove_node(*hierarchy_index);
-            self.hierarchy_module_indices.remove_by_left(module);
-        };
     }
 
     pub fn get_modules(&self) -> FxHashSet<&Module> {
