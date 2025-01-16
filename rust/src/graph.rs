@@ -9,7 +9,8 @@ use rayon::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt;
 use std::time::Instant;
-use std::sync::Arc;
+use std::sync::{Mutex, Arc};
+use std::cell::RefCell;
 
 /// A group of layers at the same level in the layering.
 #[derive(PartialEq, Eq, Hash, Debug)]
@@ -101,8 +102,9 @@ pub struct DetailedImport {
 
 impl Default for Graph {
     fn default() -> Self {
-	let mut s = Self {
+	let s = Self {
 	    hierarchy_module_indices: BiMap::default(),
+	    modules: Arc::new(Mutex::new(None)),
 	    hierarchy: StableGraph::default(),
 	    imports_module_indices: BiMap::default(),
 	    imports: StableGraph::default(),
@@ -115,10 +117,27 @@ impl Default for Graph {
     }
 }
 
-#[derive(Clone)]
+impl Clone for Graph {
+    fn clone(&self) -> Self {
+	Self {
+	    // explicitly set the modules to None as a cloned Arc
+	    // otherwise shares the mutex and data across clones
+	    modules: Arc::new(Mutex::new(None)),
+	    hierarchy_module_indices: self.hierarchy_module_indices.clone(),
+	    hierarchy: self.hierarchy.clone(),
+	    imports_module_indices: self.imports_module_indices.clone(),
+	    imports: self.imports.clone(),
+	    squashed_modules: self.squashed_modules.clone(),
+	    invisible_modules: self.invisible_modules.clone(),
+	    detailed_imports_map: self.detailed_imports_map.clone(),
+	}
+    }
+}
+
 pub struct Graph {
     // Bidirectional lookup between Module and NodeIndex.
     hierarchy_module_indices: BiMap<Module, NodeIndex>,
+    modules: Arc<Mutex<Option<FxHashSet<Module>>>>,
     hierarchy: StableGraph<Module, ()>,
     imports_module_indices: BiMap<Module, NodeIndex>,
     imports: StableGraph<Module, ()>,
@@ -211,6 +230,7 @@ impl Graph {
         // If this module is already in the graph, but invisible, just make it visible.
         if self.invisible_modules.contains(&module) {
             self.invisible_modules.remove(&module);
+	    self.invalidate_modules();
             return;
         }
         // If this module is already in the graph, don't do anything.
@@ -237,6 +257,8 @@ impl Graph {
             };
             self.hierarchy.add_edge(*parent_index, module_index, ());
         }
+
+	self.invalidate_modules();
     }
 
     pub fn add_squashed_module(&mut self, module: Module) {
@@ -245,6 +267,7 @@ impl Graph {
     }
 
     pub fn remove_module(&mut self, module: &Module) {
+	let mut dirty = false;
         // Remove imports by module.
         let imported_modules: Vec<Module> = self
             .find_modules_directly_imported_by(module)
@@ -271,14 +294,40 @@ impl Graph {
             // Maybe should just make invisible instead?
             self.hierarchy.remove_node(*hierarchy_index);
             self.hierarchy_module_indices.remove_by_left(module);
+	    dirty |= true;
         };
+	if dirty {
+	    self.invalidate_modules()
+	}
     }
 
-    pub fn get_modules(&self) -> FxHashSet<&Module> {
-        self.hierarchy_module_indices
-            .left_values()
-            .filter(|module| !self.invisible_modules.contains(module))
-            .collect()
+    fn invalidate_modules(&self) {
+	let mut r = self.modules.lock().expect("At some point we should be able to get the lock, unless this is called from the same thread.");
+	*r = None;
+    }
+    
+    pub fn get_modules(&self) -> FxHashSet<Module> {
+	let calculate_modules = || self.hierarchy_module_indices
+		.left_values()
+	    .filter(|module| !self.invisible_modules.contains(module))
+	    .cloned()
+	    .collect();
+
+	// fast and happy path
+	if let Ok(mut r) = self.modules.try_lock() {
+	    if (*r).is_some() {
+		let v = r.as_ref().unwrap();
+		return v.clone();
+	    } else {
+		let modules: FxHashSet<Module> = calculate_modules();
+		*r = Some(modules.clone());
+		return modules;
+	    }
+	}
+
+	// if there is concurrent access just compute again
+	// FIXME: does this harm performance?!
+	calculate_modules()
     }
 
     pub fn count_imports(&self) -> usize {
@@ -1075,6 +1124,7 @@ impl Graph {
         };
         if self.invisible_modules.contains(&module) {
             self.invisible_modules.remove(&module);
+	    self.invalidate_modules();
         };
     }
 }
