@@ -5,7 +5,7 @@ use std::fs;
 
 #[test]
 fn test_large_graph_deep_layers() {
-    let data = fs::read_to_string("tests/large_graph.json").expect("Unable to read file");
+    let data = include_str!("large_graph.json");
     let value: Value = serde_json::from_str(&data).unwrap();
     let items: &Map<String, Value> = value.as_object().unwrap();
     let mut graph = Graph::default();
