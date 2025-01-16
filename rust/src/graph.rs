@@ -78,7 +78,7 @@ impl Module {
     // Panics if the child is a root Module.
     pub fn new_parent(child: &Module) -> Module {
         let parent_name = match child.name.rsplit_once(DELIMITER) {
-            Some((base, _)) => base.to_string(),
+            Some((base, _)) => base,
             None => panic!("{} is a root level package", child.name),
         };
 
