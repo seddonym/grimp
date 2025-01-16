@@ -64,8 +64,8 @@ impl<'py> pyo3::IntoPyObject<'py> for Module {
 }
 
 impl Module {
-    pub fn new(name: String) -> Module {
-        Module { name: Arc::new(name), }
+    pub fn new<S: Into<String>>(name: S) -> Module {
+        Module { name: Arc::new(name.into()), }
     }
 
     // Returns whether the module is a root-level package.
