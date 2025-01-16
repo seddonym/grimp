@@ -13,7 +13,7 @@ pyo3-log = "0.12.1"
 serde_json = "1.0.103"
 rayon = "1.10"
 petgraph = "0.6.5"
-bimap = "0.6.3"
+bimap = { git = "https://github.com/andir/bimap-rs", branch = "clone-unchecked" }
 rustc-hash = "2.1.0"
 
 [dependencies.pyo3]

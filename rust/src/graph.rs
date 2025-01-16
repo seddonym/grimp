@@ -99,7 +99,23 @@ pub struct DetailedImport {
     pub line_contents: String,
 }
 
-#[derive(Default, Clone)]
+impl Default for Graph {
+    fn default() -> Self {
+	let mut s = Self {
+	    hierarchy_module_indices: BiMap::default(),
+	    hierarchy: StableGraph::default(),
+	    imports_module_indices: BiMap::default(),
+	    imports: StableGraph::default(),
+	    squashed_modules: FxHashSet::default(),
+	    // Invisible modules exist in the hierarchy but haven't been explicitly added to the graph.
+	    invisible_modules: FxHashSet::default(),
+	    detailed_imports_map: FxHashMap::default(),
+	};
+	s
+    }
+}
+
+#[derive(Clone)]
 pub struct Graph {
     // Bidirectional lookup between Module and NodeIndex.
     hierarchy_module_indices: BiMap<Module, NodeIndex>,
@@ -2699,11 +2715,11 @@ imports:
         graph.add_import(&low, &high);
         let levels = vec![
             Level {
-                layers: vec![high.name.clone()],
+                layers: vec![(&high.name).to_string()],
                 independent: true,
             },
             Level {
-                layers: vec![low.name.clone()],
+                layers: vec![(&low.name).to_string()],
                 independent: true,
             },
         ];
@@ -2734,11 +2750,11 @@ imports:
         graph.add_import(&elsewhere, &high);
         let levels = vec![
             Level {
-                layers: vec![high.name.clone()],
+                layers: vec![high.name.to_string()],
                 independent: true,
             },
             Level {
-                layers: vec![low.name.clone()],
+                layers: vec![low.name.to_string()],
                 independent: true,
             },
         ];
@@ -2830,7 +2846,7 @@ imports:
         graph.add_import(&blue_alpha, &green_beta);
 
         let levels = vec![Level {
-            layers: vec![blue.name.clone(), green.name.clone()],
+            layers: vec![blue.name.to_string(), green.name.to_string()],
             independent: true,
         }];
 
