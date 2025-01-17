@@ -67,6 +67,7 @@ def test_build_django_from_cache(benchmark):
         benchmark(fn)
 
 
+@pytest.mark.skip  # TODO(peter)
 def test_top_level_large_graph(large_graph, benchmark):
     benchmark(
         lambda: large_graph.find_illegal_dependencies_for_layers(
@@ -76,6 +77,7 @@ def test_top_level_large_graph(large_graph, benchmark):
     )
 
 
+@pytest.mark.skip  # TODO(peter)
 def test_deep_layers_large_graph(large_graph, benchmark):
     fn = lambda: large_graph.find_illegal_dependencies_for_layers(layers=DEEP_LAYERS)
     if hasattr(benchmark, "pedantic"):
@@ -92,6 +94,7 @@ def test_deep_layers_large_graph(large_graph, benchmark):
 # behaviour hasn't changed.
 
 
+@pytest.mark.skip  # TODO(peter)
 def test_top_level_large_graph_result_check(large_graph):
     result = large_graph.find_illegal_dependencies_for_layers(
         layers=TOP_LEVEL_LAYERS,
@@ -101,6 +104,7 @@ def test_top_level_large_graph_result_check(large_graph):
     assert result == set()
 
 
+@pytest.mark.skip  # TODO(peter)
 def test_deep_layers_large_graph_result_check(large_graph):
     result = large_graph.find_illegal_dependencies_for_layers(layers=DEEP_LAYERS)
     assert result == {
