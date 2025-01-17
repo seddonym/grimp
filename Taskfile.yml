@@ -1,0 +1,22 @@
+version: '3'
+
+tasks:
+  test:
+    cmds:
+      - task: test.rust
+      - task: test.python
+
+  test.python:
+    cmds:
+      - maturin develop
+      - pytest --benchmark-skip
+
+  test.rust:
+    dir: rust
+    cmds:
+      - cargo test --no-default-features {{.F}}
+
+  bench:
+    cmds:
+      - maturin develop --release
+      - pytest --benchmark-only --benchmark-autosave --benchmark-compare --benchmark-group-by=func --benchmark-columns mean
