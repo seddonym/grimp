@@ -44,30 +44,6 @@ impl GraphWrapper {
 
     #[pyo3(signature = (module, is_squashed = false))]
     pub fn add_module(&mut self, module: &str, is_squashed: bool) -> PyResult<()> {
-        let module_struct = Module::new(module.to_string());
-
-        if let Some(ancestor_squashed_module) =
-            self._graph.find_ancestor_squashed_module(&module_struct)
-        {
-            return Err(PyValueError::new_err(format!(
-                "Module is a descendant of squashed module {}.",
-                &ancestor_squashed_module.name
-            )));
-        }
-
-        if self._graph.get_modules().contains(&module_struct) {
-            if self._graph.is_module_squashed(&module_struct) != is_squashed {
-                return Err(PyValueError::new_err(
-                    "Cannot add a squashed module when it is already present in the graph \
-                    as an unsquashed module, or vice versa.",
-                ));
-            }
-        }
-
-        match is_squashed {
-            false => self._graph.add_module(module_struct),
-            true => self._graph.add_squashed_module(module_struct),
-        };
         Ok(())
     }
 
@@ -92,25 +68,6 @@ impl GraphWrapper {
         line_number: Option<usize>,
         line_contents: Option<&str>,
     ) {
-        let importer = Module::new(importer.to_string());
-        let imported = Module::new(imported.to_string());
-        match (line_number, line_contents) {
-            (Some(line_number), Some(line_contents)) => {
-                self._graph.add_detailed_import(&DetailedImport {
-                    importer: importer,
-                    imported: imported,
-                    line_number: line_number,
-                    line_contents: line_contents.to_string(),
-                });
-            }
-            (None, None) => {
-                self._graph.add_import(&importer, &imported);
-            }
-            _ => {
-                // TODO handle better.
-                panic!("Expected line_number and line_contents, or neither.");
-            }
-        }
     }
 
     #[pyo3(signature = (*, importer, imported))]
