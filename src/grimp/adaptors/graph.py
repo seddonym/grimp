@@ -17,9 +17,16 @@ class ImportGraph(graph.ImportGraph):
         super().__init__()
         self._rustgraph = rust.Graph()
 
+    # TODO(peter) Be wary about `if X in graph.modules` since we need to
+    # convert the entire graph from rust -> python, which can hurt performance.
+    # Prefer `graph.contains_module`. Is there a way to make this clearer, it feels like
+    # a performance footgun.
     @property
     def modules(self) -> Set[str]:
         return self._rustgraph.get_modules()
+
+    def contains_module(self, module: str) -> bool:
+        return self._rustgraph.contains_module(module)
 
     def add_module(self, module: str, is_squashed: bool = False) -> None:
         self._rustgraph.add_module(module, is_squashed)
@@ -28,12 +35,12 @@ class ImportGraph(graph.ImportGraph):
         self._rustgraph.remove_module(module)
 
     def squash_module(self, module: str) -> None:
-        if module not in self.modules:
+        if not self.contains_module(module):
             raise ModuleNotPresent(f'"{module}" not present in the graph.')
         self._rustgraph.squash_module(module)
 
     def is_module_squashed(self, module: str) -> bool:
-        if module not in self.modules:
+        if not self.contains_module(module):
             raise ModuleNotPresent(f'"{module}" not present in the graph.')
         return self._rustgraph.is_module_squashed(module)
 
@@ -102,7 +109,7 @@ class ImportGraph(graph.ImportGraph):
 
     def find_shortest_chain(self, importer: str, imported: str) -> tuple[str, ...] | None:
         for module in (importer, imported):
-            if module not in self.modules:
+            if not self.contains_module(module):
                 raise ValueError(f"Module {module} is not present in the graph.")
 
         chain = self._rustgraph.find_shortest_chain(importer, imported)

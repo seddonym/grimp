@@ -1,27 +1,41 @@
+pub mod errors;
+pub mod exceptions;
 pub mod graph;
 
-use crate::graph::{DetailedImport, Graph, Level, Module, PackageDependency};
-use log::info;
-use pyo3::create_exception;
+use crate::errors::{GrimpError, GrimpResult};
+use crate::exceptions::{ModuleNotPresent, NoSuchContainer};
+use crate::graph::higher_order_queries::Level;
+use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
+use derive_new::new;
+use itertools::Itertools;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyFrozenSet, PyList, PySet, PyString, PyTuple};
+use pyo3::types::{IntoPyDict, PyDict, PyFrozenSet, PyList, PySet, PyString, PyTuple};
+use pyo3::IntoPyObjectExt;
+use rayon::prelude::*;
 use rustc_hash::FxHashSet;
+use std::collections::HashSet;
 
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    pyo3_log::init();
-
     m.add_class::<GraphWrapper>()?;
+    m.add("ModuleNotPresent", py.get_type::<ModuleNotPresent>())?;
     m.add("NoSuchContainer", py.get_type::<NoSuchContainer>())?;
     Ok(())
 }
 
-create_exception!(_rustgrimp, NoSuchContainer, pyo3::exceptions::PyException);
-
 #[pyclass(name = "Graph")]
 struct GraphWrapper {
     _graph: Graph,
+}
+
+impl GraphWrapper {
+    fn get_visible_module_by_name(&self, name: &str) -> Result<&Module, GrimpError> {
+        self._graph
+            .get_module_by_name(name)
+            .filter(|m| !m.is_invisible())
+            .ok_or(GrimpError::ModuleNotPresent(name.to_owned()))
+    }
 }
 
 /// Wrapper around the Graph struct that integrates with Python.
@@ -34,54 +48,66 @@ impl GraphWrapper {
         }
     }
 
-    pub fn get_modules(&self) -> FxHashSet<String> {
+    pub fn get_modules(&self) -> HashSet<String> {
         self._graph
-            .get_modules()
-            .iter()
-            .map(|module| module.name.clone())
+            .all_modules()
+            .visible()
+            .names_as_strings()
             .collect()
+    }
+
+    pub fn contains_module(&self, name: &str) -> bool {
+        match self.get_visible_module_by_name(name) {
+            Ok(_) => true,
+            Err(GrimpError::ModuleNotPresent(_)) => false,
+            _ => panic!("unexpected error checking for module existence"),
+        }
     }
 
     #[pyo3(signature = (module, is_squashed = false))]
     pub fn add_module(&mut self, module: &str, is_squashed: bool) -> PyResult<()> {
-        let module_struct = Module::new(module.to_string());
-
-        if let Some(ancestor_squashed_module) =
-            self._graph.find_ancestor_squashed_module(&module_struct)
+        for ancestor_module in self
+            ._graph
+            .module_name_to_self_and_ancestors(module)
+            .into_iter()
+            .skip(1)
         {
-            return Err(PyValueError::new_err(format!(
-                "Module is a descendant of squashed module {}.",
-                &ancestor_squashed_module.name
-            )));
+            if self.is_module_squashed(&ancestor_module).unwrap_or(false) {
+                return Err(PyValueError::new_err(format!(
+                    "Module is a descendant of squashed module {}.",
+                    &ancestor_module,
+                )));
+            };
         }
 
-        if self._graph.get_modules().contains(&module_struct) {
-            if self._graph.is_module_squashed(&module_struct) != is_squashed {
-                return Err(PyValueError::new_err(
-                    "Cannot add a squashed module when it is already present in the graph \
-                    as an unsquashed module, or vice versa.",
-                ));
-            }
+        if self.contains_module(module) && self.is_module_squashed(module)? != is_squashed {
+            return Err(PyValueError::new_err(
+                "Cannot add a squashed module when it is already present in the graph \
+                        as an unsquashed module, or vice versa.",
+            ));
         }
 
         match is_squashed {
-            false => self._graph.add_module(module_struct),
-            true => self._graph.add_squashed_module(module_struct),
+            false => self._graph.get_or_add_module(module),
+            true => self._graph.get_or_add_squashed_module(module),
         };
         Ok(())
     }
 
     pub fn remove_module(&mut self, module: &str) {
-        self._graph.remove_module(&Module::new(module.to_string()));
+        if let Some(module) = self._graph.get_module_by_name(module) {
+            self._graph.remove_module(module.token())
+        }
     }
 
-    pub fn squash_module(&mut self, module: &str) {
-        self._graph.squash_module(&Module::new(module.to_string()));
+    pub fn squash_module(&mut self, module: &str) -> PyResult<()> {
+        let module = self.get_visible_module_by_name(module)?.token();
+        self._graph.squash_module(module);
+        Ok(())
     }
 
-    pub fn is_module_squashed(&self, module: &str) -> bool {
-        self._graph
-            .is_module_squashed(&Module::new(module.to_string()))
+    pub fn is_module_squashed(&self, module: &str) -> PyResult<bool> {
+        Ok(self.get_visible_module_by_name(module)?.is_squashed())
     }
 
     #[pyo3(signature = (*, importer, imported, line_number=None, line_contents=None))]
@@ -92,19 +118,15 @@ impl GraphWrapper {
         line_number: Option<usize>,
         line_contents: Option<&str>,
     ) {
-        let importer = Module::new(importer.to_string());
-        let imported = Module::new(imported.to_string());
+        let importer = self._graph.get_or_add_module(importer).token();
+        let imported = self._graph.get_or_add_module(imported).token();
         match (line_number, line_contents) {
             (Some(line_number), Some(line_contents)) => {
-                self._graph.add_detailed_import(&DetailedImport {
-                    importer: importer,
-                    imported: imported,
-                    line_number: line_number,
-                    line_contents: line_contents.to_string(),
-                });
+                self._graph
+                    .add_detailed_import(importer, imported, line_number, line_contents)
             }
             (None, None) => {
-                self._graph.add_import(&importer, &imported);
+                self._graph.add_import(importer, imported);
             }
             _ => {
                 // TODO handle better.
@@ -114,32 +136,41 @@ impl GraphWrapper {
     }
 
     #[pyo3(signature = (*, importer, imported))]
-    pub fn remove_import(&mut self, importer: &str, imported: &str) {
-        self._graph.remove_import(
-            &Module::new(importer.to_string()),
-            &Module::new(imported.to_string()),
-        );
+    pub fn remove_import(&mut self, importer: &str, imported: &str) -> PyResult<()> {
+        let importer = self.get_visible_module_by_name(importer)?.token();
+        let imported = self.get_visible_module_by_name(imported)?.token();
+        self._graph.remove_import(importer, imported);
+        Ok(())
     }
 
     pub fn count_imports(&self) -> usize {
         self._graph.count_imports()
     }
 
-    pub fn find_children(&self, module: &str) -> FxHashSet<String> {
-        self._graph
-            .find_children(&Module::new(module.to_string()))
-            .iter()
-            .map(|child| child.name.clone())
-            .collect()
+    pub fn find_children(&self, module: &str) -> PyResult<HashSet<String>> {
+        let module = self
+            ._graph
+            .get_module_by_name(module)
+            .ok_or(GrimpError::ModuleNotPresent(module.to_owned()))?;
+        Ok(self
+            ._graph
+            .get_module_children(module.token())
+            .visible()
+            .names_as_strings()
+            .collect())
     }
 
-    pub fn find_descendants(&self, module: &str) -> FxHashSet<String> {
-        self._graph
-            .find_descendants(&Module::new(module.to_string()))
-            .unwrap()
-            .iter()
-            .map(|descendant| descendant.name.clone())
-            .collect()
+    pub fn find_descendants(&self, module: &str) -> PyResult<HashSet<String>> {
+        let module = self
+            ._graph
+            .get_module_by_name(module)
+            .ok_or(GrimpError::ModuleNotPresent(module.to_owned()))?;
+        Ok(self
+            ._graph
+            .get_module_descendants(module.token())
+            .visible()
+            .names_as_strings()
+            .collect())
     }
 
     #[pyo3(signature = (*, importer, imported, as_packages = false))]
@@ -149,40 +180,35 @@ impl GraphWrapper {
         imported: &str,
         as_packages: bool,
     ) -> PyResult<bool> {
-        if as_packages {
-            let importer_module = Module::new(importer.to_string());
-            let imported_module = Module::new(imported.to_string());
-            // Raise a ValueError if they are in the same package.
-            // (direct_import_exists) will panic if they are passed.
-            // TODO - this is a simpler check than Python, is it enough?
-            if importer_module.is_descendant_of(&imported_module)
-                || imported_module.is_descendant_of(&importer_module)
-            {
-                return Err(PyValueError::new_err("Modules have shared descendants."));
-            }
-        }
-
-        Ok(self._graph.direct_import_exists(
-            &Module::new(importer.to_string()),
-            &Module::new(imported.to_string()),
-            as_packages,
-        ))
+        let importer = self.get_visible_module_by_name(importer)?.token();
+        let imported = self.get_visible_module_by_name(imported)?.token();
+        Ok(self
+            ._graph
+            .direct_import_exists(importer, imported, as_packages)?)
     }
 
-    pub fn find_modules_directly_imported_by(&self, module: &str) -> FxHashSet<String> {
-        self._graph
-            .find_modules_directly_imported_by(&Module::new(module.to_string()))
+    pub fn find_modules_directly_imported_by(&self, module: &str) -> PyResult<HashSet<String>> {
+        let module = self.get_visible_module_by_name(module)?.token();
+        Ok(self
+            ._graph
+            .modules_directly_imported_by(module)
             .iter()
-            .map(|imported| imported.name.clone())
-            .collect()
+            .into_module_iterator(&self._graph)
+            .visible()
+            .names_as_strings()
+            .collect())
     }
 
-    pub fn find_modules_that_directly_import(&self, module: &str) -> FxHashSet<String> {
-        self._graph
-            .find_modules_that_directly_import(&Module::new(module.to_string()))
+    pub fn find_modules_that_directly_import(&self, module: &str) -> PyResult<HashSet<String>> {
+        let module = self.get_visible_module_by_name(module)?.token();
+        Ok(self
+            ._graph
+            .modules_that_directly_import(module)
             .iter()
-            .map(|importer| importer.name.clone())
-            .collect()
+            .into_module_iterator(&self._graph)
+            .visible()
+            .names_as_strings()
+            .collect())
     }
 
     #[pyo3(signature = (*, importer, imported))]
@@ -192,66 +218,114 @@ impl GraphWrapper {
         importer: &str,
         imported: &str,
     ) -> PyResult<Bound<'py, PyList>> {
-        let mut vector: Vec<Bound<PyDict>> = vec![];
+        let importer = match self._graph.get_module_by_name(importer) {
+            Some(module) => module,
+            None => return Ok(PyList::empty(py)),
+        };
+        let imported = match self._graph.get_module_by_name(imported) {
+            Some(module) => module,
+            None => return Ok(PyList::empty(py)),
+        };
 
-        let mut rust_import_details_vec: Vec<DetailedImport> = self
+        PyList::new(
+            py,
+            self._graph
+                .get_import_details(importer.token(), imported.token())
+                .iter()
+                .map(|import_details| {
+                    ImportDetails::new(
+                        importer.name_as_string(),
+                        imported.name_as_string(),
+                        import_details.line_number(),
+                        import_details.line_contents().to_owned(),
+                    )
+                })
+                .sorted()
+                .map(|import_details| {
+                    [
+                        ("importer", import_details.importer.into_py_any(py).unwrap()),
+                        ("imported", import_details.imported.into_py_any(py).unwrap()),
+                        (
+                            "line_number",
+                            import_details.line_number.into_py_any(py).unwrap(),
+                        ),
+                        (
+                            "line_contents",
+                            import_details.line_contents.into_py_any(py).unwrap(),
+                        ),
+                    ]
+                    .into_py_dict(py)
+                    .unwrap()
+                }),
+        )
+    }
+
+    #[allow(unused_variables)]
+    #[pyo3(signature = (module, as_package=false))]
+    pub fn find_downstream_modules(
+        &self,
+        module: &str,
+        as_package: bool,
+    ) -> PyResult<HashSet<String>> {
+        let module = self.get_visible_module_by_name(module)?.token();
+        Ok(self
             ._graph
-            .get_import_details(
-                &Module::new(importer.to_string()),
-                &Module::new(imported.to_string()),
-            )
-            .into_iter()
-            .collect();
-        rust_import_details_vec.sort();
-
-        for detailed_import in rust_import_details_vec {
-            let pydict = PyDict::new(py);
-            pydict.set_item(
-                "importer".to_string(),
-                detailed_import.importer.name.clone(),
-            )?;
-            pydict.set_item(
-                "imported".to_string(),
-                detailed_import.imported.name.clone(),
-            )?;
-            pydict.set_item("line_number".to_string(), detailed_import.line_number)?;
-            pydict.set_item(
-                "line_contents".to_string(),
-                detailed_import.line_contents.clone(),
-            )?;
-            vector.push(pydict);
-        }
-        PyList::new(py, &vector)
+            .find_downstream_modules(module, as_package)
+            .iter()
+            .into_module_iterator(&self._graph)
+            .visible()
+            .names_as_strings()
+            .collect())
     }
 
     #[allow(unused_variables)]
     #[pyo3(signature = (module, as_package=false))]
-    pub fn find_downstream_modules(&self, module: &str, as_package: bool) -> FxHashSet<String> {
-        // Turn the Modules to Strings.
-        self._graph
-            .find_downstream_modules(&Module::new(module.to_string()), as_package)
+    pub fn find_upstream_modules(
+        &self,
+        module: &str,
+        as_package: bool,
+    ) -> PyResult<HashSet<String>> {
+        let module = self.get_visible_module_by_name(module)?.token();
+        Ok(self
+            ._graph
+            .find_upstream_modules(module, as_package)
             .iter()
-            .map(|downstream| downstream.name.clone())
-            .collect()
+            .into_module_iterator(&self._graph)
+            .visible()
+            .names_as_strings()
+            .collect())
     }
 
-    #[allow(unused_variables)]
-    #[pyo3(signature = (module, as_package=false))]
-    pub fn find_upstream_modules(&self, module: &str, as_package: bool) -> FxHashSet<String> {
-        self._graph
-            .find_upstream_modules(&Module::new(module.to_string()), as_package)
-            .iter()
-            .map(|upstream| upstream.name.clone())
-            .collect()
+    // TODO(peter) Add `as_packages` argument here? The implementation already supports it!
+    pub fn find_shortest_chain(
+        &self,
+        importer: &str,
+        imported: &str,
+    ) -> PyResult<Option<Vec<String>>> {
+        let importer = self.get_visible_module_by_name(importer)?.token();
+        let imported = self.get_visible_module_by_name(imported)?.token();
+        Ok(self
+            ._graph
+            .find_shortest_chain(importer, imported, false)?
+            .map(|chain| {
+                chain
+                    .iter()
+                    .into_module_iterator(&self._graph)
+                    .names_as_strings()
+                    .collect()
+            }))
     }
 
-    pub fn find_shortest_chain(&self, importer: &str, imported: &str) -> Option<Vec<String>> {
-        let chain = self._graph.find_shortest_chain(
-            &Module::new(importer.to_string()),
-            &Module::new(imported.to_string()),
-        )?;
-
-        Some(chain.iter().map(|module| module.name.clone()).collect())
+    #[pyo3(signature = (importer, imported, as_packages=false))]
+    pub fn chain_exists(
+        &self,
+        importer: &str,
+        imported: &str,
+        as_packages: bool,
+    ) -> PyResult<bool> {
+        let importer = self.get_visible_module_by_name(importer)?.token();
+        let imported = self.get_visible_module_by_name(imported)?.token();
+        Ok(self._graph.chain_exists(importer, imported, as_packages)?)
     }
 
     #[pyo3(signature = (importer, imported, as_packages=true))]
@@ -262,50 +336,24 @@ impl GraphWrapper {
         imported: &str,
         as_packages: bool,
     ) -> PyResult<Bound<'py, PySet>> {
-        let rust_chains: FxHashSet<Vec<Module>> = self
+        let importer = self.get_visible_module_by_name(importer)?.token();
+        let imported = self.get_visible_module_by_name(imported)?.token();
+        let chains = self
             ._graph
-            .find_shortest_chains(
-                &Module::new(importer.to_string()),
-                &Module::new(imported.to_string()),
-                as_packages,
-            )
-            .map_err(|string| PyValueError::new_err(string))?;
-
-        let mut tuple_chains: Vec<Bound<'py, PyTuple>> = vec![];
-        for rust_chain in rust_chains.iter() {
-            let module_names: Vec<Bound<'py, PyString>> = rust_chain
-                .iter()
-                .map(|module| PyString::new(py, &module.name))
-                .collect();
-            let tuple = PyTuple::new(py, &module_names)?;
-            tuple_chains.push(tuple);
-        }
-        PySet::new(py, &tuple_chains)
-    }
-
-    #[pyo3(signature = (importer, imported, as_packages=false))]
-    pub fn chain_exists(
-        &self,
-        importer: &str,
-        imported: &str,
-        as_packages: bool,
-    ) -> PyResult<bool> {
-        if as_packages {
-            let importer_module = Module::new(importer.to_string());
-            let imported_module = Module::new(imported.to_string());
-            // Raise a ValueError if they are in the same package.
-            // TODO - this is a simpler check than Python, is it enough?
-            if importer_module.is_descendant_of(&imported_module)
-                || imported_module.is_descendant_of(&importer_module)
-            {
-                return Err(PyValueError::new_err("Modules have shared descendants."));
-            }
-        }
-        Ok(self._graph.chain_exists(
-            &Module::new(importer.to_string()),
-            &Module::new(imported.to_string()),
-            as_packages,
-        ))
+            .find_shortest_chains(importer, imported, as_packages)?
+            .into_iter()
+            .map(|chain| {
+                PyTuple::new(
+                    py,
+                    chain
+                        .iter()
+                        .into_module_iterator(&self._graph)
+                        .names_as_strings()
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap()
+            });
+        PySet::new(py, chains)
     }
 
     #[pyo3(signature = (layers, containers))]
@@ -313,23 +361,74 @@ impl GraphWrapper {
         &self,
         py: Python<'py>,
         layers: &Bound<'py, PyTuple>,
-        containers: FxHashSet<String>,
+        containers: HashSet<String>,
     ) -> PyResult<Bound<'py, PyTuple>> {
-        info!("Using Rust to find illegal dependencies.");
-        let levels = rustify_levels(layers);
+        let containers = self.parse_containers(&containers)?;
+        let levels_by_container = self.parse_levels_by_container(layers, &containers);
 
-        let dependencies = py.allow_threads(|| {
-            self._graph
-                .find_illegal_dependencies_for_layers(levels, containers)
-        });
-        match dependencies {
-            Ok(dependencies) => _convert_dependencies_to_python(py, &dependencies),
-            Err(error) => Err(NoSuchContainer::new_err(format!(
-                "Container {} does not exist.",
-                error.container
-            ))),
-        }
+        let illegal_dependencies = levels_by_container
+            .into_iter()
+            .par_bridge()
+            .try_fold(
+                Vec::new,
+                |mut v: Vec<graph::higher_order_queries::PackageDependency>,
+                 levels|
+                 -> GrimpResult<_> {
+                    v.extend(self._graph.find_illegal_dependencies_for_layers(&levels)?);
+                    Ok(v)
+                },
+            )
+            .try_reduce(
+                Vec::new,
+                |mut v: Vec<graph::higher_order_queries::PackageDependency>,
+                 package_dependencies| {
+                    v.extend(package_dependencies);
+                    Ok(v)
+                },
+            )?;
+
+        let illegal_dependencies = illegal_dependencies
+            .into_iter()
+            .map(|dep| {
+                PackageDependency::new(
+                    self._graph
+                        .get_module(*dep.importer())
+                        .unwrap()
+                        .name_as_string(),
+                    self._graph
+                        .get_module(*dep.imported())
+                        .unwrap()
+                        .name_as_string(),
+                    dep.routes()
+                        .iter()
+                        .map(|route| {
+                            Route::new(
+                                route
+                                    .heads()
+                                    .iter()
+                                    .map(|m| self._graph.get_module(*m).unwrap().name_as_string())
+                                    .collect(),
+                                route
+                                    .middle()
+                                    .iter()
+                                    .map(|m| self._graph.get_module(*m).unwrap().name_as_string())
+                                    .collect(),
+                                route
+                                    .tails()
+                                    .iter()
+                                    .map(|m| self._graph.get_module(*m).unwrap().name_as_string())
+                                    .collect(),
+                            )
+                        })
+                        .collect(),
+                )
+            })
+            .sorted()
+            .collect::<Vec<_>>();
+
+        self.convert_package_dependencies_to_python(py, illegal_dependencies)
     }
+
     pub fn clone(&self) -> GraphWrapper {
         GraphWrapper {
             _graph: self._graph.clone(),
@@ -337,193 +436,137 @@ impl GraphWrapper {
     }
 }
 
-fn rustify_levels<'a>(levels_python: &Bound<'a, PyTuple>) -> Vec<Level> {
-    let mut rust_levels: Vec<Level> = vec![];
-    for level_python in levels_python.into_iter() {
-        let level_dict = level_python.downcast::<PyDict>().unwrap();
-        let layers: FxHashSet<String> = level_dict
-            .get_item("layers")
-            .unwrap()
-            .unwrap()
-            .extract()
-            .unwrap();
-
-        let independent: bool = level_dict
-            .get_item("independent")
-            .unwrap()
-            .unwrap()
-            .extract()
-            .unwrap();
-        rust_levels.push(Level {
-            independent,
-            layers: layers.into_iter().collect(),
-        });
+impl GraphWrapper {
+    fn parse_containers(
+        &self,
+        containers: &HashSet<String>,
+    ) -> Result<HashSet<&Module>, GrimpError> {
+        containers
+            .iter()
+            .map(|name| match self.get_visible_module_by_name(name) {
+                Ok(module) => Ok(module),
+                Err(GrimpError::ModuleNotPresent(_)) => {
+                    Err(GrimpError::NoSuchContainer(name.into()))?
+                }
+                _ => panic!("unexpected error parsing containers"),
+            })
+            .collect::<Result<HashSet<_>, GrimpError>>()
     }
-    rust_levels
-}
 
-fn _convert_dependencies_to_python<'py>(
-    py: Python<'py>,
-    dependencies: &Vec<PackageDependency>,
-) -> PyResult<Bound<'py, PyTuple>> {
-    let mut python_dependencies: Vec<Bound<'py, PyDict>> = vec![];
+    fn parse_levels_by_container(
+        &self,
+        pylevels: &Bound<'_, PyTuple>,
+        containers: &HashSet<&Module>,
+    ) -> Vec<Vec<Level>> {
+        let containers = match containers.is_empty() {
+            true => vec![None],
+            false => containers
+                .iter()
+                .map(|c| Some(c.name_as_string()))
+                .collect(),
+        };
 
-    for rust_dependency in dependencies {
-        let python_dependency = PyDict::new(py);
-        python_dependency.set_item("imported", &rust_dependency.imported.name)?;
-        python_dependency.set_item("importer", &rust_dependency.importer.name)?;
-        let mut python_routes: Vec<Bound<'py, PyDict>> = vec![];
-        for rust_route in &rust_dependency.routes {
-            let route = PyDict::new(py);
-            let heads: Vec<Bound<'py, PyString>> = rust_route
-                .heads
-                .iter()
-                .map(|module| PyString::new(py, &module.name))
-                .collect();
-            route.set_item("heads", PyFrozenSet::new(py, &heads)?)?;
-            let middle: Vec<Bound<'py, PyString>> = rust_route
-                .middle
-                .iter()
-                .map(|module| PyString::new(py, &module.name))
-                .collect();
-            route.set_item("middle", PyTuple::new(py, &middle)?)?;
-            let tails: Vec<Bound<'py, PyString>> = rust_route
-                .tails
-                .iter()
-                .map(|module| PyString::new(py, &module.name))
-                .collect();
-            route.set_item("tails", PyFrozenSet::new(py, &tails)?)?;
+        let mut levels_by_container: Vec<Vec<Level>> = vec![];
+        for container in containers {
+            let mut levels: Vec<Level> = vec![];
+            for pylevel in pylevels.into_iter() {
+                let level_dict = pylevel.downcast::<PyDict>().unwrap();
+                let layers = level_dict
+                    .get_item("layers")
+                    .unwrap()
+                    .unwrap()
+                    .extract::<HashSet<String>>()
+                    .unwrap()
+                    .into_iter()
+                    .map(|name| match container.clone() {
+                        Some(container) => format!("{}.{}", container, name),
+                        None => name,
+                    })
+                    .filter_map(|name| match self.get_visible_module_by_name(&name) {
+                        Ok(module) => Some(module.token()),
+                        // TODO(peter) Error here? Or silently continue (backwards compatibility?)
+                        Err(GrimpError::ModuleNotPresent(_)) => None,
+                        _ => panic!("unexpected error parsing levels"),
+                    })
+                    .collect::<FxHashSet<_>>();
 
-            python_routes.push(route);
+                let independent = level_dict
+                    .get_item("independent")
+                    .unwrap()
+                    .unwrap()
+                    .extract::<bool>()
+                    .unwrap();
+
+                levels.push(Level::new(layers, independent));
+            }
+            levels_by_container.push(levels);
         }
 
-        python_dependency.set_item("routes", PyTuple::new(py, python_routes)?)?;
-        python_dependencies.push(python_dependency)
+        levels_by_container
     }
 
-    PyTuple::new(py, python_dependencies)
+    fn convert_package_dependencies_to_python<'py>(
+        &self,
+        py: Python<'py>,
+        package_dependencies: Vec<PackageDependency>,
+    ) -> PyResult<Bound<'py, PyTuple>> {
+        let mut python_dependencies: Vec<Bound<'py, PyDict>> = vec![];
+
+        for rust_dependency in package_dependencies {
+            let python_dependency = PyDict::new(py);
+            python_dependency.set_item("imported", &rust_dependency.imported)?;
+            python_dependency.set_item("importer", &rust_dependency.importer)?;
+            let mut python_routes: Vec<Bound<'py, PyDict>> = vec![];
+            for rust_route in &rust_dependency.routes {
+                let route = PyDict::new(py);
+                let heads: Vec<Bound<'py, PyString>> = rust_route
+                    .heads
+                    .iter()
+                    .map(|module| PyString::new(py, module))
+                    .collect();
+                route.set_item("heads", PyFrozenSet::new(py, &heads)?)?;
+                let middle: Vec<Bound<'py, PyString>> = rust_route
+                    .middle
+                    .iter()
+                    .map(|module| PyString::new(py, module))
+                    .collect();
+                route.set_item("middle", PyTuple::new(py, &middle)?)?;
+                let tails: Vec<Bound<'py, PyString>> = rust_route
+                    .tails
+                    .iter()
+                    .map(|module| PyString::new(py, module))
+                    .collect();
+                route.set_item("tails", PyFrozenSet::new(py, &tails)?)?;
+
+                python_routes.push(route);
+            }
+
+            python_dependency.set_item("routes", PyTuple::new(py, python_routes)?)?;
+            python_dependencies.push(python_dependency)
+        }
+
+        PyTuple::new(py, python_dependencies)
+    }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, new)]
+struct ImportDetails {
+    importer: String,
+    imported: String,
+    line_number: usize,
+    line_contents: String,
+}
 
-    // Macro to easily define a python dict.
-    // Adapted from the hash_map! macro in https://github.com/jofas/map_macro.
-    macro_rules! pydict {
-        ($py: ident, {$($k: expr => $v: expr),*, $(,)?}) => {
-            {
-                let dict = PyDict::new($py);
-                $(
-                    dict.set_item($k, $v)?;
-                )*
-                dict
-            }
-        };
-    }
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, new)]
+struct PackageDependency {
+    importer: String,
+    imported: String,
+    routes: Vec<Route>,
+}
 
-    #[test]
-    fn test_rustify_levels_no_sibling_layers() {
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| -> PyResult<()> {
-            let elements = vec![
-                pydict! (py, {
-                    "independent" => true,
-                    "layers" => FxHashSet::from_iter(["high"]),
-                }),
-                pydict! (py, {
-                    "independent" => true,
-                    "layers" => FxHashSet::from_iter(["medium"]),
-                }),
-                pydict! (py, {
-                    "independent" => true,
-                    "layers" => FxHashSet::from_iter(["low"]),
-                }),
-            ];
-            let python_levels = PyTuple::new(py, elements)?;
-
-            let result = rustify_levels(&python_levels);
-
-            assert_eq!(
-                result,
-                vec![
-                    Level {
-                        independent: true,
-                        layers: vec!["high".to_string()]
-                    },
-                    Level {
-                        independent: true,
-                        layers: vec!["medium".to_string()]
-                    },
-                    Level {
-                        independent: true,
-                        layers: vec!["low".to_string()]
-                    }
-                ]
-            );
-
-            Ok(())
-        })
-        .unwrap();
-    }
-
-    #[test]
-    fn test_rustify_levels_sibling_layers() {
-        pyo3::prepare_freethreaded_python();
-        Python::with_gil(|py| -> PyResult<()> {
-            let elements = vec![
-                pydict! (py, {
-                    "independent" => true,
-                    "layers" => FxHashSet::from_iter(["high"]),
-                }),
-                pydict! (py, {
-                    "independent" => true,
-                    "layers" => FxHashSet::from_iter(["blue", "green", "orange"]),
-                }),
-                pydict! (py, {
-                    "independent" => false,
-                    "layers" => FxHashSet::from_iter(["red", "yellow"]),
-                }),
-                pydict! (py, {
-                    "independent" => true,
-                    "layers" => FxHashSet::from_iter(["low"]),
-                }),
-            ];
-            let python_levels = PyTuple::new(py, elements)?;
-
-            let mut result = rustify_levels(&python_levels);
-
-            for level in &mut result {
-                level.layers.sort();
-            }
-            assert_eq!(
-                result,
-                vec![
-                    Level {
-                        independent: true,
-                        layers: vec!["high".to_string()]
-                    },
-                    Level {
-                        independent: true,
-                        layers: vec![
-                            "blue".to_string(),
-                            "green".to_string(),
-                            "orange".to_string()
-                        ]
-                    },
-                    Level {
-                        independent: false,
-                        layers: vec!["red".to_string(), "yellow".to_string()]
-                    },
-                    Level {
-                        independent: true,
-                        layers: vec!["low".to_string()]
-                    }
-                ]
-            );
-
-            Ok(())
-        })
-        .unwrap();
-    }
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, new)]
+struct Route {
+    heads: Vec<String>,
+    middle: Vec<String>,
+    tails: Vec<String>,
 }
