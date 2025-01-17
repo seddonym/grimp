@@ -37,8 +37,10 @@ impl GraphWrapper {
     }
 
     pub fn get_modules(&self) -> FxHashSet<Module> {
-        self._graph
-            .get_modules()
+        let modules = self._graph
+            .get_modules();
+
+	modules.deref()
             .iter()
             .map(|module| (*module).clone())
             .collect()

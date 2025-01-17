@@ -9,8 +9,38 @@ use rayon::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::fmt;
 use std::time::Instant;
-use std::sync::{Mutex, Arc};
-use std::cell::RefCell;
+use std::sync::{Mutex, MutexGuard, Arc};
+
+
+type ModulesSet = FxHashSet<Module>;
+
+#[derive(Debug)]
+pub enum Modules<'a> {
+    Owned(ModulesSet),
+    Reference(MutexGuard<'a, Option<ModulesSet>>),
+}
+
+impl<'a> Modules<'a> {
+
+    #[inline]
+    pub fn contains(&'a self, module: &Module) -> bool {
+	let m = self.deref();
+	m.contains(module)
+    }
+    
+    // can't implement std::ops::Deref as we need the lifetime
+    pub fn deref(&'a self) -> &'a ModulesSet {
+	match self {
+	    Self::Owned(ref o) => o,
+	    Self::Reference(ref guard) if (*guard).is_some() => {
+		let r = guard;
+		r.as_ref().expect("Option is None even though we checked")
+	    }
+	    // No instance with None allowed, shouldn't be constructable
+	    _ => panic!("Unconstructable Modules instance found"),
+	}
+    }
+}
 
 /// A group of layers at the same level in the layering.
 #[derive(PartialEq, Eq, Hash, Debug)]
@@ -306,7 +336,7 @@ impl Graph {
 	*r = None;
     }
     
-    pub fn get_modules(&self) -> FxHashSet<Module> {
+    pub fn get_modules<'a>(&'a self) -> Modules<'a> {
 	let calculate_modules = || self.hierarchy_module_indices
 		.left_values()
 	    .filter(|module| !self.invisible_modules.contains(module))
@@ -316,18 +346,17 @@ impl Graph {
 	// fast and happy path
 	if let Ok(mut r) = self.modules.try_lock() {
 	    if (*r).is_some() {
-		let v = r.as_ref().unwrap();
-		return v.clone();
+		return Modules::Reference(r);
 	    } else {
 		let modules: FxHashSet<Module> = calculate_modules();
 		*r = Some(modules.clone());
-		return modules;
+		return Modules::Reference(r);
 	    }
 	}
 
 	// if there is concurrent access just compute again
 	// FIXME: does this harm performance?!
-	calculate_modules()
+	Modules::Owned(calculate_modules())
     }
 
     pub fn count_imports(&self) -> usize {
@@ -750,10 +779,9 @@ impl Graph {
         containers: FxHashSet<String>,
     ) -> Result<Vec<PackageDependency>, NoSuchContainer> {
         // Check that containers exist.
-        let modules = self.get_modules();
         for container in containers.iter() {
             let container_module = Module::new(container.clone());
-            if !modules.contains(&container_module) {
+            if !self.get_modules().contains(&container_module) {
                 return Err(NoSuchContainer {
                     container: container.clone(),
                 });
@@ -813,6 +841,7 @@ impl Graph {
                 .collect()
         };
         let all_modules = self.get_modules();
+	let all_modules = all_modules.deref();
 
         for quasi_container in quasi_containers {
             for (index, higher_level) in levels.iter().enumerate() {
@@ -1136,8 +1165,9 @@ mod tests {
     #[test]
     fn modules_when_empty() {
         let graph = Graph::default();
+	let modules = graph.get_modules();
 
-        assert_eq!(graph.get_modules(), FxHashSet::default());
+        assert_eq!(modules.deref(), &FxHashSet::default());
     }
 
     #[test]
@@ -1156,7 +1186,7 @@ mod tests {
 
         let result = graph.get_modules();
 
-        assert_eq!(result, FxHashSet::from_iter([mypackage]));
+        assert_eq!(result.deref(), &FxHashSet::from_iter([mypackage]));
     }
 
     #[test]
@@ -1167,7 +1197,7 @@ mod tests {
 
         let result = graph.get_modules();
 
-        assert_eq!(result, FxHashSet::from_iter([mypackage]));
+        assert_eq!(result.deref(), &FxHashSet::from_iter([mypackage]));
     }
 
     #[test]
@@ -1180,7 +1210,7 @@ mod tests {
 
         let result = graph.get_modules();
 
-        assert_eq!(result, FxHashSet::from_iter([mypackage, mypackage_foo]));
+        assert_eq!(result.deref(), &FxHashSet::from_iter([mypackage, mypackage_foo]));
         assert_eq!(
             graph.pretty_str(),
             "
@@ -1204,7 +1234,7 @@ imports:
         graph.remove_module(&mypackage_foo);
 
         let result = graph.get_modules();
-        assert_eq!(result, FxHashSet::from_iter([mypackage]));
+        assert_eq!(result.deref(), &FxHashSet::from_iter([mypackage]));
     }
 
     #[test]
@@ -1222,8 +1252,8 @@ imports:
 
         let result = graph.get_modules();
         assert_eq!(
-            result,
-            FxHashSet::from_iter([
+            result.deref(),
+            &FxHashSet::from_iter([
                 mypackage,
                 mypackage_foo_alpha, // To be consistent with previous versions of Grimp.
             ])
@@ -1248,8 +1278,8 @@ imports:
 
         let result = graph.get_modules();
         assert_eq!(
-            result,
-            FxHashSet::from_iter([mypackage.clone(), mypackage_foo_alpha.clone(), importer.clone(), imported.clone()])
+            result.deref(),
+            &FxHashSet::from_iter([mypackage.clone(), mypackage_foo_alpha.clone(), importer.clone(), imported.clone()])
         );
         assert_eq!(
             graph.direct_import_exists(&importer, &mypackage_foo, false),
@@ -1316,9 +1346,10 @@ imports:
             false
         );
         // ...but the modules are still there.
+	let modules = graph.get_modules();
         assert_eq!(
-            graph.get_modules(),
-            FxHashSet::from_iter([importer, imported])
+            modules.deref(),
+            &FxHashSet::from_iter([importer, imported])
         );
     }
 
@@ -1333,9 +1364,10 @@ imports:
         graph.remove_import(&importer, &imported);
 
         // The modules are still there.
+	let modules = graph.get_modules();
         assert_eq!(
-            graph.get_modules(),
-            FxHashSet::from_iter([importer, imported])
+            modules.deref(),
+            &FxHashSet::from_iter([importer, imported])
         );
     }
 
@@ -1702,9 +1734,10 @@ imports:
 
         graph.add_import(&mypackage_foo, &mypackage_bar);
 
+	let modules = graph.get_modules();
         assert_eq!(
-            graph.get_modules(),
-            FxHashSet::from_iter([mypackage_bar.clone(), mypackage_foo.clone()])
+            modules.deref(), 
+            &FxHashSet::from_iter([mypackage_bar.clone(), mypackage_foo.clone()])
         );
         assert!(graph.direct_import_exists(&mypackage_foo, &mypackage_bar, false));
         assert_eq!(
@@ -1729,9 +1762,10 @@ imports:
 
         graph.add_import(&mypackage_foo, &mypackage_bar);
 
+	let modules = graph.get_modules();
         assert_eq!(
-            graph.get_modules(),
-            FxHashSet::from_iter([mypackage_bar.clone(), mypackage_foo.clone()])
+            modules.deref(),
+            &FxHashSet::from_iter([mypackage_bar.clone(), mypackage_foo.clone()])
         );
         assert!(graph.direct_import_exists(&mypackage_foo, &mypackage_bar, false));
         assert_eq!(
