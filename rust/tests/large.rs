@@ -1,24 +1,22 @@
-use _rustgrimp::graph::{Graph, Level, Module};
+use _rustgrimp::graph::higher_order_queries::Level;
+use _rustgrimp::graph::Graph;
 use rustc_hash::FxHashSet;
 use serde_json::{Map, Value};
 use std::fs;
+use tap::Conv;
 
 #[test]
 fn test_large_graph_deep_layers() {
     let data = fs::read_to_string("tests/large_graph.json").expect("Unable to read file");
     let value: Value = serde_json::from_str(&data).unwrap();
     let items: &Map<String, Value> = value.as_object().unwrap();
+
     let mut graph = Graph::default();
     for (importer, importeds_value) in items.iter() {
+        let importer = graph.get_or_add_module(importer).token();
         for imported in importeds_value.as_array().unwrap() {
-            graph.add_import(
-                &Module {
-                    name: importer.clone(),
-                },
-                &Module {
-                    name: imported.as_str().unwrap().to_string(),
-                },
-            );
+            let imported = graph.get_or_add_module(imported.as_str().unwrap()).token();
+            graph.add_import(importer, imported);
         }
     }
 
@@ -33,18 +31,22 @@ fn test_large_graph_deep_layers() {
         "mypackage.plugins.5634303718.1007553798.8198145119.application.3242334296.5033127033",
         "mypackage.plugins.5634303718.1007553798.8198145119.application.3242334296.2454157946",
     ];
+
     let levels: Vec<Level> = deep_layers
-        .iter()
-        .map(|layer| Level {
-            independent: true,
-            layers: vec![layer.to_string()],
+        .into_iter()
+        .map(|layer| {
+            Level::new(
+                graph
+                    .get_module_by_name(layer)
+                    .unwrap()
+                    .token()
+                    .conv::<FxHashSet<_>>(),
+                true,
+            )
         })
         .collect();
-    let containers = FxHashSet::default();
 
-    let deps = graph
-        .find_illegal_dependencies_for_layers(levels, containers)
-        .unwrap();
+    let deps = graph.find_illegal_dependencies_for_layers(&levels).unwrap();
 
     assert_eq!(deps.len(), 8);
 }
