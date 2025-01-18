@@ -6,6 +6,15 @@ from grimp import PackageDependency, Route
 import grimp
 
 
+def _run_benchmark(benchmark, fn, *args, **kwargs):
+    if hasattr(benchmark, "pedantic"):
+        # Running with pytest-benchmark
+        return benchmark.pedantic(fn, args=args, kwargs=kwargs, rounds=3)
+    else:
+        # Running with codspeed.
+        return benchmark(fn, *args, **kwargs)
+
+
 @pytest.fixture(scope="module")
 def large_graph():
     raw_json = (Path(__file__).parent / "large_graph.json").read_text()
@@ -40,13 +49,7 @@ def test_build_django_uncached(benchmark):
 
     In this benchmark, the cache is turned off.
     """
-    fn = lambda: grimp.build_graph("django", cache_dir=None)
-    if hasattr(benchmark, "pedantic"):
-        # Running with pytest-benchmark
-        benchmark.pedantic(fn, rounds=3)
-    else:
-        # Running with codspeed.
-        benchmark(fn)
+    _run_benchmark(benchmark, grimp.build_graph, "django", cache_dir=None)
 
 
 def test_build_django_from_cache(benchmark):
@@ -57,34 +60,23 @@ def test_build_django_from_cache(benchmark):
     """
     # Populate the cache first, before beginning the benchmark.
     grimp.build_graph("django")
-
-    fn = lambda: grimp.build_graph("django")
-    if hasattr(benchmark, "pedantic"):
-        # Running with pytest-benchmark
-        benchmark.pedantic(fn, rounds=3)
-    else:
-        # Running with codspeed.
-        benchmark(fn)
+    _run_benchmark(benchmark, grimp.build_graph, "django")
 
 
 def test_top_level_large_graph(large_graph, benchmark):
-    result = benchmark(
-        lambda: large_graph.find_illegal_dependencies_for_layers(
-            layers=TOP_LEVEL_LAYERS,
-            containers=("mypackage",),
-        )
+    result = _run_benchmark(
+        benchmark,
+        large_graph.find_illegal_dependencies_for_layers,
+        layers=TOP_LEVEL_LAYERS,
+        containers=("mypackage",),
     )
     assert result == set()
 
 
 def test_deep_layers_large_graph(large_graph, benchmark):
-    fn = lambda: large_graph.find_illegal_dependencies_for_layers(layers=DEEP_LAYERS)
-    if hasattr(benchmark, "pedantic"):
-        # Running with pytest-benchmark
-        result = benchmark.pedantic(fn, rounds=3)
-    else:
-        # Running with codspeed.
-        result = benchmark(fn)
+    result = _run_benchmark(
+        benchmark, large_graph.find_illegal_dependencies_for_layers, layers=DEEP_LAYERS
+    )
     assert result == {
         PackageDependency(
             importer=f"{DEEP_PACKAGE}.application.3242334296.2454157946",
@@ -224,28 +216,35 @@ def test_deep_layers_large_graph(large_graph, benchmark):
 
 
 def test_find_descendants(large_graph, benchmark):
-    result = benchmark(large_graph.find_descendants, "mypackage")
+    result = _run_benchmark(benchmark, large_graph.find_descendants, "mypackage")
     assert len(result) == 17348
 
 
 def test_find_downstream_modules(large_graph, benchmark):
-    result = benchmark(large_graph.find_downstream_modules, DEEP_LAYERS[0], as_package=True)
+    result = _run_benchmark(
+        benchmark, large_graph.find_downstream_modules, DEEP_LAYERS[0], as_package=True
+    )
     assert len(result) == 80
 
 
 def test_find_upstream_modules(large_graph, benchmark):
-    result = benchmark(large_graph.find_upstream_modules, DEEP_LAYERS[0], as_package=True)
+    result = _run_benchmark(
+        benchmark, large_graph.find_upstream_modules, DEEP_LAYERS[0], as_package=True
+    )
     assert len(result) == 2159
 
 
 class TestFindShortestChain:
     def test_chain_found(self, large_graph, benchmark):
-        result = benchmark(large_graph.find_shortest_chain, DEEP_LAYERS[0], DEEP_LAYERS[1])
+        result = _run_benchmark(
+            benchmark, large_graph.find_shortest_chain, DEEP_LAYERS[0], DEEP_LAYERS[1]
+        )
         assert result is not None
 
     @pytest.mark.xfail("grimp.exceptions.ModuleNotPresent")
     def test_no_chain(self, large_graph, benchmark):
-        result = benchmark(
+        result = _run_benchmark(
+            benchmark,
             large_graph.find_shortest_chain,
             DEEP_LAYERS[0],
             "mypackage.data.vendors.4053192739.6373932949",
@@ -255,14 +254,19 @@ class TestFindShortestChain:
 
 class TestFindShortestChains:
     def test_chains_found(self, large_graph, benchmark):
-        result = benchmark(
-            large_graph.find_shortest_chains, DEEP_LAYERS[0], DEEP_LAYERS[1], as_packages=True
+        result = _run_benchmark(
+            benchmark,
+            large_graph.find_shortest_chains,
+            DEEP_LAYERS[0],
+            DEEP_LAYERS[1],
+            as_packages=True,
         )
         assert len(result) > 0
 
     @pytest.mark.xfail("grimp.exceptions.ModuleNotPresent")
     def test_no_chains(self, large_graph, benchmark):
-        result = benchmark(
+        result = _run_benchmark(
+            benchmark,
             large_graph.find_shortest_chains,
             DEEP_LAYERS[0],
             "mypackage.data.vendors.4053192739.6373932949",
