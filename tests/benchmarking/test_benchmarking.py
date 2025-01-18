@@ -68,41 +68,23 @@ def test_build_django_from_cache(benchmark):
 
 
 def test_top_level_large_graph(large_graph, benchmark):
-    benchmark(
+    result = benchmark(
         lambda: large_graph.find_illegal_dependencies_for_layers(
             layers=TOP_LEVEL_LAYERS,
             containers=("mypackage",),
         )
     )
+    assert result == set()
 
 
 def test_deep_layers_large_graph(large_graph, benchmark):
     fn = lambda: large_graph.find_illegal_dependencies_for_layers(layers=DEEP_LAYERS)
     if hasattr(benchmark, "pedantic"):
         # Running with pytest-benchmark
-        benchmark.pedantic(fn, rounds=3)
+        result = benchmark.pedantic(fn, rounds=3)
     else:
         # Running with codspeed.
-        benchmark(fn)
-
-
-# Result checks
-# -------------
-# These tests aren't benchmarks, but they execute the same code as the benchmarks to check the
-# behaviour hasn't changed.
-
-
-def test_top_level_large_graph_result_check(large_graph):
-    result = large_graph.find_illegal_dependencies_for_layers(
-        layers=TOP_LEVEL_LAYERS,
-        containers=("mypackage",),
-    )
-
-    assert result == set()
-
-
-def test_deep_layers_large_graph_result_check(large_graph):
-    result = large_graph.find_illegal_dependencies_for_layers(layers=DEEP_LAYERS)
+        result = benchmark(fn)
     assert result == {
         PackageDependency(
             importer=f"{DEEP_PACKAGE}.application.3242334296.2454157946",
@@ -239,3 +221,4 @@ def test_deep_layers_large_graph_result_check(large_graph):
             ),
         ),
     }
+
