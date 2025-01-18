@@ -6,6 +6,15 @@ from grimp import PackageDependency, Route
 import grimp
 
 
+def _run_benchmark(benchmark, fn, *args, **kwargs):
+    if hasattr(benchmark, "pedantic"):
+        # Running with pytest-benchmark
+        return benchmark.pedantic(fn, args=args, kwargs=kwargs, rounds=3)
+    else:
+        # Running with codspeed.
+        return benchmark(fn, *args, **kwargs)
+
+
 @pytest.fixture(scope="module")
 def large_graph():
     raw_json = (Path(__file__).parent / "large_graph.json").read_text()
@@ -13,6 +22,7 @@ def large_graph():
     graph = ImportGraph()
 
     for importer, importeds in graph_dict.items():
+        graph.add_module(importer)
         for imported in importeds:
             graph.add_import(importer=importer, imported=imported)
 
@@ -40,13 +50,7 @@ def test_build_django_uncached(benchmark):
 
     In this benchmark, the cache is turned off.
     """
-    fn = lambda: grimp.build_graph("django", cache_dir=None)
-    if hasattr(benchmark, "pedantic"):
-        # Running with pytest-benchmark
-        benchmark.pedantic(fn, rounds=3)
-    else:
-        # Running with codspeed.
-        benchmark(fn)
+    _run_benchmark(benchmark, grimp.build_graph, "django", cache_dir=None)
 
 
 def test_build_django_from_cache(benchmark):
@@ -57,52 +61,143 @@ def test_build_django_from_cache(benchmark):
     """
     # Populate the cache first, before beginning the benchmark.
     grimp.build_graph("django")
-
-    fn = lambda: grimp.build_graph("django")
-    if hasattr(benchmark, "pedantic"):
-        # Running with pytest-benchmark
-        benchmark.pedantic(fn, rounds=3)
-    else:
-        # Running with codspeed.
-        benchmark(fn)
+    _run_benchmark(benchmark, grimp.build_graph, "django")
 
 
 def test_top_level_large_graph(large_graph, benchmark):
-    benchmark(
-        lambda: large_graph.find_illegal_dependencies_for_layers(
-            layers=TOP_LEVEL_LAYERS,
-            containers=("mypackage",),
-        )
-    )
-
-
-def test_deep_layers_large_graph(large_graph, benchmark):
-    fn = lambda: large_graph.find_illegal_dependencies_for_layers(layers=DEEP_LAYERS)
-    if hasattr(benchmark, "pedantic"):
-        # Running with pytest-benchmark
-        benchmark.pedantic(fn, rounds=3)
-    else:
-        # Running with codspeed.
-        benchmark(fn)
-
-
-# Result checks
-# -------------
-# These tests aren't benchmarks, but they execute the same code as the benchmarks to check the
-# behaviour hasn't changed.
-
-
-def test_top_level_large_graph_result_check(large_graph):
-    result = large_graph.find_illegal_dependencies_for_layers(
+    result = _run_benchmark(
+        benchmark,
+        large_graph.find_illegal_dependencies_for_layers,
         layers=TOP_LEVEL_LAYERS,
         containers=("mypackage",),
     )
+    assert result == {
+        PackageDependency(
+            importer="mypackage.domain",
+            imported="mypackage.application",
+            routes=frozenset(
+                {
+                    Route(
+                        heads=frozenset({"mypackage.domain.7960519247.6215972208"}),
+                        middle=(),
+                        tails=frozenset(
+                            {"mypackage.application.7537183614.6928774480.5676105139.3275676604"}
+                        ),
+                    ),
+                    Route(
+                        heads=frozenset(
+                            {
+                                "mypackage.domain.6928774480.5676105139.1330171288.7588443317.4661445087"  # noqa:E501
+                            }
+                        ),
+                        middle=(),
+                        tails=frozenset(
+                            {"mypackage.application.7537183614.3430454356.1518604543"}
+                        ),
+                    ),
+                    Route(
+                        heads=frozenset(
+                            {"mypackage.domain.6928774480.5676105139.1262087557.3485088613"}
+                        ),
+                        middle=(),
+                        tails=frozenset(
+                            {"mypackage.application.7537183614.3430454356.1518604543"}
+                        ),
+                    ),
+                    Route(
+                        heads=frozenset({"mypackage.domain.2538372545.1186630948"}),
+                        middle=(),
+                        tails=frozenset(
+                            {"mypackage.application.7537183614.8114145747.9320351411"}
+                        ),
+                    ),
+                    Route(
+                        heads=frozenset(
+                            {
+                                "mypackage.domain.6928774480.1028759677.7960519247.2888779155.7486857426"  # noqa:E501
+                            }
+                        ),
+                        middle=(),
+                        tails=frozenset(
+                            {"mypackage.application.7537183614.3430454356.1518604543"}
+                        ),
+                    ),
+                    Route(
+                        heads=frozenset({"mypackage.domain.1330171288.2647367251"}),
+                        middle=(),
+                        tails=frozenset(
+                            {"mypackage.application.7537183614.4619328254.6682701798"}
+                        ),
+                    ),
+                    Route(
+                        heads=frozenset({"mypackage.domain.2538372545.7264406040.9149218450"}),
+                        middle=(),
+                        tails=frozenset(
+                            {"mypackage.application.7537183614.2538372545.8114145747"}
+                        ),
+                    ),
+                    Route(
+                        heads=frozenset({"mypackage.domain.1330171288.2647367251"}),
+                        middle=(),
+                        tails=frozenset(
+                            {"mypackage.application.7537183614.7582995238.6180716911"}
+                        ),
+                    ),
+                    Route(
+                        heads=frozenset({"mypackage.domain.1330171288.2647367251"}),
+                        middle=(),
+                        tails=frozenset(
+                            {"mypackage.application.7537183614.3851022211.5970652803"}
+                        ),
+                    ),
+                }
+            ),
+        ),
+        PackageDependency(
+            importer="mypackage.domain",
+            imported="mypackage.plugins",
+            routes=frozenset(
+                {
+                    Route(
+                        heads=frozenset({"mypackage.domain.8114145747.6690893472"}),
+                        middle=(),
+                        tails=frozenset(
+                            {"mypackage.plugins.5634303718.6180716911.1810840010.7887344963"}
+                        ),
+                    )
+                }
+            ),
+        ),
+        PackageDependency(
+            importer="mypackage.application",
+            imported="mypackage.plugins",
+            routes=frozenset(
+                {
+                    Route(
+                        heads=frozenset(
+                            {
+                                "mypackage.application.7537183614.2538372545.1153384736.6297289996",
+                                "mypackage.application.7537183614.2538372545.1153384736.6404547812.6297289996",  # noqa:E501
+                            }
+                        ),
+                        middle=("mypackage.6398020133.9075581450.6529869526.6297289996",),
+                        tails=frozenset(
+                            {
+                                "mypackage.plugins.5634303718.6180716911.7582995238.1039461003.2943193489",  # noqa:E501
+                                "mypackage.plugins.5634303718.6180716911.7582995238.1039461003.6322703811",  # noqa:E501
+                            }
+                        ),
+                    )
+                }
+            ),
+        ),
+    }
 
-    assert result == set()
 
-
-def test_deep_layers_large_graph_result_check(large_graph):
-    result = large_graph.find_illegal_dependencies_for_layers(layers=DEEP_LAYERS)
+def test_deep_layers_large_graph(large_graph, benchmark):
+    result = _run_benchmark(
+        benchmark, large_graph.find_illegal_dependencies_for_layers, layers=DEEP_LAYERS
+    )
     assert result == {
         PackageDependency(
             importer=f"{DEEP_PACKAGE}.application.3242334296.2454157946",
@@ -239,3 +334,61 @@ def test_deep_layers_large_graph_result_check(large_graph):
             ),
         ),
     }
+
+
+def test_find_descendants(large_graph, benchmark):
+    result = _run_benchmark(benchmark, large_graph.find_descendants, "mypackage")
+    assert len(result) == 28222
+
+
+def test_find_downstream_modules(large_graph, benchmark):
+    result = _run_benchmark(
+        benchmark, large_graph.find_downstream_modules, DEEP_LAYERS[0], as_package=True
+    )
+    assert len(result) == 80
+
+
+def test_find_upstream_modules(large_graph, benchmark):
+    result = _run_benchmark(
+        benchmark, large_graph.find_upstream_modules, DEEP_LAYERS[0], as_package=True
+    )
+    assert len(result) == 2159
+
+
+class TestFindShortestChain:
+    def test_chain_found(self, large_graph, benchmark):
+        result = _run_benchmark(
+            benchmark, large_graph.find_shortest_chain, DEEP_LAYERS[0], DEEP_LAYERS[1]
+        )
+        assert result is not None
+
+    def test_no_chain(self, large_graph, benchmark):
+        result = _run_benchmark(
+            benchmark,
+            large_graph.find_shortest_chain,
+            DEEP_LAYERS[0],
+            "mypackage.data.vendors.4053192739.6373932949",
+        )
+        assert result is None
+
+
+class TestFindShortestChains:
+    def test_chains_found(self, large_graph, benchmark):
+        result = _run_benchmark(
+            benchmark,
+            large_graph.find_shortest_chains,
+            DEEP_LAYERS[0],
+            DEEP_LAYERS[1],
+            as_packages=True,
+        )
+        assert len(result) > 0
+
+    def test_no_chains(self, large_graph, benchmark):
+        result = _run_benchmark(
+            benchmark,
+            large_graph.find_shortest_chains,
+            DEEP_LAYERS[0],
+            "mypackage.data.vendors.4053192739.6373932949",
+            as_packages=True,
+        )
+        assert result == set()
