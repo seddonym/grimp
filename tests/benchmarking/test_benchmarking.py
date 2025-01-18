@@ -222,3 +222,50 @@ def test_deep_layers_large_graph(large_graph, benchmark):
         ),
     }
 
+
+def test_find_descendants(large_graph, benchmark):
+    result = benchmark(large_graph.find_descendants, "mypackage")
+    assert len(result) == 17348
+
+
+def test_find_downstream_modules(large_graph, benchmark):
+    result = benchmark(large_graph.find_downstream_modules, DEEP_LAYERS[0], as_package=True)
+    assert len(result) == 80
+
+
+def test_find_upstream_modules(large_graph, benchmark):
+    result = benchmark(large_graph.find_upstream_modules, DEEP_LAYERS[0], as_package=True)
+    assert len(result) == 2159
+
+
+class TestFindShortestChain:
+    def test_chain_found(self, large_graph, benchmark):
+        result = benchmark(large_graph.find_shortest_chain, DEEP_LAYERS[0], DEEP_LAYERS[1])
+        assert result is not None
+
+    @pytest.mark.xfail("grimp.exceptions.ModuleNotPresent")
+    def test_no_chain(self, large_graph, benchmark):
+        result = benchmark(
+            large_graph.find_shortest_chain,
+            DEEP_LAYERS[0],
+            "mypackage.data.vendors.4053192739.6373932949",
+        )
+        assert result is None
+
+
+class TestFindShortestChains:
+    def test_chains_found(self, large_graph, benchmark):
+        result = benchmark(
+            large_graph.find_shortest_chains, DEEP_LAYERS[0], DEEP_LAYERS[1], as_packages=True
+        )
+        assert len(result) > 0
+
+    @pytest.mark.xfail("grimp.exceptions.ModuleNotPresent")
+    def test_no_chains(self, large_graph, benchmark):
+        result = benchmark(
+            large_graph.find_shortest_chains,
+            DEEP_LAYERS[0],
+            "mypackage.data.vendors.4053192739.6373932949",
+            as_packages=True,
+        )
+        assert result == set()
