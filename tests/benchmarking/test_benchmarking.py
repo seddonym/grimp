@@ -4,6 +4,7 @@ from pathlib import Path
 from grimp.adaptors.graph import ImportGraph
 from grimp import PackageDependency, Route
 import grimp
+from copy import deepcopy
 
 
 def _run_benchmark(benchmark, fn, *args, **kwargs):
@@ -392,3 +393,7 @@ class TestFindShortestChains:
             as_packages=True,
         )
         assert result == set()
+
+
+def test_copy_graph(large_graph, benchmark):
+    _run_benchmark(benchmark, lambda: deepcopy(large_graph))
