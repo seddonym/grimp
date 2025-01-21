@@ -312,7 +312,21 @@ def test_build_django_from_cache(benchmark):
 
 
 class TestFindIllegalDependenciesForLayers:
-    def test_top_level_large_graph(self, large_graph, benchmark):
+    @staticmethod
+    def _remove_package_dependencies(graph, package_dependencies):
+        graph = deepcopy(graph)
+        for dep in package_dependencies:
+            for route in dep.routes:
+                if route.middle:
+                    for tail in route.tails:
+                        graph.remove_import(importer=route.middle[-1], imported=tail)
+                else:
+                    for head in route.heads:
+                        for tail in route.tails:
+                            graph.remove_import(importer=head, imported=tail)
+        return graph
+
+    def test_top_level_large_graph_violated(self, large_graph, benchmark):
         result = _run_benchmark(
             benchmark,
             large_graph.find_illegal_dependencies_for_layers,
@@ -321,11 +335,32 @@ class TestFindIllegalDependenciesForLayers:
         )
         assert result == TOP_LEVEL_PACKAGE_DEPENDENCIES
 
-    def test_deep_layers_large_graph(self, large_graph, benchmark):
+    def test_top_level_large_graph_kept(self, large_graph, benchmark):
+        large_graph = self._remove_package_dependencies(
+            large_graph, TOP_LEVEL_PACKAGE_DEPENDENCIES
+        )
+        result = _run_benchmark(
+            benchmark,
+            large_graph.find_illegal_dependencies_for_layers,
+            layers=TOP_LEVEL_LAYERS,
+            containers=("mypackage",),
+        )
+        assert result == set()
+
+    def test_deep_layers_large_graph_violated(self, large_graph, benchmark):
         result = _run_benchmark(
             benchmark, large_graph.find_illegal_dependencies_for_layers, layers=DEEP_LAYERS
         )
         assert result == DEEP_LAYER_PACKAGE_DEPENDENCIES
+
+    def test_deep_layers_large_graph_kept(self, large_graph, benchmark):
+        large_graph = self._remove_package_dependencies(
+            large_graph, DEEP_LAYER_PACKAGE_DEPENDENCIES
+        )
+        result = _run_benchmark(
+            benchmark, large_graph.find_illegal_dependencies_for_layers, layers=DEEP_LAYERS
+        )
+        assert result == set()
 
 
 def test_find_descendants(large_graph, benchmark):
