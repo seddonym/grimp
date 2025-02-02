@@ -8,12 +8,7 @@ from copy import deepcopy
 
 
 def _run_benchmark(benchmark, fn, *args, **kwargs):
-    if hasattr(benchmark, "pedantic"):
-        # Running with pytest-benchmark
-        return benchmark.pedantic(fn, args=args, kwargs=kwargs, rounds=3)
-    else:
-        # Running with codspeed.
-        return benchmark(fn, *args, **kwargs)
+    return benchmark(fn, *args, **kwargs)
 
 
 @pytest.fixture(scope="module")
@@ -43,7 +38,6 @@ DEEP_LAYERS = (
     f"{DEEP_PACKAGE}.application.3242334296.5033127033",
     f"{DEEP_PACKAGE}.application.3242334296.2454157946",
 )
-
 
 TOP_LEVEL_PACKAGE_DEPENDENCIES = {
     PackageDependency(

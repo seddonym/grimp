@@ -1,0 +1,64 @@
+version: '3'
+
+tasks:
+  test:
+    cmds:
+      - task: rust.test
+      - task: python.test
+
+  rust.test:
+    dir: rust
+    cmds:
+      - cargo test --no-default-features {{.CLI_ARGS}}
+
+  python.test:
+    cmds:
+      - maturin develop
+      - pytest --benchmark-skip {{.CLI_ARGS}}
+
+  fmt:
+    cmds:
+      - task: rust.fmt
+      - task: python.fmt
+
+  rust.fmt:
+    dir: rust
+    cmds:
+      - cargo fmt
+
+  python.fmt:
+    cmds:
+      - black src tests
+
+  check:
+    cmds:
+      - task: rust.check
+      - task: python.check
+
+  rust.check:
+    dir: rust
+    cmds:
+      - cargo check
+
+  python.check:
+    cmds:
+      - black --check src tests
+      - flake8 src tests
+      - mypy src/grimp tests
+
+  rust.clippy.check:
+    dir: rust
+    cmds:
+      - cargo clippy --all-targets --all-features -- -D warnings
+
+  rust.clippy.fix:
+    dir: rust
+    cmds:
+      - cargo clippy --all-targets --all-features --fix --allow-staged
+
+  bench:
+    vars:
+      _SAVEAS: '{{if empty .SAVEAS}}--benchmark-autosave{{else}}--benchmark-save {{.SAVEAS}}{{end}}'
+    cmds:
+      - maturin develop --release
+      - pytest --benchmark-only --benchmark-compare --benchmark-group-by=func --benchmark-columns=mean --benchmark-sort=mean {{._SAVEAS}} {{.CLI_ARGS}}
