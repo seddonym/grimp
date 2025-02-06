@@ -44,7 +44,6 @@ DEEP_LAYERS = (
     f"{DEEP_PACKAGE}.application.3242334296.2454157946",
 )
 
-
 TOP_LEVEL_PACKAGE_DEPENDENCIES = {
     PackageDependency(
         importer="mypackage.domain",
@@ -423,3 +422,11 @@ class TestFindShortestChains:
 
 def test_copy_graph(large_graph, benchmark):
     _run_benchmark(benchmark, lambda: deepcopy(large_graph))
+
+
+def test_graph_contains_module(large_graph, benchmark):
+    def f(n):
+        for i in range(n):
+            _ = f"foo{i}" in large_graph.modules
+
+    _run_benchmark(benchmark, f, 100)
