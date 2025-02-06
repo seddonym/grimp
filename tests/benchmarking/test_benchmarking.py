@@ -430,3 +430,11 @@ def test_graph_contains_module(large_graph, benchmark):
             _ = f"foo{i}" in large_graph.modules
 
     _run_benchmark(benchmark, f, 100)
+
+
+def test_iterate_over_modules_in_graph(large_graph, benchmark):
+    def f():
+        for module in large_graph.modules:
+            _ = module
+
+    _run_benchmark(benchmark, f)
