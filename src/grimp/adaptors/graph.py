@@ -15,6 +15,7 @@ class ImportGraph(graph.ImportGraph):
 
     def __init__(self) -> None:
         super().__init__()
+        self._cached_modules: Set[str] | None = None
         self._rustgraph = rust.Graph()
 
     # TODO(peter) Be wary about `if X in graph.modules` since we need to
@@ -23,18 +24,23 @@ class ImportGraph(graph.ImportGraph):
     # a performance footgun.
     @property
     def modules(self) -> Set[str]:
-        return self._rustgraph.get_modules()
+        if self._cached_modules is None:
+            self._cached_modules = self._rustgraph.get_modules()
+        return self._cached_modules
 
     def contains_module(self, module: str) -> bool:
         return self._rustgraph.contains_module(module)
 
     def add_module(self, module: str, is_squashed: bool = False) -> None:
+        self._cached_modules = None
         self._rustgraph.add_module(module, is_squashed)
 
     def remove_module(self, module: str) -> None:
+        self._cached_modules = None
         self._rustgraph.remove_module(module)
 
     def squash_module(self, module: str) -> None:
+        self._cached_modules = None
         if not self.contains_module(module):
             raise ModuleNotPresent(f'"{module}" not present in the graph.')
         self._rustgraph.squash_module(module)
@@ -52,6 +58,7 @@ class ImportGraph(graph.ImportGraph):
         line_number: Optional[int] = None,
         line_contents: Optional[str] = None,
     ) -> None:
+        self._cached_modules = None
         self._rustgraph.add_import(
             importer=importer,
             imported=imported,
@@ -60,6 +67,7 @@ class ImportGraph(graph.ImportGraph):
         )
 
     def remove_import(self, *, importer: str, imported: str) -> None:
+        self._cached_modules = None
         return self._rustgraph.remove_import(importer=importer, imported=imported)
 
     def count_imports(self) -> int:
