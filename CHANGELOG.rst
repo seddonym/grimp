@@ -2,6 +2,12 @@
 Changelog
 =========
 
+latest
+------
+
+* Reimplement the graph in Rust. This is a substantial rewrite that, mostly, significantly
+  improves performance, but there may be certain operations that are slower than before.
+
 3.5 (2024-10-08)
 ----------------
 
