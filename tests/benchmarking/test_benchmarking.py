@@ -438,3 +438,18 @@ def test_iterate_over_modules_in_graph(large_graph, benchmark):
             _ = module
 
     _run_benchmark(benchmark, f)
+
+
+def test_get_import_details(benchmark):
+    graph = ImportGraph()
+    iterations = 100
+    for i in range(iterations, 1):
+        graph.add_import(
+            importer=f"blue_{i}", imported=f"green_{i}", line_contents="...", line_number=i
+        )
+
+    def f():
+        for i in range(iterations):
+            graph.get_import_details(importer=f"blue_{i}", imported=f"green_{i}")
+
+    _run_benchmark(benchmark, f)
