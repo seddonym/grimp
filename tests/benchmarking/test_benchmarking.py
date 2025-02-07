@@ -421,6 +421,8 @@ def test_copy_graph(large_graph, benchmark):
 
 def test_graph_contains_module(large_graph, benchmark):
     def f(n):
+        # Ensure that the cache is reset between benchmark iterations/rounds.
+        large_graph._cached_modules = None
         for i in range(n):
             _ = f"foo{i}" in large_graph.modules
 
@@ -429,6 +431,8 @@ def test_graph_contains_module(large_graph, benchmark):
 
 def test_iterate_over_modules_in_graph(large_graph, benchmark):
     def f():
+        # Ensure that the cache is reset between benchmark iterations/rounds.
+        large_graph._cached_modules = None
         for module in large_graph.modules:
             _ = module
 
