@@ -1,4 +1,6 @@
-use crate::graph::{Graph, ImportDetails, Module, ModuleIterator, ModuleToken, MODULE_NAMES};
+use crate::graph::{
+    Graph, ImportDetails, Module, ModuleIterator, ModuleToken, IMPORT_LINE_CONTENTS, MODULE_NAMES,
+};
 use rustc_hash::FxHashSet;
 use slotmap::secondary::Entry;
 
@@ -129,10 +131,14 @@ impl Graph {
             .unwrap()
             .or_default()
             .insert(importer);
-        self.import_details
-            .entry((importer, imported))
-            .or_default()
-            .insert(ImportDetails::new(line_number, line_contents.to_owned()));
+        {
+            let mut interner = IMPORT_LINE_CONTENTS.write().unwrap();
+            let line_contents = interner.get_or_intern(line_contents);
+            self.import_details
+                .entry((importer, imported))
+                .or_default()
+                .insert(ImportDetails::new(line_number, line_contents));
+        }
     }
 
     pub fn remove_import(&mut self, importer: ModuleToken, imported: ModuleToken) {

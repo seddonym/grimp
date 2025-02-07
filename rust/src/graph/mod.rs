@@ -19,6 +19,8 @@ pub(crate) mod pathfinding;
 lazy_static! {
     static ref MODULE_NAMES: RwLock<StringInterner<StringBackend>> =
         RwLock::new(StringInterner::default());
+    static ref IMPORT_LINE_CONTENTS: RwLock<StringInterner<StringBackend>> =
+        RwLock::new(StringInterner::default());
     static ref EMPTY_MODULE_TOKENS: FxHashSet<ModuleToken> = FxHashSet::default();
     static ref EMPTY_IMPORT_DETAILS: FxHashSet<ImportDetails> = FxHashSet::default();
     static ref EMPTY_IMPORTS: FxHashSet<(ModuleToken, ModuleToken)> = FxHashSet::default();
@@ -131,7 +133,16 @@ pub struct ImportDetails {
     #[getset(get_copy = "pub")]
     line_number: usize,
 
-    #[new(into)]
-    #[getset(get = "pub")]
-    line_contents: String,
+    #[getset(get_copy = "pub")]
+    interned_line_contents: DefaultSymbol,
+}
+
+impl ImportDetails {
+    pub fn line_contents(&self) -> String {
+        let interner = IMPORT_LINE_CONTENTS.read().unwrap();
+        interner
+            .resolve(self.interned_line_contents)
+            .unwrap()
+            .to_owned()
+    }
 }

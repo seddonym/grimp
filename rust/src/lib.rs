@@ -237,7 +237,7 @@ impl GraphWrapper {
                         importer.name_as_string(),
                         imported.name_as_string(),
                         import_details.line_number(),
-                        import_details.line_contents().to_owned(),
+                        import_details.line_contents(),
                     )
                 })
                 .sorted()
