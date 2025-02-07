@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections.abc import Set as ABCSet
 from typing import List, Optional, Sequence, Set, Tuple, TypedDict
 from grimp.application.ports.graph import DetailedImport
 from grimp.domain.analysis import PackageDependency, Route
@@ -8,6 +9,20 @@ from grimp.exceptions import ModuleNotPresent, NoSuchContainer
 from grimp.application.ports import graph
 
 
+class _ImportGraphModules(ABCSet):
+    def __init__(self, rust_graph_modules):
+        self._rust_graph_modules = rust_graph_modules
+
+    def __contains__(self, module):
+        return module in self._rust_graph_modules
+
+    def __len__(self):
+        return len(self._rust_graph_modules)
+
+    def __iter__(self):
+        return iter(self._rust_graph_modules)
+
+
 class ImportGraph(graph.ImportGraph):
     """
     Rust-backed implementation of the ImportGraph.
@@ -15,7 +30,7 @@ class ImportGraph(graph.ImportGraph):
 
     def __init__(self) -> None:
         super().__init__()
-        self._cached_modules: Set[str] | None = None
+        self._cached_modules: ABCSet[str] | None = None
         self._rustgraph = rust.Graph()
 
     # TODO(peter) Be wary about `if X in graph.modules` since we need to
@@ -23,9 +38,9 @@ class ImportGraph(graph.ImportGraph):
     # Prefer `graph.contains_module`. Is there a way to make this clearer, it feels like
     # a performance footgun.
     @property
-    def modules(self) -> Set[str]:
+    def modules(self) -> ABCSet[str]:
         if self._cached_modules is None:
-            self._cached_modules = self._rustgraph.get_modules()
+            self._cached_modules = _ImportGraphModules(self._rustgraph.get_modules())
         return self._cached_modules
 
     def contains_module(self, module: str) -> bool:

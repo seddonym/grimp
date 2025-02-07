@@ -17,7 +17,7 @@ pub mod import_chain_queries;
 pub(crate) mod pathfinding;
 
 lazy_static! {
-    static ref MODULE_NAMES: RwLock<StringInterner<StringBackend>> =
+    pub static ref MODULE_NAMES: RwLock<StringInterner<StringBackend>> =
         RwLock::new(StringInterner::default());
     static ref EMPTY_MODULE_TOKENS: FxHashSet<ModuleToken> = FxHashSet::default();
     static ref EMPTY_IMPORT_DETAILS: FxHashSet<ImportDetails> = FxHashSet::default();

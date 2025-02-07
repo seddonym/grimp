@@ -5,7 +5,7 @@ pub mod graph;
 use crate::errors::{GrimpError, GrimpResult};
 use crate::exceptions::{ModuleNotPresent, NoSuchContainer};
 use crate::graph::higher_order_queries::Level;
-use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
+use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator, MODULE_NAMES};
 use derive_new::new;
 use itertools::Itertools;
 use pyo3::exceptions::PyValueError;
@@ -15,6 +15,7 @@ use pyo3::IntoPyObjectExt;
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
 use std::collections::HashSet;
+use string_interner::DefaultSymbol;
 
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -48,12 +49,8 @@ impl GraphWrapper {
         }
     }
 
-    pub fn get_modules(&self) -> HashSet<String> {
-        self._graph
-            .all_modules()
-            .visible()
-            .names_as_strings()
-            .collect()
+    pub fn get_modules(&self) -> GraphModuleNames {
+        self._graph.all_modules().visible().names().collect()
     }
 
     pub fn contains_module(&self, name: &str) -> bool {
@@ -546,6 +543,68 @@ impl GraphWrapper {
         }
 
         PyTuple::new(py, python_dependencies)
+    }
+}
+
+#[pyclass(frozen)]
+#[derive(Debug, Clone)]
+struct GraphModuleNames {
+    // By keeping the module names as ints here we ensure that the
+    // necessary copy when passing the data to python is cheap.
+    module_names: FxHashSet<DefaultSymbol>,
+}
+
+impl FromIterator<DefaultSymbol> for GraphModuleNames {
+    fn from_iter<I: IntoIterator<Item = DefaultSymbol>>(iter: I) -> Self {
+        Self {
+            module_names: FxHashSet::from_iter(iter),
+        }
+    }
+}
+
+#[pymethods]
+impl GraphModuleNames {
+    fn __contains__(&self, value: &str) -> bool {
+        let interner = MODULE_NAMES.read().unwrap();
+        interner
+            .get(value)
+            .map(|value| self.module_names.contains(&value))
+            .filter(|value| *value)
+            .is_some()
+    }
+
+    fn __len__(&self) -> usize {
+        self.module_names.len()
+    }
+
+    fn __iter__(&self) -> GraphModuleNamesIterator {
+        GraphModuleNamesIterator {
+            module_names: self.module_names.iter().copied().collect(),
+            idx: 0,
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Debug, Clone)]
+struct GraphModuleNamesIterator {
+    module_names: Vec<DefaultSymbol>,
+    idx: usize,
+}
+
+#[pymethods]
+impl GraphModuleNamesIterator {
+    fn __iter__(&self) -> Self {
+        self.clone()
+    }
+
+    fn __next__(&mut self) -> Option<String> {
+        let symbol = self.module_names.get(self.idx);
+        self.idx += 1;
+        symbol.map(|symbol| {
+            let interner = MODULE_NAMES.read().unwrap();
+            interner.resolve(*symbol).unwrap().to_owned()
+        })
     }
 }
 
