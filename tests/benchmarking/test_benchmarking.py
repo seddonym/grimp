@@ -8,12 +8,7 @@ from copy import deepcopy
 
 
 def _run_benchmark(benchmark, fn, *args, **kwargs):
-    if hasattr(benchmark, "pedantic"):
-        # Running with pytest-benchmark
-        return benchmark.pedantic(fn, args=args, kwargs=kwargs, rounds=3)
-    else:
-        # Running with codspeed.
-        return benchmark(fn, *args, **kwargs)
+    return benchmark(fn, *args, **kwargs)
 
 
 @pytest.fixture(scope="module")
