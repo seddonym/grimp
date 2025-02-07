@@ -424,17 +424,41 @@ def test_copy_graph(large_graph, benchmark):
     _run_benchmark(benchmark, lambda: deepcopy(large_graph))
 
 
-def test_graph_contains_module(large_graph, benchmark):
-    def f(n):
-        for i in range(n):
-            _ = f"foo{i}" in large_graph.modules
-
-    _run_benchmark(benchmark, f, 100)
-
-
-def test_iterate_over_modules_in_graph(large_graph, benchmark):
+def test_modules_property_first_access(large_graph, benchmark):
     def f():
-        for module in large_graph.modules:
-            _ = module
+        # Benchmarking runs multiple times over the same object, so we need
+        # to bust the cache first. The easiest way to do this is to add a module.
+        large_graph.add_module("cachebuster")
+
+        # Accessing the modules property is what we're benchmarking.
+        _ = large_graph.modules
+
+    _run_benchmark(benchmark, f)
+
+
+def test_modules_property_many_accesses(large_graph, benchmark):
+    def f():
+        # Benchmarking runs multiple times over the same object, so we need
+        # to bust the cache first. The easiest way to do this is to add a module.
+        large_graph.add_module("cachebuster")
+
+        # Accessing the modules property is what we're benchmarking.
+        for i in range(1000):
+            _ = large_graph.modules
+
+    _run_benchmark(benchmark, f)
+
+
+def test_get_import_details(benchmark):
+    graph = ImportGraph()
+    iterations = 100
+    for i in range(iterations, 1):
+        graph.add_import(
+            importer=f"blue_{i}", imported=f"green_{i}", line_contents="...", line_number=i
+        )
+
+    def f():
+        for i in range(iterations):
+            graph.get_import_details(importer=f"blue_{i}", imported=f"green_{i}")
 
     _run_benchmark(benchmark, f)
