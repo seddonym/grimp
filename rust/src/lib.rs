@@ -111,7 +111,7 @@ impl GraphWrapper {
         &mut self,
         importer: &str,
         imported: &str,
-        line_number: Option<usize>,
+        line_number: Option<u32>,
         line_contents: Option<&str>,
     ) {
         let importer = self._graph.get_or_add_module(importer).token();
@@ -540,7 +540,7 @@ impl GraphWrapper {
 struct ImportDetails {
     importer: String,
     imported: String,
-    line_number: usize,
+    line_number: u32,
     line_contents: String,
 }
 

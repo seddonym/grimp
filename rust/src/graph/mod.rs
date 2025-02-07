@@ -131,7 +131,7 @@ impl<'a, T: Iterator<Item = &'a ModuleToken>> ModuleTokenIterator<'a> for T {}
 #[derive(Debug, Clone, PartialEq, Eq, Hash, new, Getters, CopyGetters)]
 pub struct ImportDetails {
     #[getset(get_copy = "pub")]
-    line_number: usize,
+    line_number: u32,
 
     #[getset(get_copy = "pub")]
     interned_line_contents: DefaultSymbol,

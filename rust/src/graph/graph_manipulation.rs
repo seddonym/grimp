@@ -118,7 +118,7 @@ impl Graph {
         &mut self,
         importer: ModuleToken,
         imported: ModuleToken,
-        line_number: usize,
+        line_number: u32,
         line_contents: &str,
     ) {
         self.imports
