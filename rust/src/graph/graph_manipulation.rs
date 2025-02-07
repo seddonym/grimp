@@ -33,7 +33,7 @@ impl Graph {
                 } else {
                     let module = self.modules.insert_with_key(|token| Module {
                         token,
-                        name,
+                        interned_name: name,
                         is_invisible: !ancestor_names.is_empty(),
                         is_squashed: false,
                     });
