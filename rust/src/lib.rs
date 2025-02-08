@@ -296,17 +296,18 @@ impl GraphWrapper {
             .collect())
     }
 
-    // TODO(peter) Add `as_packages` argument here? The implementation already supports it!
+    #[pyo3(signature = (importer, imported, as_packages=false))]
     pub fn find_shortest_chain(
         &self,
         importer: &str,
         imported: &str,
+        as_packages: bool,
     ) -> PyResult<Option<Vec<String>>> {
         let importer = self.get_visible_module_by_name(importer)?.token();
         let imported = self.get_visible_module_by_name(imported)?.token();
         Ok(self
             ._graph
-            .find_shortest_chain(importer, imported, false)?
+            .find_shortest_chain(importer, imported, as_packages)?
             .map(|chain| {
                 chain
                     .iter()

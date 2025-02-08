@@ -108,12 +108,14 @@ class ImportGraph(graph.ImportGraph):
     def find_upstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
         return self._rustgraph.find_upstream_modules(module, as_package)
 
-    def find_shortest_chain(self, importer: str, imported: str) -> tuple[str, ...] | None:
+    def find_shortest_chain(
+        self, importer: str, imported: str, as_packages: bool = False
+    ) -> tuple[str, ...] | None:
         for module in (importer, imported):
             if not self._rustgraph.contains_module(module):
                 raise ValueError(f"Module {module} is not present in the graph.")
 
-        chain = self._rustgraph.find_shortest_chain(importer, imported)
+        chain = self._rustgraph.find_shortest_chain(importer, imported, as_packages)
         return tuple(chain) if chain else None
 
     def find_shortest_chains(
