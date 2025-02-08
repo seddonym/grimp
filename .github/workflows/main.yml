@@ -50,7 +50,7 @@ jobs:
         run: cargo test --no-default-features
         working-directory: ./rust
       - name: Run linter (clippy)
-        run: cargo clippy --all-targets --all-features
+        run: cargo clippy --all-targets --all-features -- -D warnings
         working-directory: ./rust
 
   benchmarks:
