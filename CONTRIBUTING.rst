@@ -61,6 +61,16 @@ To set up `grimp` for local development:
 
 6. Submit a pull request through the GitHub website.
 
+Rust code
+---------
+
+When working with the rust code (in the ``rust/`` directory):
+
+* Run tests with ``cargo test --no-default-features``.
+  The ``--no-default-features`` flag is needed to due to `this PYO3 issue <https://pyo3.rs/main/faq#i-cant-run-cargo-test-or-i-cant-build-in-a-cargo-workspace-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror>`_.
+* Run `clippy <https://doc.rust-lang.org/clippy/index.html>`_ (a linter for rust) with ``cargo clippy --all-targets --all-features -- -D warnings``.
+  It's often possible to apply automatic fixes to clippy issues with the ``--fix`` flag e.g. ``cargo clippy --all-targets --all-features --fix --allow-staged``.
+
 Pull Request Guidelines
 -----------------------
 
