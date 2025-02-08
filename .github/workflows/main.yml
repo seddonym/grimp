@@ -46,7 +46,11 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: cargo test --no-default-features
+      - name: Run tests
+        run: cargo test --no-default-features
+        working-directory: ./rust
+      - name: Run linter (clippy)
+        run: cargo clippy --all-targets --all-features
         working-directory: ./rust
 
   benchmarks:
