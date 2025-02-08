@@ -9,8 +9,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  tests:
-    name: Python ${{ matrix.python-version }}, ${{ matrix.os }}
+  check_python:
+    name: Check Python ${{ matrix.python-version }}, ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -22,14 +22,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-
-      - run: cargo test --no-default-features
-        working-directory: ./rust
-
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -42,6 +37,17 @@ jobs:
 
       - name: Run tox targets for ${{ matrix.python-version }}
         run: python -m tox
+
+  check_rust:
+    name: Check Rust
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: cargo test --no-default-features
+        working-directory: ./rust
 
   benchmarks:
       runs-on: ubuntu-22.04
