@@ -20,7 +20,12 @@ def large_graph():
     for importer, importeds in graph_dict.items():
         graph.add_module(importer)
         for imported in importeds:
-            graph.add_import(importer=importer, imported=imported)
+            graph.add_import(
+                importer=importer,
+                imported=imported,
+                line_number=1,
+                line_contents=f"import {imported}",
+            )
 
     return graph
 

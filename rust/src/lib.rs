@@ -49,11 +49,7 @@ impl GraphWrapper {
     }
 
     pub fn get_modules(&self) -> HashSet<String> {
-        self._graph
-            .all_modules()
-            .visible()
-            .names_as_strings()
-            .collect()
+        self._graph.all_modules().visible().names().collect()
     }
 
     pub fn contains_module(&self, name: &str) -> bool {
@@ -115,7 +111,7 @@ impl GraphWrapper {
         &mut self,
         importer: &str,
         imported: &str,
-        line_number: Option<usize>,
+        line_number: Option<u32>,
         line_contents: Option<&str>,
     ) {
         let importer = self._graph.get_or_add_module(importer).token();
@@ -156,7 +152,7 @@ impl GraphWrapper {
             ._graph
             .get_module_children(module.token())
             .visible()
-            .names_as_strings()
+            .names()
             .collect())
     }
 
@@ -169,7 +165,7 @@ impl GraphWrapper {
             ._graph
             .get_module_descendants(module.token())
             .visible()
-            .names_as_strings()
+            .names()
             .collect())
     }
 
@@ -195,7 +191,7 @@ impl GraphWrapper {
             .iter()
             .into_module_iterator(&self._graph)
             .visible()
-            .names_as_strings()
+            .names()
             .collect())
     }
 
@@ -207,7 +203,7 @@ impl GraphWrapper {
             .iter()
             .into_module_iterator(&self._graph)
             .visible()
-            .names_as_strings()
+            .names()
             .collect())
     }
 
@@ -234,10 +230,10 @@ impl GraphWrapper {
                 .iter()
                 .map(|import_details| {
                     ImportDetails::new(
-                        importer.name_as_string(),
-                        imported.name_as_string(),
+                        importer.name(),
+                        imported.name(),
                         import_details.line_number(),
-                        import_details.line_contents().to_owned(),
+                        import_details.line_contents(),
                     )
                 })
                 .sorted()
@@ -274,7 +270,7 @@ impl GraphWrapper {
             .iter()
             .into_module_iterator(&self._graph)
             .visible()
-            .names_as_strings()
+            .names()
             .collect())
     }
 
@@ -292,7 +288,7 @@ impl GraphWrapper {
             .iter()
             .into_module_iterator(&self._graph)
             .visible()
-            .names_as_strings()
+            .names()
             .collect())
     }
 
@@ -312,7 +308,7 @@ impl GraphWrapper {
                 chain
                     .iter()
                     .into_module_iterator(&self._graph)
-                    .names_as_strings()
+                    .names()
                     .collect()
             }))
     }
@@ -349,7 +345,7 @@ impl GraphWrapper {
                     chain
                         .iter()
                         .into_module_iterator(&self._graph)
-                        .names_as_strings()
+                        .names()
                         .collect::<Vec<_>>(),
                 )
                 .unwrap()
@@ -392,14 +388,8 @@ impl GraphWrapper {
             .into_iter()
             .map(|dep| {
                 PackageDependency::new(
-                    self._graph
-                        .get_module(*dep.importer())
-                        .unwrap()
-                        .name_as_string(),
-                    self._graph
-                        .get_module(*dep.imported())
-                        .unwrap()
-                        .name_as_string(),
+                    self._graph.get_module(*dep.importer()).unwrap().name(),
+                    self._graph.get_module(*dep.imported()).unwrap().name(),
                     dep.routes()
                         .iter()
                         .map(|route| {
@@ -407,17 +397,17 @@ impl GraphWrapper {
                                 route
                                     .heads()
                                     .iter()
-                                    .map(|m| self._graph.get_module(*m).unwrap().name_as_string())
+                                    .map(|m| self._graph.get_module(*m).unwrap().name())
                                     .collect(),
                                 route
                                     .middle()
                                     .iter()
-                                    .map(|m| self._graph.get_module(*m).unwrap().name_as_string())
+                                    .map(|m| self._graph.get_module(*m).unwrap().name())
                                     .collect(),
                                 route
                                     .tails()
                                     .iter()
-                                    .map(|m| self._graph.get_module(*m).unwrap().name_as_string())
+                                    .map(|m| self._graph.get_module(*m).unwrap().name())
                                     .collect(),
                             )
                         })
@@ -461,10 +451,7 @@ impl GraphWrapper {
     ) -> Vec<Vec<Level>> {
         let containers = match containers.is_empty() {
             true => vec![None],
-            false => containers
-                .iter()
-                .map(|c| Some(c.name_as_string()))
-                .collect(),
+            false => containers.iter().map(|c| Some(c.name())).collect(),
         };
 
         let mut levels_by_container: Vec<Vec<Level>> = vec![];
@@ -554,7 +541,7 @@ impl GraphWrapper {
 struct ImportDetails {
     importer: String,
     imported: String,
-    line_number: usize,
+    line_number: u32,
     line_contents: String,
 }
 

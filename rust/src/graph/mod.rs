@@ -19,6 +19,8 @@ pub(crate) mod pathfinding;
 lazy_static! {
     static ref MODULE_NAMES: RwLock<StringInterner<StringBackend>> =
         RwLock::new(StringInterner::default());
+    static ref IMPORT_LINE_CONTENTS: RwLock<StringInterner<StringBackend>> =
+        RwLock::new(StringInterner::default());
     static ref EMPTY_MODULE_TOKENS: FxHashSet<ModuleToken> = FxHashSet::default();
     static ref EMPTY_IMPORT_DETAILS: FxHashSet<ImportDetails> = FxHashSet::default();
     static ref EMPTY_IMPORTS: FxHashSet<(ModuleToken, ModuleToken)> = FxHashSet::default();
@@ -32,7 +34,7 @@ pub struct Module {
     token: ModuleToken,
 
     #[getset(get_copy = "pub")]
-    name: DefaultSymbol,
+    interned_name: DefaultSymbol,
 
     // Invisible modules exist in the hierarchy but haven't been explicitly added to the graph.
     #[getset(get_copy = "pub")]
@@ -43,9 +45,9 @@ pub struct Module {
 }
 
 impl Module {
-    pub fn name_as_string(&self) -> String {
+    pub fn name(&self) -> String {
         let interner = MODULE_NAMES.read().unwrap();
-        interner.resolve(self.name).unwrap().to_owned()
+        interner.resolve(self.interned_name).unwrap().to_owned()
     }
 }
 
@@ -102,13 +104,13 @@ pub trait ModuleIterator<'a>: Iterator<Item = &'a Module> + Sized {
         self.map(|m| m.token)
     }
 
-    fn names(self) -> impl Iterator<Item = DefaultSymbol> {
-        self.map(|m| m.name)
+    fn interned_names(self) -> impl Iterator<Item = DefaultSymbol> {
+        self.map(|m| m.interned_name)
     }
 
-    fn names_as_strings(self) -> impl Iterator<Item = String> {
+    fn names(self) -> impl Iterator<Item = String> {
         let interner = MODULE_NAMES.read().unwrap();
-        self.map(move |m| interner.resolve(m.name).unwrap().to_owned())
+        self.map(move |m| interner.resolve(m.interned_name).unwrap().to_owned())
     }
 
     fn visible(self) -> impl ModuleIterator<'a> {
@@ -129,9 +131,18 @@ impl<'a, T: Iterator<Item = &'a ModuleToken>> ModuleTokenIterator<'a> for T {}
 #[derive(Debug, Clone, PartialEq, Eq, Hash, new, Getters, CopyGetters)]
 pub struct ImportDetails {
     #[getset(get_copy = "pub")]
-    line_number: usize,
+    line_number: u32,
 
-    #[new(into)]
-    #[getset(get = "pub")]
-    line_contents: String,
+    #[getset(get_copy = "pub")]
+    interned_line_contents: DefaultSymbol,
+}
+
+impl ImportDetails {
+    pub fn line_contents(&self) -> String {
+        let interner = IMPORT_LINE_CONTENTS.read().unwrap();
+        interner
+            .resolve(self.interned_line_contents)
+            .unwrap()
+            .to_owned()
+    }
 }
