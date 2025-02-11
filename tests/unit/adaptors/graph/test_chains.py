@@ -168,6 +168,25 @@ class TestFindShortestChain:
         other_chain = (source, d, e, f, destination)
         assert (result == one_chain) or (result == other_chain)
 
+    @pytest.mark.parametrize(
+        "as_packages, expected_result",
+        (
+            (False, None),
+            (True, ("green.foo", "blue.bar")),
+        ),
+    )
+    def test_as_packages(self, as_packages: bool, expected_result: Set[Tuple]):
+        graph = ImportGraph()
+        graph.add_module("green")
+        graph.add_module("blue")
+        graph.add_import(importer="green.foo", imported="blue.bar")
+
+        result = graph.find_shortest_chain(
+            importer="green", imported="blue", as_packages=as_packages
+        )
+
+        assert result == expected_result
+
 
 class TestFindShortestChains:
     @pytest.mark.parametrize(
