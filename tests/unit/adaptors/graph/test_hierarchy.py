@@ -1,7 +1,7 @@
 import pytest  # type: ignore
 
 from grimp.adaptors.graph import ImportGraph
-from grimp.exceptions import ModuleNotPresent
+from grimp.exceptions import ModuleNotPresent, InvalidModuleExpression
 
 
 @pytest.mark.parametrize(
@@ -115,3 +115,94 @@ def test_find_descendants_works_if_modules_added_in_different_order():
         "mypackage.foo.blue.alpha",
         "mypackage.foo.blue.alpha.one",
     }
+
+
+class TestFindMatchingModules:
+    @pytest.mark.parametrize(
+        "expression, expected_matching_modules",
+        [
+            ["foo", {"foo"}],
+            ["nonexistent", set()],
+            ["foo.*", {"foo.blue", "foo.green", "foo.yellow"}],
+            ["foo.*.alpha", {"foo.blue.alpha", "foo.green.alpha"}],
+            ["foo.*.nonexistent", set()],
+            [
+                "foo.**",
+                {
+                    "foo.blue",
+                    "foo.blue.alpha",
+                    "foo.blue.beta",
+                    "foo.green",
+                    "foo.green.alpha",
+                    "foo.green.beta",
+                    "foo.yellow",
+                    "foo.yellow.deeper",
+                    "foo.yellow.deeper.alpha",
+                    "foo.something.deeper.blue.alpha",
+                },
+            ],
+            [
+                "foo.**.alpha",
+                {
+                    "foo.blue.alpha",
+                    "foo.green.alpha",
+                    "foo.yellow.deeper.alpha",
+                    "foo.something.deeper.blue.alpha",
+                },
+            ],
+            ["*.foo", set()],
+            ["*.blue", {"foo.blue"}],
+            ["**.foo", set()],
+            ["**.blue", {"foo.blue"}],
+            [
+                "**.alpha",
+                {
+                    "foo.blue.alpha",
+                    "foo.green.alpha",
+                    "foo.yellow.deeper.alpha",
+                    "foo.something.deeper.blue.alpha",
+                },
+            ],
+            ["foo.*.*.alpha", {"foo.yellow.deeper.alpha"}],
+            ["foo.*.deeper.*", {"foo.yellow.deeper.alpha"}],
+            ["*.green.*", {"foo.green.alpha", "foo.green.beta"}],
+            ["**.blue.*", {"foo.blue.alpha", "foo.blue.beta", "foo.something.deeper.blue.alpha"}],
+        ],
+    )
+    def test_finds_matching_modules(self, expression, expected_matching_modules):
+        graph = ImportGraph()
+        graph.add_module("foo")
+        graph.add_module("foo.blue")
+        graph.add_module("foo.blue.alpha")
+        graph.add_module("foo.blue.beta")
+        graph.add_module("foo.green")
+        graph.add_module("foo.green.alpha")
+        graph.add_module("foo.green.beta")
+        graph.add_module("foo.yellow")
+        graph.add_module("foo.yellow.deeper")
+        graph.add_module("foo.yellow.deeper.alpha")
+        graph.add_module("foo.something.deeper.blue.alpha")
+        graph.add_module("bar")
+        assert graph.find_matching_modules(expression) == expected_matching_modules
+
+    def test_does_not_return_invisible_modules(self):
+        graph = ImportGraph()
+        # "foo" and "foo.blue" will be invisible modules in the graph.
+        graph.add_module("foo.blue.alpha")
+
+        # "foo.bar" is not returned.
+        assert graph.find_matching_modules("foo.**") == {"foo.blue.alpha"}
+
+    @pytest.mark.parametrize(
+        "expression",
+        [
+            "foo..",
+            "foo.*blue",
+        ],
+    )
+    def test_raises_error_if_expression_is_invalid(self, expression: str):
+        graph = ImportGraph()
+        with pytest.raises(
+            InvalidModuleExpression, match=f"{expression} is not a valid module expression."
+        ):
+            graph.find_matching_modules(expression)
