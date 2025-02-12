@@ -1,9 +1,10 @@
 pub mod errors;
 pub mod exceptions;
 pub mod graph;
+pub mod module_expressions;
 
 use crate::errors::{GrimpError, GrimpResult};
-use crate::exceptions::{ModuleNotPresent, NoSuchContainer};
+use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
 use derive_new::new;
@@ -21,6 +22,10 @@ fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<GraphWrapper>()?;
     m.add("ModuleNotPresent", py.get_type::<ModuleNotPresent>())?;
     m.add("NoSuchContainer", py.get_type::<NoSuchContainer>())?;
+    m.add(
+        "InvalidModuleExpression",
+        py.get_type::<InvalidModuleExpression>(),
+    )?;
     Ok(())
 }
 
