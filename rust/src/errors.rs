@@ -1,4 +1,4 @@
-use crate::exceptions::{ModuleNotPresent, NoSuchContainer};
+use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer};
 use pyo3::exceptions::PyValueError;
 use pyo3::PyErr;
 use thiserror::Error;
@@ -13,6 +13,9 @@ pub enum GrimpError {
 
     #[error("Modules have shared descendants.")]
     SharedDescendants,
+
+    #[error("{0} is not a valid module expression.")]
+    InvalidModuleExpression(String),
 }
 
 pub type GrimpResult<T> = Result<T, GrimpError>;
@@ -24,6 +27,9 @@ impl From<GrimpError> for PyErr {
             GrimpError::ModuleNotPresent(_) => ModuleNotPresent::new_err(value.to_string()),
             GrimpError::NoSuchContainer(_) => NoSuchContainer::new_err(value.to_string()),
             GrimpError::SharedDescendants => PyValueError::new_err(value.to_string()),
+            GrimpError::InvalidModuleExpression(_) => {
+                InvalidModuleExpression::new_err(value.to_string())
+            }
         }
     }
 }
