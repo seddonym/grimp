@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import List, Optional, Sequence, Set, Tuple, TypedDict
-from grimp.application.ports.graph import DetailedImport
+from grimp.application.ports.graph import DetailedImport, Import
 from grimp.domain.analysis import PackageDependency, Route
 from grimp.domain.valueobjects import Layer
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
@@ -107,6 +107,16 @@ class ImportGraph(graph.ImportGraph):
             importer=importer,
             imported=imported,
         )
+
+    def find_matching_direct_imports(
+        self, *, importer_expression: str, imported_expression: str
+    ) -> List[Import]:
+        try:
+            return self._rustgraph.find_matching_direct_imports(
+                importer_expression=importer_expression, imported_expression=imported_expression
+            )
+        except rust.InvalidModuleExpression as e:
+            raise InvalidModuleExpression(str(e)) from e
 
     def find_downstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
         return self._rustgraph.find_downstream_modules(module, as_package)
