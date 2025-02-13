@@ -33,6 +33,16 @@ class ImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def find_matching_modules(self, expression: str) -> Set[str]:
+        """
+        Find all modules matching the passed expression.
+
+        See https://grimp.readthedocs.io/en/stable/usage.html#module-expressions
+        for a description of module expression syntax.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def add_module(self, module: str, is_squashed: bool = False) -> None:
         """
         Add a module to the graph.

@@ -4,7 +4,7 @@ from grimp.application.ports.graph import DetailedImport
 from grimp.domain.analysis import PackageDependency, Route
 from grimp.domain.valueobjects import Layer
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
-from grimp.exceptions import ModuleNotPresent, NoSuchContainer
+from grimp.exceptions import ModuleNotPresent, NoSuchContainer, InvalidModuleExpression
 from grimp.application.ports import graph
 
 
@@ -23,6 +23,12 @@ class ImportGraph(graph.ImportGraph):
         if self._cached_modules is None:
             self._cached_modules = self._rustgraph.get_modules()
         return self._cached_modules
+
+    def find_matching_modules(self, expression: str) -> Set[str]:
+        try:
+            return self._rustgraph.find_matching_modules(expression)
+        except rust.InvalidModuleExpression as e:
+            raise InvalidModuleExpression(str(e)) from e
 
     def add_module(self, module: str, is_squashed: bool = False) -> None:
         self._cached_modules = None
