@@ -9,6 +9,11 @@ from grimp.domain.analysis import PackageDependency
 from grimp.domain.valueobjects import Layer
 
 
+class Import(TypedDict):
+    importer: str
+    imported: str
+
+
 class DetailedImport(TypedDict):
     importer: str
     imported: str
@@ -29,6 +34,15 @@ class ImportGraph(abc.ABC):
     def modules(self) -> Set[str]:
         """
         The names of all the modules in the graph.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def find_matching_modules(self, expression: str) -> Set[str]:
+        """
+        Find all modules matching the passed expression.
+
+        TODO(peter) Explain expressions
         """
         raise NotImplementedError
 
@@ -174,6 +188,17 @@ class ImportGraph(abc.ABC):
         Note, it is possible for an import to exist, but for there to be no available details.
         For example, if an import has been added by the `add_import` method without line_number and
         line_contents specified.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def find_matching_direct_imports(
+        self, *, importer_expression: str, imported_expression: str
+    ) -> List[Import]:
+        """
+        Find all direct imports matching the passed expressions.
+
+        TODO(peter) Explain expressions
         """
         raise NotImplementedError
 

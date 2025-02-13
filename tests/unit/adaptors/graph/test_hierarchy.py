@@ -1,7 +1,7 @@
 import pytest  # type: ignore
 
 from grimp.adaptors.graph import ImportGraph
-from grimp.exceptions import ModuleNotPresent
+from grimp.exceptions import ModuleNotPresent, InvalidModuleExpression
 
 
 @pytest.mark.parametrize(
@@ -115,3 +115,22 @@ def test_find_descendants_works_if_modules_added_in_different_order():
         "mypackage.foo.blue.alpha",
         "mypackage.foo.blue.alpha.one",
     }
+
+
+class TestFindMatchingModules:
+    def test_finds_matching_modules(self):
+        graph = ImportGraph()
+        graph.add_module("foo")
+        graph.add_module("foo.bar")
+        graph.add_module("foo.bar.baz")
+
+        assert graph.find_matching_modules("foo") == {"foo"}
+        assert graph.find_matching_modules("foo.*") == {"foo.bar"}
+        assert graph.find_matching_modules("foo.**") == {"foo.bar", "foo.bar.baz"}
+
+    def test_raises_error_if_expression_is_invalid(self):
+        graph = ImportGraph()
+        with pytest.raises(
+            InvalidModuleExpression, match="foo.. is not a valid module expression."
+        ):
+            graph.find_matching_modules("foo..")

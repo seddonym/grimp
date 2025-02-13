@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import List, Optional, Sequence, Set, Tuple, TypedDict
-from grimp.application.ports.graph import DetailedImport
+from grimp.application.ports.graph import DetailedImport, Import
 from grimp.domain.analysis import PackageDependency, Route
 from grimp.domain.valueobjects import Layer
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
-from grimp.exceptions import ModuleNotPresent, NoSuchContainer
+from grimp.exceptions import ModuleNotPresent, NoSuchContainer, InvalidModuleExpression
 from grimp.application.ports import graph
 
 
@@ -23,6 +23,12 @@ class ImportGraph(graph.ImportGraph):
         if self._cached_modules is None:
             self._cached_modules = self._rustgraph.get_modules()
         return self._cached_modules
+
+    def find_matching_modules(self, expression: str) -> Set[str]:
+        try:
+            return self._rustgraph.find_matching_modules(expression)
+        except rust.InvalidModuleExpression as e:
+            raise InvalidModuleExpression(str(e)) from e
 
     def add_module(self, module: str, is_squashed: bool = False) -> None:
         self._cached_modules = None
@@ -101,6 +107,16 @@ class ImportGraph(graph.ImportGraph):
             importer=importer,
             imported=imported,
         )
+
+    def find_matching_direct_imports(
+        self, *, importer_expression: str, imported_expression: str
+    ) -> List[Import]:
+        try:
+            return self._rustgraph.find_matching_direct_imports(
+                importer_expression=importer_expression, imported_expression=imported_expression
+            )
+        except rust.InvalidModuleExpression as e:
+            raise InvalidModuleExpression(str(e)) from e
 
     def find_downstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
         return self._rustgraph.find_downstream_modules(module, as_package)
