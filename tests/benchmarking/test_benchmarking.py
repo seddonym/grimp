@@ -469,3 +469,13 @@ def test_find_matching_modules(benchmark, large_graph):
         benchmark, lambda: large_graph.find_matching_modules("mypackage.domain.**")
     )
     assert len(matching_modules) == 2519
+
+
+def test_find_matching_direct_imports(benchmark, large_graph):
+    matching_imports = _run_benchmark(
+        benchmark,
+        lambda: large_graph.find_matching_direct_imports(
+            importer_expression="mypackage.domain.**", imported_expression="mypackage.data.**"
+        ),
+    )
+    assert len(matching_imports) == 4051

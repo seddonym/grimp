@@ -272,6 +272,41 @@ impl GraphWrapper {
         )
     }
 
+    #[pyo3(signature = (*, importer_expression, imported_expression))]
+    pub fn find_matching_direct_imports<'py>(
+        &self,
+        py: Python<'py>,
+        importer_expression: &str,
+        imported_expression: &str,
+    ) -> PyResult<Bound<'py, PyList>> {
+        let importer_expression: ModuleExpression = importer_expression.parse()?;
+        let imported_expression: ModuleExpression = imported_expression.parse()?;
+
+        let matching_imports = self
+            ._graph
+            .find_matching_direct_imports(&importer_expression, &imported_expression);
+
+        PyList::new(
+            py,
+            matching_imports
+                .into_iter()
+                .map(|(importer, imported)| {
+                    let importer = self._graph.get_module(importer).unwrap();
+                    let imported = self._graph.get_module(imported).unwrap();
+                    Import::new(importer.name(), imported.name())
+                })
+                .sorted()
+                .map(|import| {
+                    [
+                        ("importer", import.importer.into_py_any(py).unwrap()),
+                        ("imported", import.imported.into_py_any(py).unwrap()),
+                    ]
+                    .into_py_dict(py)
+                    .unwrap()
+                }),
+        )
+    }
+
     #[allow(unused_variables)]
     #[pyo3(signature = (module, as_package=false))]
     pub fn find_downstream_modules(
@@ -551,6 +586,12 @@ impl GraphWrapper {
 
         PyTuple::new(py, python_dependencies)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, new)]
+struct Import {
+    importer: String,
+    imported: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, new)]

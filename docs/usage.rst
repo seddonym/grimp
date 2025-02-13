@@ -194,6 +194,27 @@ Methods for analysing direct imports
         So if a module is imported twice from the same module, it will only be counted once.
     :rtype: Integer.
 
+.. py:function:: ImportGraph.find_matching_direct_imports(importer_expression, imported_expression)
+
+    Find all direct imports matching the passed expressions (see :ref:`module_expressions`).
+
+    The imports are returned are in the following form::
+
+        [
+            {
+                'importer': 'mypackage.importer',
+                'imported': 'mypackage.imported',
+            },
+            # (additional imports here)
+        ]
+
+    :param str importer_expression: A module expression used for matching importing modules.
+    :param str imported_expression: A module expression used for matching imported modules.
+    :return: An ordered list of direct imports matching the expressions (ordered alphabetically).
+    :rtype: List of dictionaries with the structure shown above. If you want to use type annotations, you may use the
+        ``grimp.Import`` TypedDict for each dictionary.
+    :raises: ``grimp.exceptions.InvalidModuleExpression`` if either of the module expressions is invalid.
+
 Methods for analysing import chains
 -----------------------------------
 
