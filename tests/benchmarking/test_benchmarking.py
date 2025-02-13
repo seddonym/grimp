@@ -462,3 +462,10 @@ def test_get_import_details(benchmark):
             graph.get_import_details(importer=f"blue_{i}", imported=f"green_{i}")
 
     _run_benchmark(benchmark, f)
+
+
+def test_find_matching_modules(benchmark, large_graph):
+    matching_modules = _run_benchmark(
+        benchmark, lambda: large_graph.find_matching_modules("mypackage.domain.**")
+    )
+    assert len(matching_modules) == 2519

@@ -11,7 +11,7 @@ lazy_static! {
 }
 
 /// A module expression is used to refer to sets of modules.
-/// 
+///
 /// - `*` stands in for a module name, without including subpackages.
 /// - `**` includes subpackages too.
 #[derive(Debug, Clone)]

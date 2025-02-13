@@ -121,6 +121,16 @@ Methods for analysing the module tree
     :raises: ``ValueError`` if the module is a squashed module, as by definition it represents both itself and all
       of its descendants.
 
+.. py:function:: ImportGraph.find_matching_modules(expression)
+
+    Find all modules matching the passed expression (see :ref:`module_expressions`).
+
+    :param str expression: A module expression used for matching.
+    :return: A set of module names matching the expression.
+    :rtype: A set of strings.
+    :raises: ``grimp.exceptions.InvalidModuleExpression`` if the module expression is invalid.
+
+
 Methods for analysing direct imports
 ------------------------------------
 

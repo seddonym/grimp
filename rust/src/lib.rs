@@ -7,6 +7,7 @@ use crate::errors::{GrimpError, GrimpResult};
 use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
+use crate::module_expressions::ModuleExpression;
 use derive_new::new;
 use itertools::Itertools;
 use pyo3::exceptions::PyValueError;
@@ -169,6 +170,16 @@ impl GraphWrapper {
         Ok(self
             ._graph
             .get_module_descendants(module.token())
+            .visible()
+            .names()
+            .collect())
+    }
+
+    pub fn find_matching_modules(&self, expression: &str) -> PyResult<HashSet<String>> {
+        let expression: ModuleExpression = expression.parse()?;
+        Ok(self
+            ._graph
+            .find_matching_modules(&expression)
             .visible()
             .names()
             .collect())

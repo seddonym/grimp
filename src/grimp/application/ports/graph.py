@@ -33,6 +33,40 @@ class ImportGraph(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def find_matching_modules(self, expression: str) -> Set[str]:
+        """
+        Find all modules matching the passed expression.
+
+        Args:
+            expression: A module expression used for matching.
+        Returns:
+            A set of module names matching the expression.
+        Raises:
+            InvalidModuleExpression if the passed expression is invalid.
+
+        Module Expressions
+        ==================
+
+        A module expression is used to refer to sets of modules.
+
+        - ``*`` stands in for a module name, without including subpackages.
+        - ``**`` includes subpackages too.
+
+        Examples
+        --------
+
+        - ``mypackage.foo``:  matches ``mypackage.foo`` exactly.
+        - ``mypackage.*``:  matches ``mypackage.foo`` but not ``mypackage.foo.bar``.
+        - ``mypackage.*.baz``: matches ``mypackage.foo.baz`` but not ``mypackage.foo.bar.baz``.
+        - ``mypackage.*.*``: matches ``mypackage.foo.bar`` and ``mypackage.foobar.baz``.
+        - ``mypackage.**``: matches ``mypackage.foo.bar`` and ``mypackage.foo.bar.baz``.
+        - ``mypackage.**.qux``: matches ``mypackage.foo.bar.qux`` and ``mypackage.foo.bar.baz.qux``.
+        - ``mypackage.foo*``: is not a valid expression. (The wildcard must replace a whole module
+          name.)
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def add_module(self, module: str, is_squashed: bool = False) -> None:
         """
         Add a module to the graph.
