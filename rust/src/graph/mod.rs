@@ -13,6 +13,7 @@ pub mod graph_manipulation;
 pub mod hierarchy_queries;
 pub mod higher_order_queries;
 pub mod import_chain_queries;
+pub mod cycles;
 
 pub(crate) mod pathfinding;
 

@@ -420,6 +420,12 @@ impl GraphWrapper {
         self.convert_package_dependencies_to_python(py, illegal_dependencies)
     }
 
+    pub fn find_cycles(
+        &self
+    ) -> PyResult<Vec<Vec<String>>> {
+        Ok(self._graph.find_cycles())
+    }
+
     pub fn clone(&self) -> GraphWrapper {
         GraphWrapper {
             _graph: self._graph.clone(),
