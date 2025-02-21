@@ -5,6 +5,7 @@ Changelog
 Unreleased
 ----------
 
+* Added basic functions for working with module expressions: `find_matching_modules` and `find_matching_direct_imports`.
 * Added `as_packages` option to the `find_shortest_chain` method.
 
 3.6 (2025-02-07)
