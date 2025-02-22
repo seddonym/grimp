@@ -71,7 +71,7 @@ jobs:
             python -m pip install --upgrade tox tox-gh-actions          
 
         - name: Run benchmarks
-          uses: CodSpeedHQ/action@v2
+          uses: CodSpeedHQ/action@v3
           with:
             token: ${{ secrets.CODSPEED_TOKEN }}
             run: tox -ecodspeed
