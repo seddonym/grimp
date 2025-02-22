@@ -28,7 +28,8 @@ pub fn find_reach(
     &seen.into_iter().collect::<FxHashSet<_>>() - from_modules
 }
 
-pub fn find_shortest_path_bidirectional(
+/// Finds the shortest path, via a bidirectional BFS.
+pub fn find_shortest_path(
     graph: &Graph,
     from_modules: &FxHashSet<ModuleToken>,
     to_modules: &FxHashSet<ModuleToken>,
