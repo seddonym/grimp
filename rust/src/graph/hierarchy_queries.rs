@@ -1,4 +1,6 @@
-use crate::graph::{Graph, Module, ModuleToken, MODULE_NAMES};
+use crate::graph::{Graph, Module, ModuleIterator, ModuleToken, MODULE_NAMES};
+use crate::module_expressions::ModuleExpression;
+use rustc_hash::FxHashSet;
 
 impl Graph {
     pub fn get_module_by_name(&self, name: &str) -> Option<&Module> {
@@ -15,7 +17,7 @@ impl Graph {
     }
 
     // TODO(peter) Guarantee order?
-    pub fn all_modules(&self) -> impl Iterator<Item = &Module> {
+    pub fn all_modules(&self) -> impl ModuleIterator {
         self.modules.values()
     }
 
@@ -26,7 +28,7 @@ impl Graph {
         }
     }
 
-    pub fn get_module_children(&self, module: ModuleToken) -> impl Iterator<Item = &Module> {
+    pub fn get_module_children(&self, module: ModuleToken) -> impl ModuleIterator {
         let children = match self.module_children.get(module) {
             Some(children) => children
                 .iter()
@@ -40,11 +42,52 @@ impl Graph {
     /// Returns an iterator over the passed modules descendants.
     ///
     /// Parent modules will be yielded before their child modules.
-    pub fn get_module_descendants(&self, module: ModuleToken) -> impl Iterator<Item = &Module> {
+    pub fn get_module_descendants(&self, module: ModuleToken) -> impl ModuleIterator {
         let mut descendants = self.get_module_children(module).collect::<Vec<_>>();
         for child in descendants.clone() {
             descendants.extend(self.get_module_descendants(child.token).collect::<Vec<_>>())
         }
         descendants.into_iter()
+    }
+
+    pub fn find_matching_modules(&self, expression: &ModuleExpression) -> impl ModuleIterator {
+        let interner = MODULE_NAMES.read().unwrap();
+        let modules: FxHashSet<_> = self
+            .modules
+            .values()
+            .filter(|m| expression.is_match(interner.resolve(m.interned_name).unwrap()))
+            .collect();
+        modules.into_iter()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::graph::ModuleIterator;
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_find_matching_modules() {
+        let mut graph = Graph::default();
+
+        let foo = graph.get_or_add_module("foo").token;
+        let foo_bar = graph.get_or_add_module("foo.bar").token;
+        let foo_bar_baz = graph.get_or_add_module("foo.bar.baz").token;
+
+        let expression = "foo".parse().unwrap();
+        let matching_modules: HashSet<_> =
+            graph.find_matching_modules(&expression).tokens().collect();
+        assert_eq!(matching_modules, HashSet::from_iter([foo]));
+
+        let expression = "foo.*".parse().unwrap();
+        let matching_modules: HashSet<_> =
+            graph.find_matching_modules(&expression).tokens().collect();
+        assert_eq!(matching_modules, HashSet::from_iter([foo_bar]));
+
+        let expression = "foo.**".parse().unwrap();
+        let matching_modules: HashSet<_> =
+            graph.find_matching_modules(&expression).tokens().collect();
+        assert_eq!(matching_modules, HashSet::from_iter([foo_bar, foo_bar_baz]));
     }
 }
