@@ -325,6 +325,15 @@ class ImportGraph(abc.ABC):
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def find_cycles(self) -> list[list[str]]:
+        """
+        TODO K4liber:
+        - docs
+
+        """
+        raise NotImplementedError
+
     def __repr__(self) -> str:
         """
         Display the instance in one of the following ways:
