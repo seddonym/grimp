@@ -61,3 +61,7 @@ class SourceSyntaxError(GrimpException):
             other.lineno,
             other.text,
         )
+
+
+class InvalidModuleExpression(GrimpException):
+    pass

@@ -1,5 +1,5 @@
 use crate::errors::GrimpResult;
-use crate::graph::pathfinding::{find_reach, find_shortest_path_bidirectional};
+use crate::graph::pathfinding::{find_reach, find_shortest_path};
 use crate::graph::{ExtendWithDescendants, Graph, ModuleToken};
 use itertools::Itertools;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -62,7 +62,7 @@ impl Graph {
         excluded_modules: &FxHashSet<ModuleToken>,
         excluded_imports: &FxHashMap<ModuleToken, FxHashSet<ModuleToken>>,
     ) -> GrimpResult<Option<Vec<ModuleToken>>> {
-        find_shortest_path_bidirectional(
+        find_shortest_path(
             self,
             from_modules,
             to_modules,

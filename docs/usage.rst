@@ -121,6 +121,16 @@ Methods for analysing the module tree
     :raises: ``ValueError`` if the module is a squashed module, as by definition it represents both itself and all
       of its descendants.
 
+.. py:function:: ImportGraph.find_matching_modules(expression)
+
+    Find all modules matching the passed expression (see :ref:`module_expressions`).
+
+    :param str expression: A module expression used for matching.
+    :return: A set of module names matching the expression.
+    :rtype: A set of strings.
+    :raises: ``grimp.exceptions.InvalidModuleExpression`` if the module expression is invalid.
+
+
 Methods for analysing direct imports
 ------------------------------------
 
@@ -183,6 +193,27 @@ Methods for analysing direct imports
         return the number of imports, but the number of dependencies between modules.
         So if a module is imported twice from the same module, it will only be counted once.
     :rtype: Integer.
+
+.. py:function:: ImportGraph.find_matching_direct_imports(importer_expression, imported_expression)
+
+    Find all direct imports matching the passed expressions (see :ref:`module_expressions`).
+
+    The imports are returned are in the following form::
+
+        [
+            {
+                'importer': 'mypackage.importer',
+                'imported': 'mypackage.imported',
+            },
+            # (additional imports here)
+        ]
+
+    :param str importer_expression: A module expression used for matching importing modules.
+    :param str imported_expression: A module expression used for matching imported modules.
+    :return: An ordered list of direct imports matching the expressions (ordered alphabetically).
+    :rtype: List of dictionaries with the structure shown above. If you want to use type annotations, you may use the
+        ``grimp.Import`` TypedDict for each dictionary.
+    :raises: ``grimp.exceptions.InvalidModuleExpression`` if either of the module expressions is invalid.
 
 Methods for analysing import chains
 -----------------------------------
@@ -516,6 +547,26 @@ Methods for manipulating the graph
 
     :param str module: The name of a module, for example ``'mypackage.foo'``.
     :return: bool
+
+.. _module_expressions:
+
+Module expressions
+------------------
+
+  A module expression is used to refer to sets of modules.
+
+  - ``*`` stands in for a module name, without including subpackages.
+  - ``**`` includes subpackages too.
+
+  Examples:
+
+  - ``mypackage.foo``:  matches ``mypackage.foo`` exactly.
+  - ``mypackage.*``:  matches ``mypackage.foo`` but not ``mypackage.foo.bar``.
+  - ``mypackage.*.baz``: matches ``mypackage.foo.baz`` but not ``mypackage.foo.bar.baz``.
+  - ``mypackage.*.*``: matches ``mypackage.foo.bar`` and ``mypackage.foobar.baz``.
+  - ``mypackage.**``: matches ``mypackage.foo.bar`` and ``mypackage.foo.bar.baz``.
+  - ``mypackage.**.qux``: matches ``mypackage.foo.bar.qux`` and ``mypackage.foo.bar.baz.qux``.
+  - ``mypackage.foo*``: is not a valid expression. (The wildcard must replace a whole module name.)
 
 .. _namespace packages: https://docs.python.org/3/glossary.html#term-namespace-package
 .. _namespace portion: https://docs.python.org/3/glossary.html#term-portion
