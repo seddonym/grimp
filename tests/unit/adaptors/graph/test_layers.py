@@ -958,3 +958,43 @@ def _pairwise(iterable):
     a, b = itertools.tee(iterable)
     next(b, None)
     return zip(a, b)
+
+
+def test_demo_not_all_chains_found():
+    graph = ImportGraph()
+
+    # Add routes
+    # ==========
+    #
+    #     a       e
+    #     ↓       ↑
+    #     b → c → d
+    #     ↓       ↑
+    #     x → y → z
+    #
+    # * The route a → b → c → d → e  will be found.
+    # * The route a → b → x → y → z → d → e  will not be found.
+
+    # The shortest route from a to e
+    graph.add_import(importer="a", imported="b")
+    graph.add_import(importer="b", imported="c")
+    graph.add_import(importer="c", imported="d")
+    graph.add_import(importer="d", imported="e")
+    # A second, longer route
+    graph.add_import(importer="b", imported="x")
+    graph.add_import(importer="x", imported="y")
+    graph.add_import(importer="y", imported="z")
+    graph.add_import(importer="z", imported="d")
+
+    illegal_dependencies = graph.find_illegal_dependencies_for_layers(layers=("e", "a"))
+
+    assert len(illegal_dependencies) == 1
+
+    illegal_dependency = list(illegal_dependencies)[0]
+
+    assert illegal_dependency.importer == "a"
+    assert illegal_dependency.imported == "e"
+
+    assert len(illegal_dependency.routes) == 1
+    route = list(illegal_dependency.routes)[0]
+    assert route == Route(heads=frozenset({"a"}), middle=("b", "c", "d"), tails=frozenset({"e"}))
