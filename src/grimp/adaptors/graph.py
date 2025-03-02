@@ -126,6 +126,15 @@ class ImportGraph(graph.ImportGraph):
     def chain_exists(self, importer: str, imported: str, as_packages: bool = False) -> bool:
         return self._rustgraph.chain_exists(importer, imported, as_packages)
 
+    def find_shortest_cycle(
+        self, module: str, as_package: bool = False
+    ) -> Optional[Tuple[str, ...]]:
+        if not self._rustgraph.contains_module(module):
+            raise ValueError(f"Module {module} is not present in the graph.")
+
+        cycle = self._rustgraph.find_shortest_cycle(module, as_package)
+        return tuple(cycle) if cycle else None
+
     def find_illegal_dependencies_for_layers(
         self,
         layers: Sequence[Layer | str | set[str]],
