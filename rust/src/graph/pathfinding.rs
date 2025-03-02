@@ -40,6 +40,22 @@ pub fn find_shortest_path(
         return Err(GrimpError::SharedDescendants);
     }
 
+    _find_shortest_path(
+        graph,
+        from_modules,
+        to_modules,
+        excluded_modules,
+        excluded_imports,
+    )
+}
+
+fn _find_shortest_path(
+    graph: &Graph,
+    from_modules: &FxHashSet<ModuleToken>,
+    to_modules: &FxHashSet<ModuleToken>,
+    excluded_modules: &FxHashSet<ModuleToken>,
+    excluded_imports: &FxHashMap<ModuleToken, FxHashSet<ModuleToken>>,
+) -> GrimpResult<Option<Vec<ModuleToken>>> {
     let mut predecessors: FxIndexMap<ModuleToken, Option<ModuleToken>> = from_modules
         .clone()
         .into_iter()
