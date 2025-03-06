@@ -1,6 +1,8 @@
 import pytest  # type: ignore
 
 from grimp.adaptors.graph import ImportGraph
+import re
+from grimp.exceptions import InvalidImportExpression
 
 
 def test_find_modules_directly_imported_by():
@@ -265,3 +267,94 @@ class TestGetImportDetails:
         assert imports_info == graph.get_import_details(
             importer="mypackage.foo", imported="mypackage.bar"
         )
+
+
+class TestFindMatchingDirectImports:
+    @pytest.mark.parametrize(
+        "import_line_number,import_line_contents",
+        [
+            [None, None],
+            [1, "..."],
+        ],
+    )
+    def test_finds_matching_direct_imports(self, import_line_number, import_line_contents):
+        graph = ImportGraph()
+        # Should match
+        graph.add_import(
+            importer="pkg.animals.dog",
+            imported="pkg.food.chicken",
+            line_number=import_line_number,
+            line_contents=import_line_contents,
+        )
+        graph.add_import(
+            importer="pkg.animals.cat",
+            imported="pkg.food.fish",
+            line_number=import_line_number,
+            line_contents=import_line_contents,
+        )
+        # Should not match: Imported does not match
+        graph.add_import(
+            importer="pkg.animals.dog",
+            imported="pkg.colors.golden",
+            line_number=import_line_number,
+            line_contents=import_line_contents,
+        )
+        graph.add_import(
+            importer="pkg.animals.cat",
+            imported="pkg.colors.ginger",
+            line_number=import_line_number,
+            line_contents=import_line_contents,
+        )
+        # Should not match: Importer does not match
+        graph.add_import(
+            importer="pkg.shops.tesco",
+            imported="pkg.food.chicken",
+            line_number=import_line_number,
+            line_contents=import_line_contents,
+        )
+        graph.add_import(
+            importer="pkg.shops.coop",
+            imported="pkg.food.fish",
+            line_number=import_line_number,
+            line_contents=import_line_contents,
+        )
+
+        assert graph.find_matching_direct_imports("pkg.animals.* -> pkg.food.*") == [
+            {"importer": "pkg.animals.cat", "imported": "pkg.food.fish"},
+            {"importer": "pkg.animals.dog", "imported": "pkg.food.chicken"},
+        ]
+
+    def test_deduplicates_imports(self):
+        graph = ImportGraph()
+        graph.add_import(
+            importer="pkg.animals.dog",
+            imported="pkg.colors.golden",
+            line_number=1,
+            line_contents="...1",
+        )
+        graph.add_import(
+            importer="pkg.animals.dog",
+            imported="pkg.colors.golden",
+            line_number=2,
+            line_contents="...2",
+        )
+
+        assert graph.find_matching_direct_imports("pkg.animals.* -> pkg.colors.*") == [
+            {"importer": "pkg.animals.dog", "imported": "pkg.colors.golden"},
+        ]
+
+    @pytest.mark.parametrize(
+        "expression",
+        [
+            "foo.. -> bar",
+            "foo -> bar..",
+            "foo > bar",
+        ],
+    )
+    def test_raises_error_if_expression_is_invalid(self, expression):
+        graph = ImportGraph()
+        with pytest.raises(
+            InvalidImportExpression,
+            match=re.escape(f"{expression} is not a valid import expression."),
+        ):
+            graph.find_matching_direct_imports(expression)
