@@ -2,8 +2,8 @@
 Changelog
 =========
 
-Unreleased
-----------
+3.7 (2025-03-07)
+----------------
 
 * Added `find_matching_modules` and `find_matching_direct_imports` methods.
 * Added `as_packages` option to the `find_shortest_chain` method.
