@@ -156,7 +156,7 @@ Releasing to Pypi
 2. ``git pull origin master``
 3. Update ``CHANGELOG.rst`` with the new version number.
 4. Update the ``release`` variable in ``docs/conf.py`` with the new version number.
-5. Update the ``__version__`` variable in ``src/grimp/__init__.py` with the new version number.
+5. Update the ``__version__`` variable in ``src/grimp/__init__.py`` with the new version number.
 6. Update ``project.version`` in ``pyproject.toml`` with the new version number.
 7. ``git commit -am "Release v{new version number"``
 8. ``git push``
