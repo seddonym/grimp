@@ -1,5 +1,6 @@
 import ast
 import logging
+import sys
 from typing import Dict, List, Optional, Set, Union
 from ast import NodeVisitor, Import, ImportFrom, If, Attribute, Name
 
@@ -51,6 +52,7 @@ class ImportScanner(AbstractImportScanner):
             found_packages=self.found_packages,
             found_packages_by_module=self._found_packages_by_module,
             include_external_packages=self.include_external_packages,
+            exclude_stdlib=self.exclude_stdlib,
             is_package=is_package,
         )
 
@@ -60,6 +62,7 @@ class ImportScanner(AbstractImportScanner):
             found_packages=self.found_packages,
             found_packages_by_module=self._found_packages_by_module,
             include_external_packages=self.include_external_packages,
+            exclude_stdlib=self.exclude_stdlib,
             is_package=is_package,
         )
 
@@ -128,6 +131,7 @@ class _BaseNodeParser:
         found_packages_by_module: Dict[Module, FoundPackage],
         is_package: bool,
         include_external_packages: bool,
+        exclude_stdlib: bool,
     ) -> None:
         self.module = module
         self.found_package = found_package
@@ -135,6 +139,16 @@ class _BaseNodeParser:
         self.module_is_package = is_package
         self.found_packages_by_module = found_packages_by_module
         self.include_external_packages = include_external_packages
+        self.exclude_stdlib = exclude_stdlib
+        if exclude_stdlib:
+            if hasattr(sys, "stdlib_module_names"):
+                self.stdlib = sys.stdlib_module_names
+            else:
+                # Backwards compatibility < py3.10
+
+                from stdlibs import module_names
+
+                self.stdlib = module_names
 
     def determine_imported_modules(self, node: ast.AST) -> Set[Module]:
         """
@@ -234,7 +248,10 @@ class _ImportNodeParser(_BaseNodeParser):
             return module
         else:
             if self.include_external_packages:
-                return self._distill_external_module(module)
+                module_name = self._distill_external_module(module)
+                if self.exclude_stdlib and module_name in self.stdlib:
+                    return None
+                return module_name
             else:
                 return None
 

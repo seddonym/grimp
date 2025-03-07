@@ -25,9 +25,13 @@ class CacheFileNamer:
         found_packages: Set[FoundPackage],
         include_external_packages: bool,
         exclude_type_checking_imports: bool,
+        exclude_stdlib: bool,
     ) -> str:
         identifier = cls.make_data_file_unique_string(
-            found_packages, include_external_packages, exclude_type_checking_imports
+            found_packages,
+            include_external_packages,
+            exclude_type_checking_imports,
+            exclude_stdlib,
         )
 
         bytes_identifier = identifier.encode()
@@ -43,6 +47,7 @@ class CacheFileNamer:
         found_packages: Set[FoundPackage],
         include_external_packages: bool,
         exclude_type_checking_imports: bool,
+        exclude_stdlib: bool,
     ) -> str:
         """
         Construct a unique string that identifies the analysis parameters.
@@ -55,8 +60,12 @@ class CacheFileNamer:
         exclude_type_checking_imports_option = (
             ":no_type_checking" if exclude_type_checking_imports else ""
         )
+        exclude_stdlib = ":exclude_stdlib" if exclude_stdlib else ""
         return (
-            csv_packages + include_external_packages_option + exclude_type_checking_imports_option
+            csv_packages
+            + include_external_packages_option
+            + exclude_type_checking_imports_option
+            + exclude_stdlib
         )
 
 
@@ -79,6 +88,7 @@ class Cache(AbstractCache):
         found_packages: Set[FoundPackage],
         include_external_packages: bool,
         exclude_type_checking_imports: bool = False,
+        exclude_stdlib: bool = False,
         cache_dir: Optional[str] = None,
         namer: Type[CacheFileNamer] = CacheFileNamer,
     ) -> "Cache":
@@ -87,6 +97,7 @@ class Cache(AbstractCache):
             found_packages=found_packages,
             include_external_packages=include_external_packages,
             exclude_type_checking_imports=exclude_type_checking_imports,
+            exclude_stdlib=exclude_stdlib,
             cache_dir=cls.cache_dir_or_default(cache_dir),
             namer=namer,
         )
@@ -142,6 +153,7 @@ class Cache(AbstractCache):
                 found_packages=self.found_packages,
                 include_external_packages=self.include_external_packages,
                 exclude_type_checking_imports=self.exclude_type_checking_imports,
+                exclude_stdlib=self.exclude_stdlib,
             ),
         )
         self.file_system.write(data_cache_filename, serialized)
@@ -196,6 +208,7 @@ class Cache(AbstractCache):
                 found_packages=self.found_packages,
                 include_external_packages=self.include_external_packages,
                 exclude_type_checking_imports=self.exclude_type_checking_imports,
+                exclude_stdlib=self.exclude_stdlib,
             ),
         )
         try:
