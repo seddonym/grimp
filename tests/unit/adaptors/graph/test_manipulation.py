@@ -448,7 +448,6 @@ class TestSquashModule:
         with pytest.raises(ModuleNotPresent):
             graph.squash_module("foo")
 
-    @pytest.mark.xfail(strict=True, reason="raises PanicException")
     def test_correctly_handles_imports_within_descendants(self):
         graph = ImportGraph()
 
