@@ -447,3 +447,23 @@ class TestSquashModule:
 
         with pytest.raises(ModuleNotPresent):
             graph.squash_module("foo")
+
+    @pytest.mark.xfail(strict=True, reason="raises PanicException")
+    def test_correctly_handles_imports_within_descendants(self):
+        graph = ImportGraph()
+
+        graph.add_module("animals")
+        graph.add_module("food")
+        graph.add_import(importer="animals.dog", imported="food.chicken")
+        graph.add_import(importer="app.cli", imported="animals.dog")
+        # We want to check that this import within the descendants of `animals` does
+        # not cause problems. If this import is not properly removed then the imports map can
+        # become corrupted, since it will contain an import to modules that no longer exist.
+        # See https://github.com/seddonym/grimp/issues/195 for more details.
+        graph.add_import(importer="animals.dog", imported="animals.base")
+
+        graph.squash_module("animals")
+
+        # If the `animals` module was squashed correctly then the following calls should not panic.
+        assert graph.find_modules_directly_imported_by("animals") == {"food.chicken"}
+        assert graph.find_modules_that_directly_import("animals") == {"app.cli"}
