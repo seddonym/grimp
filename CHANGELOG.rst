@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+* Fixed handling of within-descendant-imports when squashing modules (see `Issue 195 <https://github.com/seddonym/grimp/issues/195>`_).
+
 3.7 (2025-03-07)
 ----------------
 
