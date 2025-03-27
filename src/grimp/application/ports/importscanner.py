@@ -16,6 +16,7 @@ class AbstractImportScanner(abc.ABC):
         file_system: AbstractFileSystem,
         found_packages: Set[FoundPackage],
         include_external_packages: bool = False,
+        exclude_stdlib: bool = False,
     ) -> None:
         """
         Args:
@@ -25,9 +26,12 @@ class AbstractImportScanner(abc.ABC):
             - include_external_packages:     Whether to include imports of external modules (i.e.
                                              modules not contained in modules_by_package_directory)
                                              in the results.
+            - exclude_stdlib:                Whether to exclude imports of stdlib modules
+                                             (only used when `include_external_packages` is `True`)
         """
         self.file_system = file_system
         self.include_external_packages = include_external_packages
+        self.exclude_stdlib = exclude_stdlib
         self.found_packages = found_packages
 
         # Flatten all the modules into a set.
