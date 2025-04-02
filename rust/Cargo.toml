@@ -24,7 +24,7 @@ regex = "1.11.1"
 const_format = "0.2.34"
 
 [dependencies.pyo3]
-version = "0.23.4"
+version = "0.24.1"
 
 [features]
 extension-module = ["pyo3/extension-module"]
