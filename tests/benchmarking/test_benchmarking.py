@@ -2,10 +2,13 @@ import pytest
 import json
 import importlib
 from pathlib import Path
+
+from tests.config import override_settings
 from grimp.adaptors.graph import ImportGraph
 from grimp import PackageDependency, Route
 import grimp
 from copy import deepcopy
+from .adaptors import PrefixMissingCache
 
 
 def _run_benchmark(benchmark, fn, *args, **kwargs):
@@ -325,15 +328,27 @@ def test_build_django_from_cache_a_few_misses(benchmark, number_of_misses):
 
     This benchmark utilizes the cache except for a few modules, which we add.
     """
-    # Populate the cache first, before beginning the benchmark.
-    grimp.build_graph("django")
-    # Add a module which won't be in the cache.
-    django_path = Path(importlib.util.find_spec("django").origin).parent
-    for i in range(number_of_misses):
-        new_module = django_path / f"new_module_{i}.py"
-        new_module.write_text("from django.db import models")
+    # We must use a special cache class, otherwise the cache will be populated
+    # by the first iteration. It would be better to do this using a setup function,
+    # which is supported by pytest-benchmark's pedantic mode, but not codspeed.
+    # This won't give us a truly accurate picture, but it's better than nothing.
 
-    _run_benchmark(benchmark, grimp.build_graph, "django")
+    # Add some specially-named modules which will be treated as not in the cache.
+    django_path = Path(importlib.util.find_spec("django").origin).parent
+    extra_modules = [
+        django_path / f"{PrefixMissingCache.MISSING_PREFIX}{i}.py" for i in range(number_of_misses)
+    ]
+    for extra_module in extra_modules:
+        extra_module.write_text("from django.db import models")
+
+    with override_settings(CACHE_CLASS=PrefixMissingCache):
+        # Populate the cache.
+        grimp.build_graph("django")
+
+        _run_benchmark(benchmark, grimp.build_graph, "django")
+
+    # Clean up.
+    [module.unlink() for module in extra_modules]
 
 
 class TestFindIllegalDependenciesForLayers:
