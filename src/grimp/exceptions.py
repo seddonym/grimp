@@ -62,6 +62,11 @@ class SourceSyntaxError(GrimpException):
             other.text,
         )
 
+    def __reduce__(self):
+        # Implement __reduce__ to make this exception pickleable,
+        # allowing it to be sent between processes.
+        return SourceSyntaxError, (self.filename, self.lineno, self.text)
+
 
 class InvalidModuleExpression(GrimpException):
     pass
