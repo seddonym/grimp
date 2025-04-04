@@ -1,5 +1,6 @@
 import pytest
 import json
+import importlib
 from pathlib import Path
 from grimp.adaptors.graph import ImportGraph
 from grimp import PackageDependency, Route
@@ -299,14 +300,39 @@ def test_build_django_uncached(benchmark):
     _run_benchmark(benchmark, grimp.build_graph, "django", cache_dir=None)
 
 
-def test_build_django_from_cache(benchmark):
+def test_build_django_from_cache_no_misses(benchmark):
     """
     Benchmarks building a graph of real package - in this case Django.
 
-    This benchmark uses the cache.
+    This benchmark fully utilizes the cache.
     """
     # Populate the cache first, before beginning the benchmark.
     grimp.build_graph("django")
+
+    _run_benchmark(benchmark, grimp.build_graph, "django")
+
+
+@pytest.mark.parametrize(
+    "number_of_misses",
+    (
+        2,  # Fewer than the likely number of CPUs.
+        15,  # A bit more than the likely number of CPUs.
+    ),
+)
+def test_build_django_from_cache_a_few_misses(benchmark, number_of_misses):
+    """
+    Benchmarks building a graph of real package - in this case Django.
+
+    This benchmark utilizes the cache except for a few modules, which we add.
+    """
+    # Populate the cache first, before beginning the benchmark.
+    grimp.build_graph("django")
+    # Add a module which won't be in the cache.
+    django_path = Path(importlib.util.find_spec("django").origin).parent
+    for i in range(number_of_misses):
+        new_module = django_path / f"new_module_{i}.py"
+        new_module.write_text("from django.db import models")
+
     _run_benchmark(benchmark, grimp.build_graph, "django")
 
 
