@@ -62,6 +62,9 @@ class SourceSyntaxError(GrimpException):
             other.text,
         )
 
+    def __reduce__(self):
+        return SourceSyntaxError, (self.filename, self.lineno, self.text)
+
 
 class InvalidModuleExpression(GrimpException):
     pass
