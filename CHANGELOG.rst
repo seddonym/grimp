@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+* Accelerate import scanning via CPU parallelism (multiprocessing).
+
 3.7.1 (2025-03-12)
 ------------------
 
