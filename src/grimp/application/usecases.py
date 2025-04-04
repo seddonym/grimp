@@ -7,7 +7,7 @@ from ..application.ports import caching
 from ..application.ports.filesystem import AbstractFileSystem
 from ..application.ports.graph import ImportGraph
 from ..application.ports.importscanner import AbstractImportScanner
-from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage
+from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage, ModuleFile
 from ..application.ports.packagefinder import AbstractPackageFinder
 from ..domain.valueobjects import DirectImport, Module
 from .config import settings
@@ -106,7 +106,6 @@ def _scan_packages(
     exclude_type_checking_imports: bool,
     cache_dir: Union[str, Type[NotSupplied], None],
 ) -> Dict[Module, Set[DirectImport]]:
-    imports_by_module: Dict[Module, Set[DirectImport]] = {}
     if cache_dir is not None:
         cache_dir_if_supplied = cache_dir if cache_dir != NotSupplied else None
         cache: caching.Cache = settings.CACHE_CLASS.setup(
@@ -122,18 +121,33 @@ def _scan_packages(
         include_external_packages=include_external_packages,
     )
 
-    for found_package in found_packages:
-        for module_file in found_package.module_files:
-            module = module_file.module
+    module_files_to_scan = {
+        module_file
+        for found_package in found_packages
+        for module_file in found_package.module_files
+    }
+    imports_by_module_file: Dict[ModuleFile, Set[DirectImport]] = {}
+
+    if cache_dir is not None:
+        for module_file in module_files_to_scan:
             try:
-                if cache_dir is None:
-                    raise caching.CacheMiss
                 direct_imports = cache.read_imports(module_file)
             except caching.CacheMiss:
-                direct_imports = import_scanner.scan_for_imports(
-                    module, exclude_type_checking_imports=exclude_type_checking_imports
-                )
-            imports_by_module[module] = direct_imports
+                continue
+            else:
+                imports_by_module_file[module_file] = direct_imports
+
+    remaining_module_files_to_scan = module_files_to_scan.difference(imports_by_module_file)
+    if remaining_module_files_to_scan:
+        # TODO Parallelise this part.
+        for module_file in remaining_module_files_to_scan:
+            imports_by_module_file[module_file] = import_scanner.scan_for_imports(
+                module_file.module, exclude_type_checking_imports=exclude_type_checking_imports
+            )
+
+    imports_by_module: Dict[Module, Set[DirectImport]] = {
+        k.module: v for k, v in imports_by_module_file.items()
+    }
 
     if cache_dir is not None:
         cache.write(imports_by_module)
