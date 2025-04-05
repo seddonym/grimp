@@ -2,7 +2,11 @@
 Use cases handle application logic.
 """
 
-from typing import Dict, Sequence, Set, Type, Union, cast, Iterable
+from typing import Dict, Sequence, Set, Type, Union, cast, Iterable, Collection
+import multiprocessing
+import math
+
+from joblib import Parallel, delayed, parallel_config  # type: ignore
 
 
 from ..application.ports import caching
@@ -13,6 +17,10 @@ from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage,
 from ..application.ports.packagefinder import AbstractPackageFinder
 from ..domain.valueobjects import DirectImport, Module
 from .config import settings
+
+N_CPUS = multiprocessing.cpu_count()
+# Chunks smaller than this will likely not give a performance benefit.
+IMPORT_SCANNING_MIN_FILES_PER_CHUNK = 8
 
 
 class NotSupplied:
@@ -199,7 +207,7 @@ def _read_imports_from_cache(
 
 
 def _scan_imports(
-    module_files: Iterable[ModuleFile],
+    module_files: Collection[ModuleFile],
     *,
     file_system: AbstractFileSystem,
     found_packages: Set[FoundPackage],
@@ -211,9 +219,43 @@ def _scan_imports(
         found_packages=found_packages,
         include_external_packages=include_external_packages,
     )
+
+    imports_by_module_file: Dict[ModuleFile, Set[DirectImport]] = {}
+
+    # Create [1, N_CPUS] chunks, limited by IMPORT_SCANNING_MIN_FILES_PER_CHUNK.
+    max_n_chunks = max(math.floor(len(module_files) / IMPORT_SCANNING_MIN_FILES_PER_CHUNK), 1)
+    n_chunks = min(N_CPUS, max_n_chunks)
+
+    chunks = _create_chunks(list(module_files), n_chunks=n_chunks)
+    with parallel_config(n_jobs=n_chunks):
+        import_scanning_jobs = Parallel()(
+            delayed(_scan_chunk)(
+                import_scanner=import_scanner,
+                exclude_type_checking_imports=exclude_type_checking_imports,
+                chunk=chunk,
+            )
+            for chunk in chunks
+        )
+    for chunk_imports_by_module_file in import_scanning_jobs:
+        imports_by_module_file.update(chunk_imports_by_module_file)
+    return imports_by_module_file
+
+
+def _create_chunks(
+    module_files: Sequence[ModuleFile], *, n_chunks: int
+) -> Iterable[Iterable[ModuleFile]]:
+    chunk_size = math.ceil(len(module_files) / n_chunks)
+    return [module_files[i * chunk_size : (i + 1) * chunk_size] for i in range(n_chunks)]
+
+
+def _scan_chunk(
+    import_scanner: AbstractImportScanner,
+    exclude_type_checking_imports: bool,
+    chunk: Iterable[ModuleFile],
+) -> Dict[ModuleFile, Set[DirectImport]]:
     return {
         module_file: import_scanner.scan_for_imports(
             module_file.module, exclude_type_checking_imports=exclude_type_checking_imports
         )
-        for module_file in module_files
+        for module_file in chunk
     }
