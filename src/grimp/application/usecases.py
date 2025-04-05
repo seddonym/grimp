@@ -1,7 +1,9 @@
 """
 Use cases handle application logic.
 """
-from typing import Dict, Sequence, Set, Type, Union, cast
+
+from typing import Dict, Sequence, Set, Type, Union, cast, Iterable
+
 
 from ..application.ports import caching
 from ..application.ports.filesystem import AbstractFileSystem
@@ -115,35 +117,29 @@ def _scan_packages(
             exclude_type_checking_imports=exclude_type_checking_imports,
             cache_dir=cache_dir_if_supplied,
         )
-    import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
-        file_system=file_system,
-        found_packages=found_packages,
-        include_external_packages=include_external_packages,
-    )
 
     module_files_to_scan = {
         module_file
         for found_package in found_packages
         for module_file in found_package.module_files
     }
+
     imports_by_module_file: Dict[ModuleFile, Set[DirectImport]] = {}
 
     if cache_dir is not None:
-        for module_file in module_files_to_scan:
-            try:
-                direct_imports = cache.read_imports(module_file)
-            except caching.CacheMiss:
-                continue
-            else:
-                imports_by_module_file[module_file] = direct_imports
+        imports_by_module_file.update(_read_imports_from_cache(module_files_to_scan, cache=cache))
 
     remaining_module_files_to_scan = module_files_to_scan.difference(imports_by_module_file)
     if remaining_module_files_to_scan:
-        # TODO Parallelise this part.
-        for module_file in remaining_module_files_to_scan:
-            imports_by_module_file[module_file] = import_scanner.scan_for_imports(
-                module_file.module, exclude_type_checking_imports=exclude_type_checking_imports
+        imports_by_module_file.update(
+            _scan_imports(
+                remaining_module_files_to_scan,
+                file_system=file_system,
+                found_packages=found_packages,
+                include_external_packages=include_external_packages,
+                exclude_type_checking_imports=exclude_type_checking_imports,
             )
+        )
 
     imports_by_module: Dict[Module, Set[DirectImport]] = {
         k.module: v for k, v in imports_by_module_file.items()
@@ -186,3 +182,38 @@ def _is_external(module: Module, found_packages: Set[FoundPackage]) -> bool:
         module.is_descendant_of(package_module) or module == package_module
         for package_module in package_modules
     )
+
+
+def _read_imports_from_cache(
+    module_files: Iterable[ModuleFile], *, cache: caching.Cache
+) -> Dict[ModuleFile, Set[DirectImport]]:
+    imports_by_module_file: Dict[ModuleFile, Set[DirectImport]] = {}
+    for module_file in module_files:
+        try:
+            direct_imports = cache.read_imports(module_file)
+        except caching.CacheMiss:
+            continue
+        else:
+            imports_by_module_file[module_file] = direct_imports
+    return imports_by_module_file
+
+
+def _scan_imports(
+    module_files: Iterable[ModuleFile],
+    *,
+    file_system: AbstractFileSystem,
+    found_packages: Set[FoundPackage],
+    include_external_packages: bool,
+    exclude_type_checking_imports: bool,
+) -> Dict[ModuleFile, Set[DirectImport]]:
+    import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
+        file_system=file_system,
+        found_packages=found_packages,
+        include_external_packages=include_external_packages,
+    )
+    return {
+        module_file: import_scanner.scan_for_imports(
+            module_file.module, exclude_type_checking_imports=exclude_type_checking_imports
+        )
+        for module_file in module_files
+    }
