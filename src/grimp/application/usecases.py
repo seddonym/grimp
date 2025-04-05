@@ -6,9 +6,6 @@ from typing import Dict, Sequence, Set, Type, Union, cast, Iterable, Collection
 import multiprocessing
 import math
 
-from joblib import Parallel, delayed, parallel_config  # type: ignore
-
-
 from ..application.ports import caching
 from ..application.ports.filesystem import AbstractFileSystem
 from ..application.ports.graph import ImportGraph
@@ -227,17 +224,14 @@ def _scan_imports(
     n_chunks = min(N_CPUS, max_n_chunks)
 
     chunks = _create_chunks(list(module_files), n_chunks=n_chunks)
-    with parallel_config(n_jobs=n_chunks):
-        import_scanning_jobs = Parallel()(
-            delayed(_scan_chunk)(
-                import_scanner=import_scanner,
-                exclude_type_checking_imports=exclude_type_checking_imports,
-                chunk=chunk,
-            )
-            for chunk in chunks
+    with multiprocessing.Pool(n_chunks) as pool:
+        import_scanning_jobs = pool.starmap(
+            _scan_chunk,
+            [(import_scanner, exclude_type_checking_imports, chunk) for chunk in chunks],
         )
-    for chunk_imports_by_module_file in import_scanning_jobs:
-        imports_by_module_file.update(chunk_imports_by_module_file)
+        for chunk_imports_by_module_file in import_scanning_jobs:
+            imports_by_module_file.update(chunk_imports_by_module_file)
+
     return imports_by_module_file
 
 
