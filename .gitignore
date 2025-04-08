@@ -35,6 +35,7 @@ coverage.xml
 htmlcov
 
 .benchmarks
+.codspeed
 
 # Translations
 *.mo
