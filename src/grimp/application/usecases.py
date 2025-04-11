@@ -249,17 +249,21 @@ def _scan_chunks(
         include_external_packages=include_external_packages,
     )
 
-    imports_by_module_file: Dict[ModuleFile, Set[DirectImport]] = {}
-
-    with multiprocessing.Pool(len(chunks)) as pool:
-        import_scanning_jobs = pool.starmap(
-            _scan_chunk,
-            [(import_scanner, exclude_type_checking_imports, chunk) for chunk in chunks],
-        )
-        for chunk_imports_by_module_file in import_scanning_jobs:
-            imports_by_module_file.update(chunk_imports_by_module_file)
-
-    return imports_by_module_file
+    number_of_processes = len(chunks)
+    if number_of_processes == 1:
+        # No need to spawn a process if there's only one chunk.
+        [chunk] = chunks
+        return _scan_chunk(import_scanner, exclude_type_checking_imports, chunk)
+    else:
+        with multiprocessing.Pool(number_of_processes) as pool:
+            imports_by_module_file: Dict[ModuleFile, Set[DirectImport]] = {}
+            import_scanning_jobs = pool.starmap(
+                _scan_chunk,
+                [(import_scanner, exclude_type_checking_imports, chunk) for chunk in chunks],
+            )
+            for chunk_imports_by_module_file in import_scanning_jobs:
+                imports_by_module_file.update(chunk_imports_by_module_file)
+        return imports_by_module_file
 
 
 def _scan_chunk(
