@@ -20,6 +20,10 @@ class NotSupplied:
     pass
 
 
+# This is an arbitrary number, but setting it too low slows down our functional tests considerably.
+MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING = 50
+
+
 def build_graph(
     package_name,
     *additional_package_names,
@@ -233,6 +237,9 @@ def _create_chunks(module_files: Collection[ModuleFile]) -> tuple[tuple[ModuleFi
 
 
 def _decide_number_of_of_processes(number_of_module_files: int) -> int:
+    if number_of_module_files < MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING:
+        # Don't incur the overhead of multiprocessing.
+        return 1
     return min(multiprocessing.cpu_count(), number_of_module_files)
 
 
