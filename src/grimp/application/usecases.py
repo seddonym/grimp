@@ -207,24 +207,14 @@ def _scan_imports(
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
 ) -> Dict[ModuleFile, Set[DirectImport]]:
-    import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
-        file_system=file_system,
-        found_packages=found_packages,
-        include_external_packages=include_external_packages,
-    )
-
-    imports_by_module_file: Dict[ModuleFile, Set[DirectImport]] = {}
-
     chunks = _create_chunks(module_files)
-    with multiprocessing.Pool(len(chunks)) as pool:
-        import_scanning_jobs = pool.starmap(
-            _scan_chunk,
-            [(import_scanner, exclude_type_checking_imports, chunk) for chunk in chunks],
-        )
-        for chunk_imports_by_module_file in import_scanning_jobs:
-            imports_by_module_file.update(chunk_imports_by_module_file)
-
-    return imports_by_module_file
+    return _scan_chunks(
+        chunks,
+        file_system,
+        found_packages,
+        include_external_packages,
+        exclude_type_checking_imports,
+    )
 
 
 def _create_chunks(module_files: Collection[ModuleFile]) -> tuple[tuple[ModuleFile, ...], ...]:
@@ -244,6 +234,32 @@ def _create_chunks(module_files: Collection[ModuleFile]) -> tuple[tuple[ModuleFi
 
 def _decide_number_of_of_processes(number_of_module_files: int) -> int:
     return min(multiprocessing.cpu_count(), number_of_module_files)
+
+
+def _scan_chunks(
+    chunks: Collection[Collection[ModuleFile]],
+    file_system: AbstractFileSystem,
+    found_packages: Set[FoundPackage],
+    include_external_packages: bool,
+    exclude_type_checking_imports: bool,
+) -> Dict[ModuleFile, Set[DirectImport]]:
+    import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
+        file_system=file_system,
+        found_packages=found_packages,
+        include_external_packages=include_external_packages,
+    )
+
+    imports_by_module_file: Dict[ModuleFile, Set[DirectImport]] = {}
+
+    with multiprocessing.Pool(len(chunks)) as pool:
+        import_scanning_jobs = pool.starmap(
+            _scan_chunk,
+            [(import_scanner, exclude_type_checking_imports, chunk) for chunk in chunks],
+        )
+        for chunk_imports_by_module_file in import_scanning_jobs:
+            imports_by_module_file.update(chunk_imports_by_module_file)
+
+    return imports_by_module_file
 
 
 def _scan_chunk(
