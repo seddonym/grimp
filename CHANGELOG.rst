@@ -5,6 +5,8 @@ Changelog
 Unreleased
 ----------
 
+* Use joblib for robust parallel import scanning.
+
 3.8 (2025-04-11)
 ----------------
 
