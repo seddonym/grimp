@@ -3,8 +3,9 @@ Use cases handle application logic.
 """
 
 from typing import Dict, Sequence, Set, Type, Union, cast, Iterable, Collection
-import multiprocessing
 import math
+
+import joblib  # type: ignore
 
 from ..application.ports import caching
 from ..application.ports.filesystem import AbstractFileSystem
@@ -228,7 +229,7 @@ def _create_chunks(module_files: Collection[ModuleFile]) -> tuple[tuple[ModuleFi
     module_files_tuple = tuple(module_files)
 
     number_of_module_files = len(module_files_tuple)
-    n_chunks = _decide_number_of_of_processes(number_of_module_files)
+    n_chunks = _decide_number_of_processes(number_of_module_files)
     chunk_size = math.ceil(number_of_module_files / n_chunks)
 
     return tuple(
@@ -236,11 +237,11 @@ def _create_chunks(module_files: Collection[ModuleFile]) -> tuple[tuple[ModuleFi
     )
 
 
-def _decide_number_of_of_processes(number_of_module_files: int) -> int:
+def _decide_number_of_processes(number_of_module_files: int) -> int:
     if number_of_module_files < MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING:
-        # Don't incur the overhead of multiprocessing.
+        # Don't incur the overhead of multiple processes.
         return 1
-    return min(multiprocessing.cpu_count(), number_of_module_files)
+    return min(joblib.cpu_count(), number_of_module_files)
 
 
 def _scan_chunks(
@@ -257,20 +258,15 @@ def _scan_chunks(
     )
 
     number_of_processes = len(chunks)
-    if number_of_processes == 1:
-        # No need to spawn a process if there's only one chunk.
-        [chunk] = chunks
-        return _scan_chunk(import_scanner, exclude_type_checking_imports, chunk)
-    else:
-        with multiprocessing.Pool(number_of_processes) as pool:
-            imports_by_module_file: Dict[ModuleFile, Set[DirectImport]] = {}
-            import_scanning_jobs = pool.starmap(
-                _scan_chunk,
-                [(import_scanner, exclude_type_checking_imports, chunk) for chunk in chunks],
-            )
-            for chunk_imports_by_module_file in import_scanning_jobs:
-                imports_by_module_file.update(chunk_imports_by_module_file)
-        return imports_by_module_file
+    import_scanning_jobs = joblib.Parallel(n_jobs=number_of_processes)(
+        joblib.delayed(_scan_chunk)(import_scanner, exclude_type_checking_imports, chunk)
+        for chunk in chunks
+    )
+
+    imports_by_module_file = {}
+    for chunk_imports_by_module_file in import_scanning_jobs:
+        imports_by_module_file.update(chunk_imports_by_module_file)
+    return imports_by_module_file
 
 
 def _scan_chunk(

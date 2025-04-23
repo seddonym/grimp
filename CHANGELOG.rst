@@ -5,6 +5,8 @@ Changelog
 Unreleased
 ----------
 
+* Use joblib instead of multiprocessing for CPU parallelism. Fixes https://github.com/seddonym/grimp/issues/208.
+
 3.8 (2025-04-11)
 ----------------
 
