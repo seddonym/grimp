@@ -2,8 +2,8 @@
 Changelog
 =========
 
-latest
-------
+3.8.2 (2025-04-24)
+------------------
 
 * Provide more control of multiprocessing via ``GRIMP_MIN_MULTIPROCESSING_MODULES``
   environment variable.
