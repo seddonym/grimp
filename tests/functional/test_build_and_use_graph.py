@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import patch
 from grimp.application import usecases
 
+
 """
 For ease of reference, these are the imports of all the files:
 
@@ -55,7 +56,7 @@ def test_modules():
     }
 
 
-@patch.object(usecases, "MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING", 0)
+@patch.object(usecases, "DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING", 0)
 def test_modules_multiprocessing():
     """
     This test runs relatively slowly, but it's important we cover the multiprocessing code.
