@@ -15,14 +15,19 @@ from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage,
 from ..application.ports.packagefinder import AbstractPackageFinder
 from ..domain.valueobjects import DirectImport, Module
 from .config import settings
+import os
 
 
 class NotSupplied:
     pass
 
 
+# Calling code can set this environment variable if it wants to tune when to switch to
+# multiprocessing, or set it to a large number to disable it altogether.
+MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME = "GRIMP_MIN_MULTIPROCESSING_MODULES"
 # This is an arbitrary number, but setting it too low slows down our functional tests considerably.
-MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING = 50
+# If you change this, update docs/usage.rst too!
+DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING = 50
 
 
 def build_graph(
@@ -238,7 +243,13 @@ def _create_chunks(module_files: Collection[ModuleFile]) -> tuple[tuple[ModuleFi
 
 
 def _decide_number_of_processes(number_of_module_files: int) -> int:
-    if number_of_module_files < MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING:
+    min_number_of_modules = int(
+        os.environ.get(
+            MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME,
+            DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING,
+        )
+    )
+    if number_of_module_files < min_number_of_modules:
         # Don't incur the overhead of multiple processes.
         return 1
     return min(joblib.cpu_count(), number_of_module_files)

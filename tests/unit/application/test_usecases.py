@@ -1,3 +1,4 @@
+import os
 from typing import Dict, Optional, Set
 from unittest.mock import sentinel, patch
 
@@ -12,6 +13,8 @@ from tests.adaptors.filesystem import FakeFileSystem
 from tests.adaptors.packagefinder import BaseFakePackageFinder
 from tests.adaptors.modulefinder import BaseFakeModuleFinder
 from tests.config import override_settings
+
+SOME_CPU_COUNT = 8
 
 
 class TestBuildGraph:
@@ -135,17 +138,49 @@ class TestBuildGraph:
             usecases.build_graph("mypackage", **kwargs)
 
     @patch.object(usecases, "_scan_chunks", return_value={})
-    @patch.object(joblib, "cpu_count", return_value=8)
+    @patch.object(joblib, "cpu_count", return_value=SOME_CPU_COUNT)
     @pytest.mark.parametrize(
-        "number_of_modules, expected_number_of_chunks",
+        "number_of_modules, fake_environ, expected_number_of_chunks",
         [
-            (49, 1),  # Below threshold - just use one.
-            (50, 8),  # At threshold - use number of CPUs.
-            (1000, 8),  # Above threshold - use number of CPUs.
+            (
+                usecases.DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING - 1,
+                {},
+                1,
+            ),
+            (
+                usecases.DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING,
+                {},
+                SOME_CPU_COUNT,
+            ),
+            (
+                usecases.DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING + 1,
+                {},
+                SOME_CPU_COUNT,
+            ),
+            (
+                149,
+                {usecases.MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME: 150},
+                1,
+            ),
+            (
+                150,
+                {usecases.MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME: 150},
+                SOME_CPU_COUNT,
+            ),
+            (
+                151,
+                {usecases.MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME: 150},
+                SOME_CPU_COUNT,
+            ),
         ],
     )
     def test_scanning_multiprocessing_respects_min_number_of_modules(
-        self, mock_cpu_count, mock_scan_chunks, number_of_modules, expected_number_of_chunks
+        self,
+        mock_cpu_count,
+        mock_scan_chunks,
+        number_of_modules,
+        fake_environ,
+        expected_number_of_chunks,
     ):
         class FakePackageFinder(BaseFakePackageFinder):
             directory_map = {"mypackage": "/path/to/mypackage"}
@@ -167,7 +202,7 @@ class TestBuildGraph:
             FILE_SYSTEM=FakeFileSystem(),
             PACKAGE_FINDER=FakePackageFinder(),
             MODULE_FINDER=FakeModuleFinder(),
-        ):
+        ), patch.object(os, "environ", fake_environ):
             usecases.build_graph("mypackage", cache_dir=None)
 
         [call] = mock_scan_chunks.call_args_list
