@@ -41,7 +41,7 @@ from tests.adaptors.filesystem import FakeFileSystem
                     importer=Module("foo.one"),
                     imported=Module("externaltwo"),
                     line_number=3,
-                    line_contents="import externaltwo.subpackage",
+                    line_contents="import externaltwo.subpackage  # with comment afterwards.",
                 ),
             },
         ),
@@ -54,7 +54,7 @@ def test_absolute_imports(include_external_packages, expected_result):
             "/path/to/foo/one.py": """
                 import foo.two
                 import externalone
-                import externaltwo.subpackage
+                import externaltwo.subpackage  # with comment afterwards.
                 arbitrary_expression = 1
             """
         }
@@ -344,7 +344,7 @@ def test_import_of_portion_not_in_graph(include_external_packages):
                     importer=Module("foo.one.blue"),
                     imported=Module("external"),
                     line_number=6,
-                    line_contents="from external.two import blue",
+                    line_contents="from external.two import blue  # with comment afterwards.",
                 ),
             },
         ),
@@ -382,7 +382,7 @@ def test_absolute_from_imports(include_external_packages, expected_result):
                 if t.TYPE_CHECKING:
                     from foo import three
                 from external import one
-                from external.two import blue
+                from external.two import blue  # with comment afterwards.
                 arbitrary_expression = 1
             """
         },
