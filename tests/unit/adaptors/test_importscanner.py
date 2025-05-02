@@ -927,6 +927,67 @@ class TestGetRawImportedObjects:
             ),
         }
 
+    @pytest.mark.xfail(strict=True)
+    def test_multiline_comment_a(self):
+        module_contents = dedent(
+            """\
+            import a
+
+            FOO = \"\"\"
+            ...
+            \"\"\"
+
+            \"\"\"import b
+            import c
+            \"\"\"
+
+            import d
+            """
+        )
+        raw_imported_objects = ImportScanner._get_raw_imported_objects(module_contents)
+
+        assert raw_imported_objects == {
+            _ImportedObject(
+                name="a",
+                line_number=1,
+                line_contents="import a",
+                typechecking_only=False,
+            ),
+            _ImportedObject(
+                name="d",
+                line_number=11,
+                line_contents="import d",
+                typechecking_only=False,
+            ),
+        }
+
+    @pytest.mark.xfail(strict=True)
+    def test_multiline_comment_b(self):
+        module_contents = dedent(
+            """\
+            r\"\"\"
+            A raw multiline string.
+            \"\"\"
+
+            import a
+
+            \"\"\"
+            Another multiline string.
+            \"\"\"
+            """
+        )
+
+        raw_imported_objects = ImportScanner._get_raw_imported_objects(module_contents)
+
+        assert raw_imported_objects == {
+            _ImportedObject(
+                name="a",
+                line_number=5,
+                line_contents="import a",
+                typechecking_only=False,
+            ),
+        }
+
 
 @pytest.mark.parametrize(
     "is_package,imported_object_name,expected_absolute_imported_object_name",
