@@ -2,6 +2,13 @@
 Changelog
 =========
 
+latest
+------
+
+* Use Rust instead of Python's built-in ast module for import parsing.
+  Note that `SourceSyntaxError` will no longer be raised if the parser encounters
+  invalid Python.
+
 3.8.2 (2025-04-24)
 ------------------
 
