@@ -2,6 +2,7 @@ pub mod errors;
 pub mod exceptions;
 pub mod graph;
 pub mod module_expressions;
+mod parsing;
 
 use crate::errors::{GrimpError, GrimpResult};
 use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer};
@@ -13,13 +14,15 @@ use itertools::Itertools;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyDict, PyFrozenSet, PyList, PySet, PyString, PyTuple};
-use pyo3::IntoPyObjectExt;
+use pyo3::{IntoPyObjectExt};
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
 use std::collections::HashSet;
 
+
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_wrapped(wrap_pyfunction!(parse_to_imported_objects))?;
     m.add_class::<GraphWrapper>()?;
     m.add("ModuleNotPresent", py.get_type::<ModuleNotPresent>())?;
     m.add("NoSuchContainer", py.get_type::<NoSuchContainer>())?;
@@ -29,6 +32,32 @@ fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     )?;
     Ok(())
 }
+
+
+
+
+#[pyfunction]
+fn parse_to_imported_objects<'py>(py: Python<'py>, python_code: &str) -> PyResult<Vec<Bound<'py, PyDict>>> {
+    let imports = match parsing::parse_imports(python_code) {
+        Ok(imports) => imports,
+        Err(message) => return Err(PyValueError::new_err(message)),
+    };
+
+    let imports_as_dicts = imports.into_iter().map(
+        |import| {
+            let dict = PyDict::new(py);
+            dict.set_item("name", import.imported_object).unwrap();
+            dict.set_item("line_number", import.line_number).unwrap();
+            dict.set_item("line_contents", import.line_contents).unwrap();
+            dict.set_item("typechecking_only", import.typechecking_only).unwrap();
+            dict
+        }
+    ).collect();
+
+    Ok(imports_as_dicts)
+}
+
+
 
 #[pyclass(name = "Graph")]
 struct GraphWrapper {
