@@ -2,7 +2,7 @@ from typing import Set
 
 import pytest  # type: ignore
 
-from grimp.adaptors.importscanner import ImportScanner
+from grimp.adaptors.importscanner import ImportScanner, _ImportedObject
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.domain.valueobjects import DirectImport, Module
 from tests.adaptors.filesystem import FakeFileSystem
@@ -842,3 +842,87 @@ def test_exclude_type_checking_imports(
 def _modules_to_module_files(modules: Set[Module]) -> Set[ModuleFile]:
     some_mtime = 100933.4
     return {ModuleFile(module=module, mtime=some_mtime) for module in modules}
+
+
+def test_get_raw_imports():
+    module_contents = """\
+import a
+if TYPE_CHECKING:
+    import b
+from c import d
+from .e import f
+from . import g
+from .. import h
+from i import *
+"""
+
+    raw_imported_objects = ImportScanner._get_raw_imported_objects(module_contents)
+
+    assert raw_imported_objects == {
+        _ImportedObject(
+            name="a",
+            line_number=1,
+            line_contents="import a",
+            typechecking_only=False,
+        ),
+        _ImportedObject(
+            name="b",
+            line_number=3,
+            line_contents="import b",
+            typechecking_only=True,
+        ),
+        _ImportedObject(
+            name="c.d",
+            line_number=4,
+            line_contents="from c import d",
+            typechecking_only=False,
+        ),
+        _ImportedObject(
+            name=".e.f",
+            line_number=5,
+            line_contents="from .e import f",
+            typechecking_only=False,
+        ),
+        _ImportedObject(
+            name=".g",
+            line_number=6,
+            line_contents="from . import g",
+            typechecking_only=False,
+        ),
+        _ImportedObject(
+            name="..h",
+            line_number=7,
+            line_contents="from .. import h",
+            typechecking_only=False,
+        ),
+        _ImportedObject(
+            name="i.*",
+            line_number=8,
+            line_contents="from i import *",
+            typechecking_only=False,
+        ),
+    }
+
+
+@pytest.mark.parametrize(
+    "is_package,imported_object_name,expected_absolute_imported_object_name",
+    [
+        [True, "a.b", "a.b"],
+        [True, ".a.b", "foo.bar.baz.a.b"],
+        [True, "..a.b", "foo.bar.a.b"],
+        [False, "a.b", "a.b"],
+        [False, ".a.b", "foo.bar.a.b"],
+        [False, "..a.b", "foo.a.b"],
+    ],
+)
+def test_get_absolute_imported_object_name(
+    is_package, imported_object_name, expected_absolute_imported_object_name
+):
+    assert (
+        ImportScanner._get_absolute_imported_object_name(
+            module=Module("foo.bar.baz"),
+            is_package=is_package,
+            imported_object_name=imported_object_name,
+        )
+        == expected_absolute_imported_object_name
+    )
