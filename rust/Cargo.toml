@@ -22,6 +22,10 @@ rustc-hash = "2.1.0"
 indexmap = "2.7.1"
 regex = "1.11.1"
 const_format = "0.2.34"
+pyimportparse = "0.2.1"
+nom = "8.0.0"
+nom_locate = "5.0.0"
+nom-regex = "0.2.0"
 
 [dependencies.pyo3]
 version = "0.24.1"
