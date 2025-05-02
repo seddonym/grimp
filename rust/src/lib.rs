@@ -21,6 +21,7 @@ use std::collections::HashSet;
 
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_wrapped(wrap_pyfunction!(parse_imported_objects_from_code))?;
     m.add_class::<GraphWrapper>()?;
     m.add("ModuleNotPresent", py.get_type::<ModuleNotPresent>())?;
     m.add("NoSuchContainer", py.get_type::<NoSuchContainer>())?;
@@ -29,6 +30,27 @@ fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         py.get_type::<InvalidModuleExpression>(),
     )?;
     Ok(())
+}
+
+#[pyfunction]
+fn parse_imported_objects_from_code<'py>(
+    py: Python<'py>,
+    module_code: &str,
+) -> PyResult<Vec<Bound<'py, PyDict>>> {
+    let imports = import_parsing::parse_imports_from_code(module_code)?;
+    Ok(imports
+        .into_iter()
+        .map(|import| {
+            let dict = PyDict::new(py);
+            dict.set_item("name", import.name).unwrap();
+            dict.set_item("line_number", import.line_number).unwrap();
+            dict.set_item("line_contents", import.line_contents)
+                .unwrap();
+            dict.set_item("typechecking_only", import.typechecking_only)
+                .unwrap();
+            dict
+        })
+        .collect())
 }
 
 #[pyclass(name = "Graph")]
