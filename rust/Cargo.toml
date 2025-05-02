@@ -26,6 +26,7 @@ pyimportparse = "0.2.1"
 nom = "8.0.0"
 nom_locate = "5.0.0"
 nom-regex = "0.2.0"
+nom-unicode = "0.4.0"
 
 [dependencies.pyo3]
 version = "0.24.1"

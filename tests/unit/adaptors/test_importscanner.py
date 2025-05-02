@@ -854,6 +854,9 @@ from .e import f
 from . import g
 from .. import h
 from i import *
+from ñon_ascii_变 import *
+from . import ñon_ascii_变
+import ñon_ascii_变.ラーメン
 """
 
     raw_imported_objects = ImportScanner._get_raw_imported_objects(module_contents)
@@ -899,6 +902,24 @@ from i import *
             name="i.*",
             line_number=8,
             line_contents="from i import *",
+            typechecking_only=False,
+        ),
+        _ImportedObject(
+            name="ñon_ascii_变.*",
+            line_number=9,
+            line_contents="from ñon_ascii_变 import *",
+            typechecking_only=False,
+        ),
+        _ImportedObject(
+            name=".ñon_ascii_变",
+            line_number=10,
+            line_contents="from . import ñon_ascii_变",
+            typechecking_only=False,
+        ),
+        _ImportedObject(
+            name="ñon_ascii_变.ラーメン",
+            line_number=11,
+            line_contents="import ñon_ascii_变.ラーメン",
             typechecking_only=False,
         ),
     }

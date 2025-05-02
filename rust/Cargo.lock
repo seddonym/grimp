@@ -15,6 +15,7 @@ dependencies = [
  "lazy_static",
  "nom 8.0.0",
  "nom-regex",
+ "nom-unicode",
  "nom_locate",
  "parameterized",
  "pyimportparse",
@@ -270,6 +271,15 @@ checksum = "72e5c7731c4c1370b61604ed52a2475e861aac9e08dec9f23903d4ddfdc91c18"
 dependencies = [
  "nom 7.1.3",
  "regex",
+]
+
+[[package]]
+name = "nom-unicode"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00dea06b6b61609274f105c468f1ea996d2f7226bfa528b4de79c05eabf5f759"
+dependencies = [
+ "nom 8.0.0",
 ]
 
 [[package]]

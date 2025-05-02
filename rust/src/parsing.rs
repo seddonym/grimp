@@ -27,8 +27,9 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_until};
 use nom::character::complete::{
-    alphanumeric1, line_ending, multispace1, not_line_ending, space0, space1,
+    line_ending, multispace1, not_line_ending, space0, space1,
 };
+use nom_unicode::complete::alphanumeric1;
 use nom::combinator::{all_consuming, opt, recognize, value, verify};
 use nom::multi::{many0, many1, separated_list1};
 use nom::sequence::{delimited, preceded, terminated};
@@ -61,12 +62,28 @@ impl Import {
     }
 }
 
-pub fn parse_imports(s: &str) -> Result<Vec<Import>, String> {
-    let s = Span::new(s);
-    let (_, result) = all_consuming(parse_block(false))
-        .parse(s)
+pub fn parse_imports(python_file_contents: &str) -> Result<Vec<Import>, String> {
+    let span = Span::new(python_file_contents);
+    let (_, imports) = all_consuming(parse_block(false))
+        .parse(span)
         .map_err(|e| e.to_string())?;
-    Ok(result)
+    Ok(with_corrected_line_contents(python_file_contents, imports))
+}
+
+// Return the imports, but with the full line contents.
+// Currently our nom parsing only pulls out to the latest token, so we correct it here
+// by finding the corresponding whole line, based on the line number.
+// TODO: adjust the parsing code so it figures it out correctly in the first place.
+fn with_corrected_line_contents(python_file_contents: &str, imports: Vec<Import>) -> Vec<Import> {
+    let lines: Vec<&str> = python_file_contents.lines().collect();
+    imports.into_iter().map(
+        |import| Import {
+            imported_object: import.imported_object,
+            line_number: import.line_number,
+            line_contents: lines[(import.line_number as usize) - 1].trim_start().to_string(),
+            typechecking_only: import.typechecking_only,
+        }
+    ).collect()
 }
 
 fn parse_block(typechecking_only: bool) -> impl Fn(Span) -> IResult<Span, Vec<Import>> {
@@ -276,8 +293,18 @@ fn parse_relative_module(s: Span) -> IResult<Span, &str> {
     Ok((s, result.fragment()))
 }
 
+
+// Parse a valid Python identifier.
+//
+// Note this is not implemented as thoroughly as in the Python spec.
+// Some identifiers will be valid here (e.g. ones that begin with digits)
+// that aren't actually valid in Python. Unicode identifiers are supported.
+//
+// See https://docs.python.org/3/reference/lexical_analysis.html#identifiers
 fn parse_identifier(s: Span) -> IResult<Span, &str> {
-    let (s, result) = recognize(many1(alt((alphanumeric1, tag("_"))))).parse(s)?;
+    let (s, result) = recognize(
+        many1(alt((alphanumeric1, tag("_"))))
+    ).parse(s)?;
     Ok((s, result.fragment()))
 }
 
@@ -310,11 +337,17 @@ fn parse_space1(s: Span) -> IResult<Span, ()> {
     Ok((s, ()))
 }
 
+
 fn parse_if_typechecking(s: Span) -> IResult<Span, Vec<Import>> {
     let (s, _) = (
         tag("if"),
         parse_space1,
-        alt((tag("TYPE_CHECKING"), tag("typing.TYPE_CHECKING"))),
+        alt(
+            (
+                tag("TYPE_CHECKING"),
+                preceded(parse_identifier, tag(".TYPE_CHECKING")),
+            ),
+        ),
         parse_space0,
         tag(":"),
     )
@@ -575,6 +608,18 @@ import baz
 
         (r#"
 import foo
+if t.TYPE_CHECKING: import bar
+import baz
+"#, &[("foo", false), ("bar", true), ("baz", false)]),
+
+        (r#"
+import foo
+if some_WE1RD_alias.TYPE_CHECKING: import bar
+import baz
+"#, &[("foo", false), ("bar", true), ("baz", false)]),
+
+        (r#"
+import foo
 if  TYPE_CHECKING :  import bar
 import baz
 "#, &[("foo", false), ("bar", true), ("baz", false)]),
@@ -734,17 +779,27 @@ if TYPE_CHECKING:
         let imports = parse_imports(
             "
 import a
+import a.b  # Comment afterwards.
 from b import c
 from d import (e)
-from f import *",
+from f import *
+from something.foo import *  # Comment afterwards.
+if True:
+    from indented import foo
+from ñon_ascii_变 import ラーメン
+",
         )
             .unwrap();
         assert_eq!(
             vec![
                 ("a".to_owned(), "import a".to_owned()),
+                ("a.b".to_owned(), "import a.b  # Comment afterwards.".to_owned()),
                 ("b.c".to_owned(), "from b import c".to_owned()),
                 ("d.e".to_owned(), "from d import (e)".to_owned()),
                 ("f.*".to_owned(), "from f import *".to_owned()),
+                ("something.foo.*".to_owned(), "from something.foo import *  # Comment afterwards.".to_owned()),
+                ("indented.foo".to_owned(), "from indented import foo".to_owned()),
+                ("ñon_ascii_变.ラーメン".to_owned(), "from ñon_ascii_变 import ラーメン".to_owned()),
             ],
             imports
                 .into_iter()
