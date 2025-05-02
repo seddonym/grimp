@@ -2,4 +2,6 @@
 x = 1
 
 
-fromb . import two
+fromb . import three
+
+from . import two

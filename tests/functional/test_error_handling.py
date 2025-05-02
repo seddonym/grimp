@@ -1,4 +1,3 @@
-import os
 import re
 
 import pytest  # type: ignore
@@ -6,19 +5,17 @@ import pytest  # type: ignore
 from grimp import build_graph, exceptions
 
 
-def test_syntax_error_includes_module():
-    dirname = os.path.dirname(__file__)
-    filename = os.path.abspath(
-        os.path.join(dirname, "..", "assets", "syntaxerrorpackage", "foo", "one.py")
-    )
+def test_does_not_raise_exception_if_encounters_syntax_error():
+    """
+    We don't make any promises about what to do if there's a syntax error,
+    but the parser isn't a complete implementation of the Python parser, so
+    it may just ignore it - finding other imports, as in this case.
+    """
+    graph = build_graph("syntaxerrorpackage", cache_dir=None)
 
-    with pytest.raises(exceptions.SourceSyntaxError) as excinfo:
-        build_graph("syntaxerrorpackage", cache_dir=None)
-
-    expected_exception = exceptions.SourceSyntaxError(
-        filename=filename, lineno=5, text="fromb . import two\n"
-    )
-    assert expected_exception == excinfo.value
+    assert graph.find_modules_directly_imported_by("syntaxerrorpackage.foo.one") == {
+        "syntaxerrorpackage.foo.two"
+    }
 
 
 def test_missing_root_init_file():
