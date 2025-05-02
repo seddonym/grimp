@@ -2,6 +2,7 @@ from typing import Set
 
 import pytest  # type: ignore
 
+from textwrap import dedent
 from grimp.adaptors.importscanner import ImportScanner, _ImportedObject
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.domain.valueobjects import DirectImport, Module
@@ -844,64 +845,87 @@ def _modules_to_module_files(modules: Set[Module]) -> Set[ModuleFile]:
     return {ModuleFile(module=module, mtime=some_mtime) for module in modules}
 
 
-def test_get_raw_imports():
-    module_contents = """\
-import a
-if TYPE_CHECKING:
-    import b
-from c import d
-from .e import f
-from . import g
-from .. import h
-from i import *
-"""
+class TestGetRawImportedObjects:
+    def test_get_raw_imports(self):
+        module_contents = dedent(
+            """\
+            import a
+            if TYPE_CHECKING:
+                import b
+            from c import d
+            from .e import f
+            from . import g
+            from .. import h
+            from i import *
+            from ñon_ascii_变 import *
+            from . import ñon_ascii_变
+            import ñon_ascii_变.ラーメン
+            """
+        )
+        raw_imported_objects = ImportScanner._get_raw_imported_objects(module_contents)
 
-    raw_imported_objects = ImportScanner._get_raw_imported_objects(module_contents)
-
-    assert raw_imported_objects == {
-        _ImportedObject(
-            name="a",
-            line_number=1,
-            line_contents="import a",
-            typechecking_only=False,
-        ),
-        _ImportedObject(
-            name="b",
-            line_number=3,
-            line_contents="import b",
-            typechecking_only=True,
-        ),
-        _ImportedObject(
-            name="c.d",
-            line_number=4,
-            line_contents="from c import d",
-            typechecking_only=False,
-        ),
-        _ImportedObject(
-            name=".e.f",
-            line_number=5,
-            line_contents="from .e import f",
-            typechecking_only=False,
-        ),
-        _ImportedObject(
-            name=".g",
-            line_number=6,
-            line_contents="from . import g",
-            typechecking_only=False,
-        ),
-        _ImportedObject(
-            name="..h",
-            line_number=7,
-            line_contents="from .. import h",
-            typechecking_only=False,
-        ),
-        _ImportedObject(
-            name="i.*",
-            line_number=8,
-            line_contents="from i import *",
-            typechecking_only=False,
-        ),
-    }
+        assert raw_imported_objects == {
+            _ImportedObject(
+                name="a",
+                line_number=1,
+                line_contents="import a",
+                typechecking_only=False,
+            ),
+            _ImportedObject(
+                name="b",
+                line_number=3,
+                line_contents="import b",
+                typechecking_only=True,
+            ),
+            _ImportedObject(
+                name="c.d",
+                line_number=4,
+                line_contents="from c import d",
+                typechecking_only=False,
+            ),
+            _ImportedObject(
+                name=".e.f",
+                line_number=5,
+                line_contents="from .e import f",
+                typechecking_only=False,
+            ),
+            _ImportedObject(
+                name=".g",
+                line_number=6,
+                line_contents="from . import g",
+                typechecking_only=False,
+            ),
+            _ImportedObject(
+                name="..h",
+                line_number=7,
+                line_contents="from .. import h",
+                typechecking_only=False,
+            ),
+            _ImportedObject(
+                name="i.*",
+                line_number=8,
+                line_contents="from i import *",
+                typechecking_only=False,
+            ),
+            _ImportedObject(
+                name="ñon_ascii_变.*",
+                line_number=9,
+                line_contents="from ñon_ascii_变 import *",
+                typechecking_only=False,
+            ),
+            _ImportedObject(
+                name=".ñon_ascii_变",
+                line_number=10,
+                line_contents="from . import ñon_ascii_变",
+                typechecking_only=False,
+            ),
+            _ImportedObject(
+                name="ñon_ascii_变.ラーメン",
+                line_number=11,
+                line_contents="import ñon_ascii_变.ラーメン",
+                typechecking_only=False,
+            ),
+        }
 
 
 @pytest.mark.parametrize(
