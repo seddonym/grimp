@@ -1,7 +1,7 @@
 use crate::errors::{GrimpError, GrimpResult};
 use crate::graph::{
-    ExtendWithDescendants, Graph, ImportDetails, ModuleToken, EMPTY_IMPORT_DETAILS,
-    EMPTY_MODULE_TOKENS, MODULE_NAMES,
+    EMPTY_IMPORT_DETAILS, EMPTY_MODULE_TOKENS, ExtendWithDescendants, Graph, ImportDetails,
+    MODULE_NAMES, ModuleToken,
 };
 use crate::module_expressions::ModuleExpression;
 use rustc_hash::FxHashSet;

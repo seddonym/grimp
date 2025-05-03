@@ -1,5 +1,5 @@
 use crate::errors::{GrimpError, GrimpResult};
-use crate::graph::{Graph, ModuleToken, EMPTY_MODULE_TOKENS};
+use crate::graph::{EMPTY_MODULE_TOKENS, Graph, ModuleToken};
 use indexmap::{IndexMap, IndexSet};
 use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
 use slotmap::SecondaryMap;

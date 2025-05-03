@@ -1,5 +1,5 @@
-use _rustgrimp::graph::higher_order_queries::Level;
 use _rustgrimp::graph::Graph;
+use _rustgrimp::graph::higher_order_queries::Level;
 use rustc_hash::FxHashSet;
 use serde_json::{Map, Value};
 use std::fs;

@@ -44,7 +44,7 @@ impl FromStr for ModuleExpression {
         for (part, next_part) in expression.split(".").tuple_windows() {
             match (part, next_part) {
                 ("*", "**") | ("**", "*") | ("**", "**") => {
-                    return Err(GrimpError::InvalidModuleExpression(expression.to_owned()))
+                    return Err(GrimpError::InvalidModuleExpression(expression.to_owned()));
                 }
                 _ => {}
             }
