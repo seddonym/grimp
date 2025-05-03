@@ -1,6 +1,7 @@
 pub mod errors;
 pub mod exceptions;
 pub mod graph;
+pub mod import_parsing;
 pub mod module_expressions;
 
 use crate::errors::{GrimpError, GrimpResult};
