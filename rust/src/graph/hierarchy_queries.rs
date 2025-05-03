@@ -50,7 +50,7 @@ impl Graph {
         descendants.into_iter()
     }
 
-    pub fn find_matching_modules(&self, expression: &ModuleExpression) -> impl ModuleIterator {
+    pub fn find_matching_modules(&self, expression: &ModuleExpression) -> impl ModuleIterator + use<'_> {
         let interner = MODULE_NAMES.read().unwrap();
         let modules: FxHashSet<_> = self
             .modules
