@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import ast
 import re
 import logging
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Union
-from ast import NodeVisitor, Import, ImportFrom, If, Attribute, Name
+from typing import Dict, Optional, Set
 
 from grimp import exceptions
 from grimp.application.ports.importscanner import AbstractImportScanner
@@ -141,17 +139,7 @@ class ImportScanner(AbstractImportScanner):
     @staticmethod
     def _get_raw_imported_objects(module_contents: str) -> Set[_ImportedObject]:
         imported_object_dicts = rust.parse_imported_objects_from_code(module_contents)
-        imported_objects = {_ImportedObject(**d) for d in imported_object_dicts}
-
-        # TODO - remove these lines once we're confident the rust way is consistent with ast.
-        # module_lines = module_contents.splitlines()
-        # ast_tree = ast.parse(module_contents)
-        # visitor = _TreeVisitor(module_lines=module_lines)
-        # visitor.visit(ast_tree)
-        # imported_objects_from_ast = visitor.imported_objects
-        # assert imported_objects == imported_objects_from_ast, "Discrepancy!"
-
-        return imported_objects
+        return {_ImportedObject(**d) for d in imported_object_dicts}
 
     @staticmethod
     def _get_absolute_imported_object_name(
@@ -241,87 +229,3 @@ class ImportScanner(AbstractImportScanner):
             return deepest_candidate_portion
         else:
             return module.root
-
-
-class _TreeVisitor(NodeVisitor):
-    def __init__(
-        self,
-        module_lines: List[str],
-    ) -> None:
-        self.import_parser = _ImportNodeParser()
-        self.from_import_parser = _ImportFromNodeParser()
-        self.module_lines = module_lines
-
-        self.imported_objects: Set[_ImportedObject] = set()
-        self.typechecking_only = False
-
-        super().__init__()
-
-    def visit_Import(self, node: Import) -> None:
-        self._parse_imported_objects_from_node(node, self.import_parser)
-
-    def visit_ImportFrom(self, node: ImportFrom) -> None:
-        self._parse_imported_objects_from_node(node, self.from_import_parser)
-
-    def visit_If(self, node: If) -> None:
-        if (isinstance(node.test, Name) and node.test.id == "TYPE_CHECKING") or (
-            isinstance(node.test, Attribute) and node.test.attr == "TYPE_CHECKING"
-        ):
-            self.typechecking_only = True
-            super().generic_visit(node)
-            self.typechecking_only = False
-        else:
-            super().generic_visit(node)
-
-    def _parse_imported_objects_from_node(
-        self,
-        node: Union[Import, ImportFrom],
-        parser: Union[_ImportNodeParser, _ImportFromNodeParser],
-    ) -> None:
-        for imported_object in parser.determine_imported_objects(node):
-            self.imported_objects.add(
-                _ImportedObject(
-                    name=imported_object,
-                    line_number=node.lineno,
-                    line_contents=self.module_lines[node.lineno - 1].strip(),
-                    typechecking_only=self.typechecking_only,
-                )
-            )
-
-
-class _ImportNodeParser:
-    """
-    Parser for statements in the form 'import x'.
-    """
-
-    node_class = ast.Import
-
-    def determine_imported_objects(self, node: ast.AST) -> Set[str]:
-        imported_objects: Set[str] = set()
-        assert isinstance(node, self.node_class)  # For type checker.
-        for alias in node.names:
-            imported_object = alias.name
-            imported_objects.add(imported_object)
-        return imported_objects
-
-
-class _ImportFromNodeParser:
-    """
-    Parser for statements in the form 'from x import ...'.
-    """
-
-    node_class = ast.ImportFrom
-
-    def determine_imported_objects(self, node: ast.AST) -> Set[str]:
-        imported_objects: Set[str] = set()
-        assert isinstance(node, self.node_class)  # For type checker.
-        assert isinstance(node.level, int)  # For type checker.
-
-        for alias in node.names:
-            if node.module is None:
-                imported_object = f"{'.' * node.level}{alias.name}"
-            else:
-                imported_object = f"{'.' * node.level}{node.module}.{alias.name}"
-            imported_objects.add(imported_object)
-
-        return imported_objects
