@@ -50,10 +50,10 @@ class ImportScanner(AbstractImportScanner):
 
         try:
             imported_objects = self._get_raw_imported_objects(module_contents)
-        except SyntaxError as e:
+        except rust.ParseError as e:
             raise exceptions.SourceSyntaxError(
                 filename=module_filename,
-                lineno=e.lineno,
+                lineno=e.line_number,
                 text=e.text,
             )
 

@@ -5,7 +5,7 @@ pub mod import_parsing;
 pub mod module_expressions;
 
 use crate::errors::{GrimpError, GrimpResult};
-use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer};
+use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
 use crate::module_expressions::ModuleExpression;
@@ -29,6 +29,7 @@ fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         "InvalidModuleExpression",
         py.get_type::<InvalidModuleExpression>(),
     )?;
+    m.add("ParseError", py.get_type::<ParseError>())?;
     Ok(())
 }
 
@@ -38,6 +39,7 @@ fn parse_imported_objects_from_code<'py>(
     module_code: &str,
 ) -> PyResult<Vec<Bound<'py, PyDict>>> {
     let imports = import_parsing::parse_imports_from_code(module_code)?;
+
     Ok(imports
         .into_iter()
         .map(|import| {

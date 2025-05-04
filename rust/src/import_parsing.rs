@@ -1,5 +1,5 @@
-use crate::errors::GrimpResult;
-use ruff_python_ast::statement_visitor::{walk_body, walk_stmt, StatementVisitor};
+use crate::errors::{GrimpError, GrimpResult};
+use ruff_python_ast::statement_visitor::{StatementVisitor, walk_body, walk_stmt};
 use ruff_python_ast::{Expr, Stmt};
 use ruff_python_parser::parse_module;
 use ruff_source_file::{LineIndex, SourceCode};
@@ -73,10 +73,21 @@ pub fn parse_imports_from_code(code: &str) -> GrimpResult<Vec<ImportedObject>> {
 fn parse_imports_from_code_without_line_contents(
     code: &str,
 ) -> GrimpResult<Vec<ImportedObjectWithoutLineContents>> {
-    let ast = parse_module(code).expect("failed to parse python code");
-
     let line_index = LineIndex::from_source_text(code);
     let source_code = SourceCode::new(code, &line_index);
+
+    let ast = match parse_module(code) {
+        Ok(ast) => ast,
+        Err(e) => {
+            let line_number = source_code.line_index(e.location.start()).get();
+            let text = source_code.slice(e.location);
+            Err(GrimpError::ParseError {
+                line_number,
+                text: text.to_owned(),
+                parse_error: e,
+            })?
+        }
+    };
 
     let mut visitor = Visitor::new(source_code);
     walk_body(&mut visitor, &ast.syntax().body);
