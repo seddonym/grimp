@@ -11,6 +11,8 @@ from grimp import exceptions
 from grimp.application.ports.importscanner import AbstractImportScanner
 from grimp.application.ports.modulefinder import FoundPackage
 from grimp.domain.valueobjects import DirectImport, Module
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
+
 
 logger = logging.getLogger(__name__)
 
@@ -138,16 +140,18 @@ class ImportScanner(AbstractImportScanner):
 
     @staticmethod
     def _get_raw_imported_objects(module_contents: str) -> Set[_ImportedObject]:
-        module_lines = module_contents.splitlines()
+        imported_object_dicts = rust.parse_imported_objects_from_code(module_contents)
+        imported_objects = {_ImportedObject(**d) for d in imported_object_dicts}
 
-        ast_tree = ast.parse(module_contents)
+        # TODO - remove these lines once we're confident the rust way is consistent with ast.
+        # module_lines = module_contents.splitlines()
+        # ast_tree = ast.parse(module_contents)
+        # visitor = _TreeVisitor(module_lines=module_lines)
+        # visitor.visit(ast_tree)
+        # imported_objects_from_ast = visitor.imported_objects
+        # assert imported_objects == imported_objects_from_ast, "Discrepancy!"
 
-        visitor = _TreeVisitor(
-            module_lines=module_lines,
-        )
-        visitor.visit(ast_tree)
-
-        return visitor.imported_objects
+        return imported_objects
 
     @staticmethod
     def _get_absolute_imported_object_name(
