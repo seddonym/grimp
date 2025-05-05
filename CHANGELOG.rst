@@ -2,8 +2,8 @@
 Changelog
 =========
 
-latest
-------
+3.9 (2025-05-05)
+----------------
 
 * Use Rust instead of Python's built-in ast module for import parsing.
 
