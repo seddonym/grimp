@@ -167,6 +167,9 @@ def _assemble_graph(
     imports_by_module: Dict[Module, Set[DirectImport]],
 ) -> ImportGraph:
     graph: ImportGraph = settings.IMPORT_GRAPH_CLASS()
+
+    package_modules = {Module(found_package.name) for found_package in found_packages}
+
     for module, direct_imports in imports_by_module.items():
         graph.add_module(module.name)
         for direct_import in direct_imports:
@@ -174,7 +177,7 @@ def _assemble_graph(
             # external module, and if so, tell the graph that it is a squashed module.
             graph.add_module(
                 direct_import.imported.name,
-                is_squashed=_is_external(direct_import.imported, found_packages),
+                is_squashed=_is_external(direct_import.imported, package_modules),
             )
 
             graph.add_import(
@@ -186,9 +189,7 @@ def _assemble_graph(
     return graph
 
 
-def _is_external(module: Module, found_packages: Set[FoundPackage]) -> bool:
-    package_modules = [Module(found_package.name) for found_package in found_packages]
-
+def _is_external(module: Module, package_modules: Set[Module]) -> bool:
     return not any(
         module.is_descendant_of(package_module) or module == package_module
         for package_module in package_modules
