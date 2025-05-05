@@ -1,5 +1,5 @@
 use crate::graph::{
-    Graph, ImportDetails, Module, ModuleIterator, ModuleToken, IMPORT_LINE_CONTENTS, MODULE_NAMES,
+    Graph, IMPORT_LINE_CONTENTS, ImportDetails, MODULE_NAMES, Module, ModuleIterator, ModuleToken,
 };
 use rustc_hash::FxHashSet;
 use slotmap::secondary::Entry;

@@ -1,6 +1,6 @@
 use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer};
-use pyo3::exceptions::PyValueError;
 use pyo3::PyErr;
+use pyo3::exceptions::PyValueError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
