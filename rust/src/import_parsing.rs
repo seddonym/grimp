@@ -30,49 +30,12 @@ impl ImportedObject {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-struct ImportedObjectWithoutLineContents {
-    pub name: String,
-    pub line_number: usize,
-    pub typechecking_only: bool,
-}
-
-impl ImportedObjectWithoutLineContents {
-    fn new(name: String, line_number: usize, typechecking_only: bool) -> Self {
-        Self {
-            name,
-            line_number,
-            typechecking_only,
-        }
-    }
-}
-
 pub fn parse_imports(path: &Path) -> GrimpResult<Vec<ImportedObject>> {
     let code = fs::read_to_string(path).expect("failed to read file");
     parse_imports_from_code(&code)
 }
 
 pub fn parse_imports_from_code(code: &str) -> GrimpResult<Vec<ImportedObject>> {
-    let imports_without_line_contents = parse_imports_from_code_without_line_contents(code)?;
-
-    let lines: Vec<&str> = code.lines().collect();
-
-    Ok(imports_without_line_contents
-        .into_iter()
-        .map(|i| {
-            ImportedObject::new(
-                i.name,
-                i.line_number,
-                lines[i.line_number - 1].trim_start().to_string(),
-                i.typechecking_only,
-            )
-        })
-        .collect())
-}
-
-fn parse_imports_from_code_without_line_contents(
-    code: &str,
-) -> GrimpResult<Vec<ImportedObjectWithoutLineContents>> {
     let line_index = LineIndex::from_source_text(code);
     let source_code = SourceCode::new(code, &line_index);
 
@@ -99,7 +62,7 @@ fn parse_imports_from_code_without_line_contents(
 #[derive(Debug)]
 struct Visitor<'a> {
     source_code: SourceCode<'a, 'a>,
-    pub imported_objects: Vec<ImportedObjectWithoutLineContents>,
+    pub imported_objects: Vec<ImportedObject>,
     pub typechecking_only: bool,
 }
 
@@ -119,12 +82,12 @@ impl<'a> StatementVisitor<'a> for Visitor<'a> {
             Stmt::Import(import_stmt) => {
                 let line_number = self.source_code.line_index(import_stmt.range.start());
                 for name in import_stmt.names.iter() {
-                    self.imported_objects
-                        .push(ImportedObjectWithoutLineContents::new(
-                            name.name.id.clone(),
-                            line_number.get(),
-                            self.typechecking_only,
-                        ))
+                    self.imported_objects.push(ImportedObject::new(
+                        name.name.id.clone(),
+                        line_number.get(),
+                        self.source_code.line_text(line_number).trim().to_string(),
+                        self.typechecking_only,
+                    ))
                 }
                 walk_stmt(self, stmt);
             }
@@ -148,12 +111,12 @@ impl<'a> StatementVisitor<'a> for Visitor<'a> {
                             )
                         }
                     };
-                    self.imported_objects
-                        .push(ImportedObjectWithoutLineContents::new(
-                            imported_object_name,
-                            line_number.get(),
-                            self.typechecking_only,
-                        ))
+                    self.imported_objects.push(ImportedObject::new(
+                        imported_object_name,
+                        line_number.get(),
+                        self.source_code.line_text(line_number).trim().to_string(),
+                        self.typechecking_only,
+                    ))
                 }
                 walk_stmt(self, stmt);
             }
