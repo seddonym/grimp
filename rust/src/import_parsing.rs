@@ -79,8 +79,9 @@ fn parse_imports_from_code_without_line_contents(
     let ast = match parse_module(code) {
         Ok(ast) => ast,
         Err(e) => {
-            let line_number = source_code.line_index(e.location.start()).get();
-            let text = source_code.slice(e.location);
+            let location_index = source_code.line_index(e.location.start());
+            let line_number = location_index.get();
+            let text = source_code.line_text(location_index).trim();
             Err(GrimpError::ParseError {
                 line_number,
                 text: text.to_owned(),
