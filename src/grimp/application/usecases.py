@@ -2,7 +2,7 @@
 Use cases handle application logic.
 """
 
-from typing import Dict, Sequence, Set, Type, Union, cast, Iterable, Collection
+from typing import Dict, Sequence, Set, Type, Union, cast, Iterable, Collection, Optional
 import math
 
 import joblib  # type: ignore
@@ -61,7 +61,7 @@ def build_graph(
     """
 
     file_system: AbstractFileSystem = settings.FILE_SYSTEM
-    file_system_2: FileSystem2 | None = settings.FILE_SYSTEM_2
+    file_system_2: Optional[FileSystem2] = settings.FILE_SYSTEM_2
 
     found_packages = _find_packages(
         file_system=file_system,
@@ -117,7 +117,7 @@ def _validate_package_names_are_strings(
 def _scan_packages(
     found_packages: Set[FoundPackage],
     file_system: AbstractFileSystem,
-    file_system_2: FileSystem2 | None,
+    file_system_2: Optional[FileSystem2],
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
     cache_dir: Union[str, Type[NotSupplied], None],
@@ -218,7 +218,7 @@ def _scan_imports(
     module_files: Collection[ModuleFile],
     *,
     file_system: AbstractFileSystem,
-    file_system_2: FileSystem2 | None,
+    file_system_2: Optional[FileSystem2],
     found_packages: Set[FoundPackage],
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
@@ -269,7 +269,7 @@ def _decide_number_of_processes(number_of_module_files: int) -> int:
 def _scan_chunks(
     chunks: Collection[Collection[ModuleFile]],
     file_system: AbstractFileSystem,
-    file_system_2: FileSystem2 | None,
+    file_system_2: Optional[FileSystem2],
     found_packages: Set[FoundPackage],
     include_external_packages: bool,
     exclude_type_checking_imports: bool,

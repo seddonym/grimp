@@ -4,6 +4,7 @@ from typing import Set
 from grimp.application.ports.filesystem import AbstractFileSystem, FileSystem2
 from grimp.application.ports.modulefinder import FoundPackage
 from grimp.domain.valueobjects import DirectImport, Module
+from typing import Optional
 
 
 class AbstractImportScanner(abc.ABC):
@@ -16,7 +17,7 @@ class AbstractImportScanner(abc.ABC):
         file_system: AbstractFileSystem,
         found_packages: Set[FoundPackage],
         include_external_packages: bool = False,
-        file_system_2: FileSystem2 | None = None,
+        file_system_2: Optional[FileSystem2] = None,
     ) -> None:
         """
         Args:
