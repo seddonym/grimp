@@ -63,3 +63,14 @@ class AbstractFileSystem(Protocol):
         """
         Write the contents to a file.
         """
+
+
+class FileSystem2(Protocol):
+    """
+    New abstraction around file system calls.
+    """
+
+    def exists(self, file_name: str) -> bool:
+        """
+        Return whether a file exists.
+        """
