@@ -9,10 +9,12 @@ from .adaptors.packagefinder import ImportLibPackageFinder
 from .adaptors.timing import SystemClockTimer
 from .application.config import settings
 from .application.usecases import build_graph
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 
 settings.configure(
     MODULE_FINDER=ModuleFinder(),
     FILE_SYSTEM=FileSystem(),
+    FILE_SYSTEM_2=rust.RealFileSystem(),
     IMPORT_SCANNER_CLASS=ImportScanner,
     IMPORT_GRAPH_CLASS=ImportGraph,
     PACKAGE_FINDER=ImportLibPackageFinder(),

@@ -8,7 +8,7 @@ import math
 import joblib  # type: ignore
 
 from ..application.ports import caching
-from ..application.ports.filesystem import AbstractFileSystem
+from ..application.ports.filesystem import AbstractFileSystem, FileSystem2
 from ..application.ports.graph import ImportGraph
 from ..application.ports.importscanner import AbstractImportScanner
 from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage, ModuleFile
@@ -61,6 +61,7 @@ def build_graph(
     """
 
     file_system: AbstractFileSystem = settings.FILE_SYSTEM
+    file_system_2: FileSystem2 | None = settings.FILE_SYSTEM_2
 
     found_packages = _find_packages(
         file_system=file_system,
@@ -70,6 +71,7 @@ def build_graph(
     imports_by_module = _scan_packages(
         found_packages=found_packages,
         file_system=file_system,
+        file_system_2=file_system_2,
         include_external_packages=include_external_packages,
         exclude_type_checking_imports=exclude_type_checking_imports,
         cache_dir=cache_dir,
@@ -115,6 +117,7 @@ def _validate_package_names_are_strings(
 def _scan_packages(
     found_packages: Set[FoundPackage],
     file_system: AbstractFileSystem,
+    file_system_2: FileSystem2 | None,
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
     cache_dir: Union[str, Type[NotSupplied], None],
@@ -146,6 +149,7 @@ def _scan_packages(
             _scan_imports(
                 remaining_module_files_to_scan,
                 file_system=file_system,
+                file_system_2=file_system_2,
                 found_packages=found_packages,
                 include_external_packages=include_external_packages,
                 exclude_type_checking_imports=exclude_type_checking_imports,
@@ -214,14 +218,20 @@ def _scan_imports(
     module_files: Collection[ModuleFile],
     *,
     file_system: AbstractFileSystem,
+    file_system_2: FileSystem2 | None,
     found_packages: Set[FoundPackage],
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
 ) -> Dict[ModuleFile, Set[DirectImport]]:
-    chunks = _create_chunks(module_files)
+    if file_system_2:
+        # Multiprocessing is not supported - just do one chunk.
+        chunks: Collection[Collection[ModuleFile]] = (module_files,)
+    else:
+        chunks = _create_chunks(module_files)
     return _scan_chunks(
         chunks,
         file_system,
+        file_system_2,
         found_packages,
         include_external_packages,
         exclude_type_checking_imports,
@@ -259,12 +269,14 @@ def _decide_number_of_processes(number_of_module_files: int) -> int:
 def _scan_chunks(
     chunks: Collection[Collection[ModuleFile]],
     file_system: AbstractFileSystem,
+    file_system_2: FileSystem2 | None,
     found_packages: Set[FoundPackage],
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
 ) -> Dict[ModuleFile, Set[DirectImport]]:
     import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
         file_system=file_system,
+        file_system_2=file_system_2,
         found_packages=found_packages,
         include_external_packages=include_external_packages,
     )

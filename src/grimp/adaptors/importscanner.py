@@ -129,7 +129,7 @@ class ImportScanner(AbstractImportScanner):
         Read the file contents of the module.
         """
         if self.file_system_2:
-            return self.file_system_2.read(module_filename)
+            return self.file_system_2.read(module_filename)  # type: ignore[attr-defined]
         return self.file_system.read(module_filename)
 
     def _module_is_package(self, module_filename: str) -> bool:

@@ -45,7 +45,11 @@ class TestBuildGraph:
         class FakePackageFinder(BaseFakePackageFinder):
             directory_map = {"mypackage": "/path/to/mypackage"}
 
-        with override_settings(FILE_SYSTEM=file_system, PACKAGE_FINDER=FakePackageFinder()):
+        with override_settings(
+            FILE_SYSTEM=file_system,
+            FILE_SYSTEM_2=None,
+            PACKAGE_FINDER=FakePackageFinder(),
+        ):
             graph = usecases.build_graph(
                 "mypackage", include_external_packages=include_external_packages
             )
@@ -200,6 +204,7 @@ class TestBuildGraph:
 
         with override_settings(
             FILE_SYSTEM=FakeFileSystem(),
+            FILE_SYSTEM_2=None,
             PACKAGE_FINDER=FakePackageFinder(),
             MODULE_FINDER=FakeModuleFinder(),
         ), patch.object(os, "environ", fake_environ):
