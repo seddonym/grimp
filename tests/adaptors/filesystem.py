@@ -2,12 +2,11 @@ from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import yaml
 
-from grimp.application.ports.filesystem import AbstractFileSystem
 
 DEFAULT_MTIME = 10000.0
 
 
-class FakeFileSystem(AbstractFileSystem):
+class FakeFileSystem:
     def __init__(
         self,
         contents: Optional[str] = None,

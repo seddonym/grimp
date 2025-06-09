@@ -2,10 +2,8 @@ import os
 import tokenize
 from typing import Iterator, List, Tuple
 
-from grimp.application.ports.filesystem import AbstractFileSystem
 
-
-class FileSystem(AbstractFileSystem):
+class FileSystem:
     """
     Abstraction around file system calls.
     """

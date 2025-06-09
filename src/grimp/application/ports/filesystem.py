@@ -1,14 +1,12 @@
-import abc
-from typing import Iterator, List, Tuple
+from typing import Iterator, List, Tuple, Protocol
 
 
-class AbstractFileSystem(abc.ABC):
+class AbstractFileSystem(Protocol):
     """
     Abstraction around file system calls.
     """
 
     @property
-    @abc.abstractmethod
     def sep(self) -> str:
         """
         Return the file separator for the FileSystem.
@@ -16,16 +14,13 @@ class AbstractFileSystem(abc.ABC):
         E.G. '/' for UNIX systems and '\\' for Windows systems
         """
 
-    @abc.abstractmethod
     def dirname(self, filename: str) -> str:
         """
         Return the full path to the directory name of the supplied filename.
 
         E.g. '/path/to/filename.py' will return '/path/to'.
         """
-        raise NotImplementedError
 
-    @abc.abstractmethod
     def walk(self, directory_name: str) -> Iterator[Tuple[str, List[str], List[str]]]:
         """
         Given a directory, walk the file system recursively.
@@ -33,13 +28,10 @@ class AbstractFileSystem(abc.ABC):
         For each directory in the tree rooted at directory top (including top itself),
         it yields a 3-tuple (dirpath, dirnames, filenames).
         """
-        raise NotImplementedError
 
-    @abc.abstractmethod
     def join(self, *components: str) -> str:
-        raise NotImplementedError
+        ...
 
-    @abc.abstractmethod
     def split(self, file_name: str) -> Tuple[str, str]:
         """
         Split the pathname path into a pair, (head, tail) where tail is the last pathname component
@@ -49,34 +41,25 @@ class AbstractFileSystem(abc.ABC):
         head unless it is the root (one or more slashes only). In all cases, join(head, tail)
         returns a path to the same location as path (but the strings may differ).
         """
-        raise NotImplementedError
 
-    @abc.abstractmethod
     def read(self, file_name: str) -> str:
         """
         Given a file name, return the contents of the file.
         """
-        raise NotImplementedError
 
-    @abc.abstractmethod
     def exists(self, file_name: str) -> bool:
         """
         Return whether a file exists.
         """
-        raise NotImplementedError
 
-    @abc.abstractmethod
     def get_mtime(self, file_name: str) -> float:
         """
         Return the mtime of a file.
 
         Raises FileNotFoundError if the file does not exist.
         """
-        raise NotImplementedError
 
-    @abc.abstractmethod
     def write(self, file_name: str, contents: str) -> None:
         """
         Write the contents to a file.
         """
-        raise NotImplementedError
