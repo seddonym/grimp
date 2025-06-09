@@ -2,7 +2,9 @@ from copy import copy
 
 import pytest  # type: ignore
 
-from tests.adaptors.filesystem import FakeFileSystem
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
+
+FakeFileSystem = rust.FakeFileSystem
 
 
 class TestFakeFileSystem:
@@ -25,7 +27,7 @@ class TestFakeFileSystem:
         assert [
             ("/path/to/mypackage", ["foo"], ["__init__.py"]),
             ("/path/to/mypackage/foo", ["two"], ["__init__.py", "one.py"]),
-            ("/path/to/mypackage/foo/two", [], ["__init__.py", "green.py", "blue.py"]),
+            ("/path/to/mypackage/foo/two", [], ["__init__.py", "blue.py", "green.py"]),
         ] == list(file_system.walk("/path/to/mypackage"))
 
     def test_empty_if_directory_does_not_exist(self):
@@ -38,16 +40,16 @@ class TestFakeFileSystem:
         assert [] == list(file_system.walk("/path/to/nonexistent/package"))
 
     def test_dirname(self):
-        file_system = FakeFileSystem()
+        file_system = FakeFileSystem("")
         assert "/path/to" == file_system.dirname("/path/to/file.txt")
 
     @pytest.mark.parametrize("path", ("/path/to", "/path/to/"))
     def test_join(self, path):
-        file_system = FakeFileSystem()
-        assert "/path/to/mypackage/file.py" == file_system.join(path, "mypackage", "file.py")
+        file_system = FakeFileSystem("")
+        assert "/path/to/mypackage/file.py" == file_system.join([path, "mypackage", "file.py"])
 
     def test_split(self):
-        file_system = FakeFileSystem()
+        file_system = FakeFileSystem("")
         assert ("/path/to/mypackage", "file.py") == file_system.split("/path/to/mypackage/file.py")
 
     def test_dirnames_can_be_modified_in_place(self):
