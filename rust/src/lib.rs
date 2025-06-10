@@ -8,6 +8,7 @@ use crate::errors::{GrimpError, GrimpResult};
 use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
+use crate::import_parsing::ImportedObject;
 use crate::module_expressions::ModuleExpression;
 use derive_new::new;
 use itertools::Itertools;
@@ -17,9 +18,8 @@ use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyDict, PyFrozenSet, PyList, PySet, PyString, PyTuple};
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::PathBuf;
 
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -38,22 +38,50 @@ fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[pyfunction]
 fn parse_imported_objects(
     py: Python<'_>,
-    module_path: PathBuf,
-) -> PyResult<Vec<Bound<'_, PyDict>>> {
-    let module_code = fs::read_to_string(module_path)?;
-    let imports = import_parsing::parse_imports_from_code(&module_code)?;
-
-    Ok(imports
+    // [(module_name, module_path)]
+    modules: Vec<(String, String)>,
+) -> PyResult<HashMap<String, Vec<Bound<'_, PyDict>>>> {
+    let imported_objects = modules
         .into_iter()
-        .map(|import| {
-            let dict = PyDict::new(py);
-            dict.set_item("name", import.name).unwrap();
-            dict.set_item("line_number", import.line_number).unwrap();
-            dict.set_item("line_contents", import.line_contents)
-                .unwrap();
-            dict.set_item("typechecking_only", import.typechecking_only)
-                .unwrap();
-            dict
+        .par_bridge()
+        .try_fold(
+            HashMap::new,
+            |mut hm: HashMap<String, Vec<ImportedObject>>,
+             (module_name, module_path)|
+             -> GrimpResult<_> {
+                let module_code = fs::read_to_string(&module_path).unwrap();
+                let imports = import_parsing::parse_imports_from_code(&module_code)?;
+                hm.insert(module_name, imports);
+                Ok(hm)
+            },
+        )
+        .try_reduce(
+            HashMap::new,
+            |mut hm: HashMap<String, Vec<ImportedObject>>, chunk_hm| {
+                hm.extend(chunk_hm);
+                Ok(hm)
+            },
+        )?;
+
+    Ok(imported_objects
+        .into_iter()
+        .map(|(module_name, imported_objects)| {
+            (
+                module_name,
+                imported_objects
+                    .into_iter()
+                    .map(|import| {
+                        let dict = PyDict::new(py);
+                        dict.set_item("name", import.name).unwrap();
+                        dict.set_item("line_number", import.line_number).unwrap();
+                        dict.set_item("line_contents", import.line_contents)
+                            .unwrap();
+                        dict.set_item("typechecking_only", import.typechecking_only)
+                            .unwrap();
+                        dict
+                    })
+                    .collect(),
+            )
         })
         .collect())
 }
