@@ -19,12 +19,13 @@ use pyo3::types::{IntoPyDict, PyDict, PyFrozenSet, PyList, PySet, PyString, PyTu
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
 use std::collections::HashSet;
-use crate::filesystem::FakeBasicFileSystem;
+use crate::filesystem::{RealBasicFileSystem,FakeBasicFileSystem};
 
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(parse_imported_objects_from_code))?;
     m.add_class::<GraphWrapper>()?;
+    m.add_class::<RealBasicFileSystem>()?;
     m.add_class::<FakeBasicFileSystem>()?;
     m.add("ModuleNotPresent", py.get_type::<ModuleNotPresent>())?;
     m.add("NoSuchContainer", py.get_type::<NoSuchContainer>())?;

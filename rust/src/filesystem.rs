@@ -1,7 +1,114 @@
-use pyo3::exceptions::PyFileNotFoundError;
+use pyo3::exceptions::{PyFileNotFoundError, PyUnicodeDecodeError};
 use pyo3::prelude::*;
+use regex::Regex;
 use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
 use unindent::unindent;
+
+// Implements a BasicFileSystem (defined in grimp.application.ports.filesystem.BasicFileSystem)
+// that actually reads files.
+#[pyclass]
+pub struct RealBasicFileSystem {}
+
+#[pymethods]
+impl RealBasicFileSystem {
+    #[new]
+    fn new() -> Self {
+        RealBasicFileSystem {}
+    }
+
+    #[getter]
+    fn sep(&self) -> String {
+        std::path::MAIN_SEPARATOR.to_string()
+    }
+
+    #[pyo3(signature = (*components))]
+    fn join(&self, components: Vec<String>) -> String {
+        let mut path = PathBuf::new();
+        for component in components {
+            path.push(component);
+        }
+        path.to_str().unwrap().to_string()
+    }
+
+    fn split(&self, file_name: &str) -> (String, String) {
+        let path = Path::new(file_name);
+
+        // Get the "tail" part (the file name or last directory)
+        let tail = match path.file_name() {
+            Some(name) => PathBuf::from(name),
+            None => PathBuf::new(), // If there's no file name (e.g., path is a root), return empty
+        };
+
+        // Get the "head" part (the parent directory)
+        let head = match path.parent() {
+            Some(parent_path) => parent_path.to_path_buf(),
+            None => PathBuf::new(), // If there's no parent (e.g., just a filename), return empty
+        };
+
+        (
+            head.to_str().unwrap().to_string(),
+            tail.to_str().unwrap().to_string(),
+        )
+    }
+
+    fn exists(&self, file_name: &str) -> bool {
+        Path::new(file_name).is_file()
+    }
+
+    fn read(&self, file_name: &str) -> PyResult<String> {
+        // Python files are assumed UTF-8 by default (PEP 686), but they can specify an alternative
+        // encoding, which we need to take into account here.
+        // See https://peps.python.org/pep-0263/
+
+        // This method was authored primarily by an LLM.
+
+        let path = Path::new(file_name);
+        let bytes = fs::read(path).map_err(|e| {
+            PyFileNotFoundError::new_err(format!("Failed to read file {file_name}: {e}"))
+        })?;
+
+        let s = String::from_utf8_lossy(&bytes);
+        let encoding_re = Regex::new(r"^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)").unwrap();
+
+        let mut detected_encoding: Option<String> = None;
+
+        // Coding specification needs to be in the first two lines, or it's ignored.
+        for line in s.lines().take(2) {
+            if let Some(captures) = encoding_re.captures(line) {
+                if let Some(encoding_name) = captures.get(1) {
+                    detected_encoding = Some(encoding_name.as_str().to_string());
+                    break;
+                }
+            }
+        }
+
+        if let Some(enc_name) = detected_encoding {
+            let encoding =
+                encoding_rs::Encoding::for_label(enc_name.as_bytes()).ok_or_else(|| {
+                    PyUnicodeDecodeError::new_err(format!(
+                        "Failed to decode file {file_name} (unknown encoding '{enc_name}')"
+                    ))
+                })?;
+            let (decoded_s, _, had_errors) = encoding.decode(&bytes);
+            if had_errors {
+                Err(PyUnicodeDecodeError::new_err(format!(
+                    "Failed to decode file {file_name} with encoding '{enc_name}'"
+                )))
+            } else {
+                Ok(decoded_s.into_owned())
+            }
+        } else {
+            // Default to UTF-8 if no encoding is specified
+            String::from_utf8(bytes).map_err(|e| {
+                PyUnicodeDecodeError::new_err(format!(
+                    "Failed to decode file {file_name} as UTF-8: {e}"
+                ))
+            })
+        }
+    }
+}
 
 type FileSystemContents = HashMap<String, String>;
 
