@@ -1,7 +1,7 @@
 import abc
 from typing import Set
 
-from grimp.application.ports.filesystem import AbstractFileSystem
+from grimp.application.ports.filesystem import BasicFileSystem
 from grimp.application.ports.modulefinder import FoundPackage
 from grimp.domain.valueobjects import DirectImport, Module
 
@@ -13,7 +13,7 @@ class AbstractImportScanner(abc.ABC):
 
     def __init__(
         self,
-        file_system: AbstractFileSystem,
+        file_system: BasicFileSystem,
         found_packages: Set[FoundPackage],
         include_external_packages: bool = False,
     ) -> None:
