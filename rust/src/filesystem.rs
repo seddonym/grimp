@@ -1,8 +1,64 @@
-use pyo3::exceptions::PyFileNotFoundError;
+use pyo3::exceptions::{PyFileNotFoundError,PyRuntimeError};
 use pyo3::prelude::*;
 use std::collections::HashMap;
 type FileSystemContents = HashMap<String, String>;
 use unindent::unindent;
+use std::path::{Path,PathBuf};
+use std::fs;
+
+#[pyclass]
+pub struct RealBasicFileSystem {}
+
+#[pymethods]
+impl RealBasicFileSystem {
+    #[new]
+    fn new() -> Self {
+        RealBasicFileSystem {}
+    }
+
+    #[getter]
+    fn sep(&self) -> String {
+        std::path::MAIN_SEPARATOR.to_string()
+    }
+
+    #[pyo3(signature = (*components))]
+    fn join(&self, components: Vec<String>) -> String {
+        let mut path = PathBuf::new();
+        for component in components {
+            path.push(component);
+        }
+        path.to_str().unwrap().to_string()
+    }
+
+    fn split(&self, file_name: &str) -> (String, String) {
+        let path = Path::new(file_name);
+
+        // Get the "tail" part (the file name or last directory)
+        let tail = match path.file_name() {
+            Some(name) => PathBuf::from(name),
+            None => PathBuf::new(), // If there's no file name (e.g., path is a root), return empty
+        };
+
+        // Get the "head" part (the parent directory)
+        let head = match path.parent() {
+            Some(parent_path) => parent_path.to_path_buf(),
+            None => PathBuf::new(), // If there's no parent (e.g., just a filename), return empty
+        };
+
+        (head.to_str().unwrap().to_string(), tail.to_str().unwrap().to_string())
+    }
+    
+    fn exists(&self, file_name: &str) -> bool {
+        Path::new(file_name).is_file()
+    }
+
+    fn read(&self, file_name: &str) -> PyResult<String> {
+        // TODO: is this good enough for handling non-UTF8 encodings?
+        fs::read_to_string(file_name).map_err(
+            |_| PyRuntimeError::new_err(format!("Could not read {}", file_name)) 
+        )
+    }
+}
 
 #[pyclass]
 pub struct FakeBasicFileSystem {
