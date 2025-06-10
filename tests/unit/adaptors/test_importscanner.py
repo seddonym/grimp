@@ -6,7 +6,8 @@ import pytest  # type: ignore
 from grimp.adaptors.importscanner import ImportScanner
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.domain.valueobjects import DirectImport, Module
-from tests.adaptors.filesystem import FakeFileSystem
+
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize(
@@ -50,7 +51,7 @@ from tests.adaptors.filesystem import FakeFileSystem
 )
 def test_absolute_imports(include_external_packages, expected_result):
     all_modules = {Module("foo.one"), Module("foo.two")}
-    file_system = FakeFileSystem(
+    file_system = rust.FakeBasicFileSystem(
         content_map={
             "/path/to/foo/one.py": """
                 import foo.two
@@ -81,7 +82,7 @@ def test_absolute_imports(include_external_packages, expected_result):
 def test_non_ascii():
     blue_module = Module("mypackage.blue")
     non_ascii_modules = {Module("mypackage.ñon_ascii_变"), Module("mypackage.ñon_ascii_变.ラーメン")}
-    file_system = FakeFileSystem(
+    file_system = rust.FakeBasicFileSystem(
         content_map={
             "/path/to/mypackage/blue.py": """
                 from ñon_ascii_变 import *
@@ -152,7 +153,7 @@ def test_single_namespace_package_portion():
         MODULE_ALPHA,
     }
 
-    file_system = FakeFileSystem(
+    file_system = rust.FakeBasicFileSystem(
         content_map={
             "/path/to/namespace/foo/one.py": """
                 import namespace.foo.two
@@ -235,7 +236,7 @@ def test_import_of_portion_not_in_graph(include_external_packages):
         MODULE_FOO_ONE,
         MODULE_FOO_BLUE,
     }
-    file_system = FakeFileSystem(
+    file_system = rust.FakeBasicFileSystem(
         content_map={
             "/path/to/namespace/foo/one.py": """
                 import namespace.bar.one.orange
@@ -415,7 +416,7 @@ def test_absolute_from_imports(include_external_packages, expected_result):
         Module("foo.two.yellow"),
         Module("foo.three"),
     }
-    file_system = FakeFileSystem(
+    file_system = rust.FakeBasicFileSystem(
         contents="""
             /path/to/foo/
                 __init__.py
@@ -467,7 +468,7 @@ def test_relative_from_imports():
         Module("foo.two.yellow"),
         Module("foo.three"),
     }
-    file_system = FakeFileSystem(
+    file_system = rust.FakeBasicFileSystem(
         contents="""
             /path/to/foo/
                 __init__.py
@@ -537,7 +538,7 @@ def test_trims_to_known_modules(import_source):
         Module("foo.two"),
         Module("foo.two.yellow"),
     }
-    file_system = FakeFileSystem(
+    file_system = rust.FakeBasicFileSystem(
         contents="""
                 /path/to/foo/
                     __init__.py
@@ -580,7 +581,7 @@ def test_trims_to_known_modules_within_init_file():
         Module("foo.one.blue"),
         Module("foo.one.blue.alpha"),
     }
-    file_system = FakeFileSystem(
+    file_system = rust.FakeBasicFileSystem(
         contents="""
                 /path/to/foo/
                     __init__.py
@@ -633,7 +634,7 @@ def test_trims_to_known_modules_within_init_file():
 
 def test_trims_whitespace_from_start_of_line_contents():
     all_modules = {Module("foo"), Module("foo.one"), Module("foo.two")}
-    file_system = FakeFileSystem(
+    file_system = rust.FakeBasicFileSystem(
         contents="""
                     /path/to/foo/
                         __init__.py
@@ -706,7 +707,7 @@ def test_trims_whitespace_from_start_of_line_contents():
 def test_external_package_imports_for_namespace_packages(statement, expected_module_name):
     module_to_scan = Module("namespace.foo.blue.alpha")
 
-    file_system = FakeFileSystem(
+    file_system = rust.FakeBasicFileSystem(
         content_map={
             "/path/to/namespace/foo/blue/alpha.py": statement,
         }
@@ -751,7 +752,7 @@ def test_external_package_imports_for_namespace_packages(statement, expected_mod
 def test_scans_multiple_packages(statement):
     foo_modules = {Module("foo"), Module("foo.one"), Module("foo.two")}
     bar_modules = {Module("bar"), Module("bar.green"), Module("bar.blue")}
-    file_system = FakeFileSystem(
+    file_system = rust.FakeBasicFileSystem(
         content_map={
             "/path/to/foo/one.py": f"""
                 import foo.two
@@ -819,7 +820,7 @@ def test_exclude_type_checking_imports(
         Module("foo.four"),
         Module("foo.five"),
     }
-    file_system = FakeFileSystem(
+    file_system = rust.FakeBasicFileSystem(
         content_map={
             "/path/to/foo/one.py": f"""
                 import foo.two
