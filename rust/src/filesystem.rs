@@ -1,27 +1,36 @@
-use pyo3::exceptions::{PyFileNotFoundError,PyRuntimeError};
+use pyo3::exceptions::{PyFileNotFoundError, PyRuntimeError};
 use pyo3::prelude::*;
 use std::collections::HashMap;
 type FileSystemContents = HashMap<String, String>;
-use unindent::unindent;
-use std::path::{Path,PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
+use unindent::unindent;
 
-#[pyclass]
+pub trait FileSystem: Send + Sync {
+    fn sep(&self) -> String;
+
+    fn join(&self, components: Vec<String>) -> String;
+
+    fn split(&self, file_name: &str) -> (String, String);
+
+    fn exists(&self, file_name: &str) -> bool;
+
+    fn read(&self, file_name: &str) -> PyResult<String>;
+}
+
+#[derive(Clone)]
 pub struct RealBasicFileSystem {}
 
-#[pymethods]
-impl RealBasicFileSystem {
-    #[new]
-    fn new() -> Self {
-        RealBasicFileSystem {}
-    }
+#[pyclass(name = "RealBasicFileSystem")]
+pub struct PyRealBasicFileSystem {
+    pub inner: RealBasicFileSystem,
+}
 
-    #[getter]
+impl FileSystem for RealBasicFileSystem {
     fn sep(&self) -> String {
         std::path::MAIN_SEPARATOR.to_string()
     }
 
-    #[pyo3(signature = (*components))]
     fn join(&self, components: Vec<String>) -> String {
         let mut path = PathBuf::new();
         for component in components {
@@ -45,30 +54,65 @@ impl RealBasicFileSystem {
             None => PathBuf::new(), // If there's no parent (e.g., just a filename), return empty
         };
 
-        (head.to_str().unwrap().to_string(), tail.to_str().unwrap().to_string())
+        (
+            head.to_str().unwrap().to_string(),
+            tail.to_str().unwrap().to_string(),
+        )
     }
-    
+
     fn exists(&self, file_name: &str) -> bool {
         Path::new(file_name).is_file()
     }
 
     fn read(&self, file_name: &str) -> PyResult<String> {
         // TODO: is this good enough for handling non-UTF8 encodings?
-        fs::read_to_string(file_name).map_err(
-            |_| PyRuntimeError::new_err(format!("Could not read {}", file_name)) 
-        )
+        fs::read_to_string(file_name)
+            .map_err(|_| PyRuntimeError::new_err(format!("Could not read {}", file_name)))
     }
 }
 
-#[pyclass]
+#[pymethods]
+impl PyRealBasicFileSystem {
+    #[new]
+    fn new() -> Self {
+        PyRealBasicFileSystem {
+            inner: RealBasicFileSystem {},
+        }
+    }
+
+    #[getter]
+    fn sep(&self) -> String {
+        self.inner.sep()
+    }
+
+    #[pyo3(signature = (*components))]
+    fn join(&self, components: Vec<String>) -> String {
+        self.inner.join(components)
+    }
+
+    fn split(&self, file_name: &str) -> (String, String) {
+        self.inner.split(file_name)
+    }
+
+    fn exists(&self, file_name: &str) -> bool {
+        self.inner.exists(file_name)
+    }
+
+    fn read(&self, file_name: &str) -> PyResult<String> {
+        self.inner.read(file_name)
+    }
+}
+#[derive(Clone)]
 pub struct FakeBasicFileSystem {
-    contents: FileSystemContents,
+    contents: Box<FileSystemContents>,
 }
 
-#[pymethods]
+#[pyclass(name = "FakeBasicFileSystem")]
+pub struct PyFakeBasicFileSystem {
+    pub inner: FakeBasicFileSystem,
+}
+
 impl FakeBasicFileSystem {
-    #[pyo3(signature = (contents=None, content_map=None))]
-    #[new]
     fn new(contents: Option<&str>, content_map: Option<HashMap<String, String>>) -> PyResult<Self> {
         let mut parsed_contents = match contents {
             Some(contents) => parse_indented_fs_string(contents),
@@ -82,16 +126,16 @@ impl FakeBasicFileSystem {
             parsed_contents.extend(unindented_map);
         };
         Ok(FakeBasicFileSystem {
-            contents: parsed_contents,
+            contents: Box::new(parsed_contents),
         })
     }
+}
 
-    #[getter]
+impl FileSystem for FakeBasicFileSystem {
     fn sep(&self) -> String {
         "/".to_string()
     }
 
-    #[pyo3(signature = (*components))]
     fn join(&self, components: Vec<String>) -> String {
         let sep = self.sep(); // Get the separator from the getter method
         components
@@ -131,7 +175,6 @@ impl FakeBasicFileSystem {
         (head, tail.to_string())
     }
 
-    /// Checks if a file or directory exists within the file system.
     fn exists(&self, file_name: &str) -> bool {
         self.contents.contains_key(file_name)
     }
@@ -141,6 +184,40 @@ impl FakeBasicFileSystem {
             Some(file_name) => Ok(file_name.clone()),
             None => Err(PyFileNotFoundError::new_err("")),
         }
+    }
+}
+
+#[pymethods]
+impl PyFakeBasicFileSystem {
+    #[pyo3(signature = (contents=None, content_map=None))]
+    #[new]
+    fn new(contents: Option<&str>, content_map: Option<HashMap<String, String>>) -> PyResult<Self> {
+        Ok(PyFakeBasicFileSystem {
+            inner: FakeBasicFileSystem::new(contents, content_map)?,
+        })
+    }
+
+    #[getter]
+    fn sep(&self) -> String {
+        self.inner.sep()
+    }
+
+    #[pyo3(signature = (*components))]
+    fn join(&self, components: Vec<String>) -> String {
+        self.inner.join(components)
+    }
+
+    fn split(&self, file_name: &str) -> (String, String) {
+        self.inner.split(file_name)
+    }
+
+    /// Checks if a file or directory exists within the file system.
+    fn exists(&self, file_name: &str) -> bool {
+        self.inner.exists(file_name)
+    }
+
+    fn read(&self, file_name: &str) -> PyResult<String> {
+        self.inner.read(file_name)
     }
 }
 
