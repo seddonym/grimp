@@ -1,8 +1,6 @@
-import os
 from typing import Dict, Optional, Set
-from unittest.mock import sentinel, patch
+from unittest.mock import sentinel
 
-import joblib  # type: ignore
 import pytest  # type: ignore
 
 from grimp.application import usecases
@@ -11,7 +9,6 @@ from grimp.application.ports.modulefinder import ModuleFile
 from grimp.domain.valueobjects import DirectImport, Module
 from tests.adaptors.filesystem import FakeFileSystem
 from tests.adaptors.packagefinder import BaseFakePackageFinder
-from tests.adaptors.modulefinder import BaseFakeModuleFinder
 from tests.config import override_settings
 
 SOME_CPU_COUNT = 8
@@ -136,75 +133,3 @@ class TestBuildGraph:
             if supplied_cache_dir is not sentinel.not_supplied:
                 kwargs["cache_dir"] = supplied_cache_dir
             usecases.build_graph("mypackage", **kwargs)
-
-    @patch.object(usecases, "_scan_chunks", return_value={})
-    @patch.object(joblib, "cpu_count", return_value=SOME_CPU_COUNT)
-    @pytest.mark.parametrize(
-        "number_of_modules, fake_environ, expected_number_of_chunks",
-        [
-            (
-                usecases.DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING - 1,
-                {},
-                1,
-            ),
-            (
-                usecases.DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING,
-                {},
-                SOME_CPU_COUNT,
-            ),
-            (
-                usecases.DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING + 1,
-                {},
-                SOME_CPU_COUNT,
-            ),
-            (
-                149,
-                {usecases.MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME: 150},
-                1,
-            ),
-            (
-                150,
-                {usecases.MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME: 150},
-                SOME_CPU_COUNT,
-            ),
-            (
-                151,
-                {usecases.MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME: 150},
-                SOME_CPU_COUNT,
-            ),
-        ],
-    )
-    def test_scanning_multiprocessing_respects_min_number_of_modules(
-        self,
-        mock_cpu_count,
-        mock_scan_chunks,
-        number_of_modules,
-        fake_environ,
-        expected_number_of_chunks,
-    ):
-        class FakePackageFinder(BaseFakePackageFinder):
-            directory_map = {"mypackage": "/path/to/mypackage"}
-
-        class FakeModuleFinder(BaseFakeModuleFinder):
-            module_files_by_package_name = {
-                "mypackage": frozenset(
-                    {
-                        ModuleFile(
-                            module=Module(f"mypackage.mod_{i}"),
-                            mtime=999,
-                        )
-                        for i in range(number_of_modules)
-                    }
-                )
-            }
-
-        with override_settings(
-            FILE_SYSTEM=FakeFileSystem(),
-            PACKAGE_FINDER=FakePackageFinder(),
-            MODULE_FINDER=FakeModuleFinder(),
-        ), patch.object(os, "environ", fake_environ):
-            usecases.build_graph("mypackage", cache_dir=None)
-
-        [call] = mock_scan_chunks.call_args_list
-        chunks = call.args[0]
-        assert len(chunks) == expected_number_of_chunks

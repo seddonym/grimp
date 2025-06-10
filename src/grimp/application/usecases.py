@@ -16,7 +16,6 @@ from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage,
 from ..application.ports.packagefinder import AbstractPackageFinder
 from ..domain.valueobjects import DirectImport, Module
 from .config import settings
-import os
 
 
 class NotSupplied:
@@ -245,16 +244,10 @@ def _create_chunks(module_files: Collection[ModuleFile]) -> tuple[tuple[ModuleFi
 
 
 def _decide_number_of_processes(number_of_module_files: int) -> int:
-    min_number_of_modules = int(
-        os.environ.get(
-            MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME,
-            DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING,
-        )
-    )
-    if number_of_module_files < min_number_of_modules:
-        # Don't incur the overhead of multiple processes.
-        return 1
-    return min(joblib.cpu_count(), number_of_module_files)
+    # The Rust-based RealBasicFileSystem doesn't support pickling,
+    # which means we can't use multiprocessing. But we won't need to use
+    # multiprocessing shortly so we can live with this.
+    return 1
 
 
 def _scan_chunks(
