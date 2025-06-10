@@ -46,10 +46,9 @@ class ImportScanner(AbstractImportScanner):
         """
         found_package = self._found_package_for_module(module)
         module_filename = self._determine_module_filename(module, found_package)
-        module_contents = self._read_module_contents(module_filename)
 
         try:
-            imported_objects = self._get_raw_imported_objects(module_contents)
+            imported_objects = self._get_raw_imported_objects(module_filename)
         except rust.ParseError as e:
             raise exceptions.SourceSyntaxError(
                 filename=module_filename,
@@ -137,8 +136,8 @@ class ImportScanner(AbstractImportScanner):
         return self.file_system.split(module_filename)[-1] == "__init__.py"
 
     @staticmethod
-    def _get_raw_imported_objects(module_contents: str) -> Set[_ImportedObject]:
-        imported_object_dicts = rust.parse_imported_objects_from_code(module_contents)
+    def _get_raw_imported_objects(module_filename: str) -> Set[_ImportedObject]:
+        imported_object_dicts = rust.parse_imported_objects(module_filename)
         return {_ImportedObject(**d) for d in imported_object_dicts}
 
     @staticmethod

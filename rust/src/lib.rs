@@ -18,10 +18,12 @@ use pyo3::types::{IntoPyDict, PyDict, PyFrozenSet, PyList, PySet, PyString, PyTu
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
 use std::collections::HashSet;
+use std::fs;
+use std::path::PathBuf;
 
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_wrapped(wrap_pyfunction!(parse_imported_objects_from_code))?;
+    m.add_wrapped(wrap_pyfunction!(parse_imported_objects))?;
     m.add_class::<GraphWrapper>()?;
     m.add("ModuleNotPresent", py.get_type::<ModuleNotPresent>())?;
     m.add("NoSuchContainer", py.get_type::<NoSuchContainer>())?;
@@ -34,11 +36,12 @@ fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 #[pyfunction]
-fn parse_imported_objects_from_code<'py>(
-    py: Python<'py>,
-    module_code: &str,
-) -> PyResult<Vec<Bound<'py, PyDict>>> {
-    let imports = import_parsing::parse_imports_from_code(module_code)?;
+fn parse_imported_objects(
+    py: Python<'_>,
+    module_path: PathBuf,
+) -> PyResult<Vec<Bound<'_, PyDict>>> {
+    let module_code = fs::read_to_string(module_path)?;
+    let imports = import_parsing::parse_imports_from_code(&module_code)?;
 
     Ok(imports
         .into_iter()
