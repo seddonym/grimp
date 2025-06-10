@@ -7,6 +7,7 @@ import math
 
 import joblib  # type: ignore
 
+from .ports.filesystem import BasicFileSystem
 from ..application.ports import caching
 from ..application.ports.filesystem import AbstractFileSystem
 from ..application.ports.graph import ImportGraph
@@ -145,7 +146,7 @@ def _scan_packages(
         imports_by_module_file.update(
             _scan_imports(
                 remaining_module_files_to_scan,
-                file_system=file_system,
+                file_system=file_system.convert_to_basic(),
                 found_packages=found_packages,
                 include_external_packages=include_external_packages,
                 exclude_type_checking_imports=exclude_type_checking_imports,
@@ -213,7 +214,7 @@ def _read_imports_from_cache(
 def _scan_imports(
     module_files: Collection[ModuleFile],
     *,
-    file_system: AbstractFileSystem,
+    file_system: BasicFileSystem,
     found_packages: Set[FoundPackage],
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
@@ -258,7 +259,7 @@ def _decide_number_of_processes(number_of_module_files: int) -> int:
 
 def _scan_chunks(
     chunks: Collection[Collection[ModuleFile]],
-    file_system: AbstractFileSystem,
+    file_system: BasicFileSystem,
     found_packages: Set[FoundPackage],
     include_external_packages: bool,
     exclude_type_checking_imports: bool,

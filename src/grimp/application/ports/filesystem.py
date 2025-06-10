@@ -1,3 +1,4 @@
+from __future__ import annotations
 import abc
 from typing import Iterator, List, Tuple
 from typing import Protocol
@@ -79,6 +80,13 @@ class AbstractFileSystem(abc.ABC):
     def write(self, file_name: str, contents: str) -> None:
         """
         Write the contents to a file.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def convert_to_basic(self) -> BasicFileSystem:
+        """
+        Convert this file system to a BasicFileSystem.
         """
         raise NotImplementedError
 
