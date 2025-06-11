@@ -1,8 +1,10 @@
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
+
 import yaml
 
-from grimp.application.ports.filesystem import AbstractFileSystem
+from grimp.application.ports.filesystem import AbstractFileSystem, BasicFileSystem
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 
 DEFAULT_MTIME = 10000.0
 
@@ -43,6 +45,7 @@ class FakeFileSystem(AbstractFileSystem):
                        i.e. last modified times.
         """
         self.contents = self._parse_contents(contents)
+        self._raw_contents = contents
         self.content_map = content_map if content_map else {}
         self.mtime_map: Dict[str, float] = mtime_map if mtime_map else {}
 
@@ -186,3 +189,12 @@ class FakeFileSystem(AbstractFileSystem):
     def write(self, file_name: str, contents: str) -> None:
         self.content_map[file_name] = contents
         self.mtime_map[file_name] = DEFAULT_MTIME
+
+    def convert_to_basic(self) -> BasicFileSystem:
+        """
+        Convert this file system to a BasicFileSystem.
+        """
+        return rust.FakeBasicFileSystem(
+            contents=self._raw_contents,
+            content_map=self.content_map,
+        )
