@@ -133,3 +133,37 @@ class TestBuildGraph:
             if supplied_cache_dir is not sentinel.not_supplied:
                 kwargs["cache_dir"] = supplied_cache_dir
             usecases.build_graph("mypackage", **kwargs)
+
+    def test_forgives_wrong_type_being_passed_to_include_external_packages(self):
+        file_system = FakeFileSystem(
+            contents="""
+                /path/to/mypackage/
+                    __init__.py
+                    foo/
+                        __init__.py
+                        one.py
+                """,
+            content_map={
+                "/path/to/mypackage/foo/one.py": (
+                    "import mypackage.foo.two.green\nfrom .. import Something"
+                ),
+            },
+        )
+
+        class FakePackageFinder(BaseFakePackageFinder):
+            directory_map = {"mypackage": "/path/to/mypackage"}
+
+        with override_settings(FILE_SYSTEM=file_system, PACKAGE_FINDER=FakePackageFinder()):
+            graph = usecases.build_graph(
+                "mypackage",
+                # Note: this should be a bool, but we want to tolerate it,
+                # as Import Linter currently has a bug where it will pass it as None.
+                include_external_packages=None,
+            )
+
+        expected_modules = {
+            "mypackage",
+            "mypackage.foo",
+            "mypackage.foo.one",
+        }
+        assert expected_modules == graph.modules

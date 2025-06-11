@@ -49,7 +49,6 @@ def build_graph(
             "mypackage", "anotherpackage", "onemore", include_external_packages=True,
         )
     """
-
     file_system: AbstractFileSystem = settings.FILE_SYSTEM
 
     found_packages = _find_packages(
@@ -211,7 +210,9 @@ def _scan_imports(
     import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
         file_system=file_system,
         found_packages=found_packages,
-        include_external_packages=include_external_packages,
+        # Ensure that the passed exclude_type_checking_imports is definitely a boolean,
+        # otherwise the Rust class will error.
+        include_external_packages=bool(include_external_packages),
     )
     return {
         module_file: import_scanner.scan_for_imports(
