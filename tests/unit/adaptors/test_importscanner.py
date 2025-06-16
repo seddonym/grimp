@@ -111,20 +111,20 @@ def test_non_ascii():
 
     assert result == {
         DirectImport(
-            importer="mypackage.blue",
-            imported="ñon_ascii_变",
+            importer=Module("mypackage.blue"),
+            imported=Module("ñon_ascii_变"),
             line_number=1,
             line_contents="from ñon_ascii_变 import *",
         ),
         DirectImport(
-            importer="mypackage.blue",
-            imported="mypackage.ñon_ascii_变",
+            importer=Module("mypackage.blue"),
+            imported=Module("mypackage.ñon_ascii_变"),
             line_number=2,
             line_contents="from . import ñon_ascii_变",
         ),
         DirectImport(
-            importer="mypackage.blue",
-            imported="mypackage.ñon_ascii_变.ラーメン",
+            importer=Module("mypackage.blue"),
+            imported=Module("mypackage.ñon_ascii_变.ラーメン"),
             line_number=3,
             line_contents="import mypackage.ñon_ascii_变.ラーメン",
         ),
