@@ -18,16 +18,6 @@ class TestModule:
         # Also non-Module instances should not be treated as equal.
         assert a != "foo"
 
-    def test_equals_obeys_liskov(self):
-        class SpecialModule(Module):
-            pass
-
-        module = Module("foo.bar")
-        special_module = SpecialModule("foo.bar")
-
-        assert module == special_module
-        assert special_module == module
-
     def test_hash(self):
         a = Module("foo.bar")
         b = Module("foo.bar")

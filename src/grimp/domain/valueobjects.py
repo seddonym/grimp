@@ -1,25 +1,14 @@
-from dataclasses import dataclass, astuple
-from typing import Set, Any
+from dataclasses import dataclass
+from typing import Set
 
 
-@dataclass(frozen=True, repr=False, eq=False)
+@dataclass(frozen=True, repr=False)
 class ValueObject:
     def __repr__(self) -> str:
         return "<{}: {}>".format(self.__class__.__name__, self)
 
-    # We use a custom __eq__ method to enforce the liskov principle.
-    # e.g. SpecialModule("foo") == Module("foo") where SpecialModule is a subclass of Module.
-    def __eq__(self, other: Any) -> bool:
-        if isinstance(other, type(self)) or isinstance(self, type(other)):
-            return hash(self) == hash(other)
-        else:
-            return False
 
-    def __hash__(self) -> int:
-        return hash(astuple(self))
-
-
-@dataclass(frozen=True, repr=False, eq=False)
+@dataclass(frozen=True, repr=False)
 class Module(ValueObject):
     """
     A Python module.
@@ -60,7 +49,7 @@ class Module(ValueObject):
         return self.name.startswith(f"{module.name}.")
 
 
-@dataclass(frozen=True, repr=False, eq=False)
+@dataclass(frozen=True, repr=False)
 class DirectImport(ValueObject):
     """
     An import between one module and another.
@@ -75,7 +64,7 @@ class DirectImport(ValueObject):
         return f"{self.importer} -> {self.imported} (l. {self.line_number})"
 
 
-@dataclass(frozen=True, repr=False, eq=False)
+@dataclass(frozen=True, repr=False)
 class Layer(ValueObject):
     """
     A layer within a layered architecture.
