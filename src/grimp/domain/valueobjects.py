@@ -2,14 +2,8 @@ from dataclasses import dataclass
 from typing import Set
 
 
-@dataclass(frozen=True, repr=False)
-class ValueObject:
-    def __repr__(self) -> str:
-        return "<{}: {}>".format(self.__class__.__name__, self)
-
-
-@dataclass(frozen=True, repr=False)
-class Module(ValueObject):
+@dataclass(frozen=True)
+class Module:
     """
     A Python module.
     """
@@ -49,8 +43,8 @@ class Module(ValueObject):
         return self.name.startswith(f"{module.name}.")
 
 
-@dataclass(frozen=True, repr=False)
-class DirectImport(ValueObject):
+@dataclass(frozen=True)
+class DirectImport:
     """
     An import between one module and another.
     """
@@ -64,8 +58,8 @@ class DirectImport(ValueObject):
         return f"{self.importer} -> {self.imported} (l. {self.line_number})"
 
 
-@dataclass(frozen=True, repr=False)
-class Layer(ValueObject):
+@dataclass(frozen=True)
+class Layer:
     """
     A layer within a layered architecture.
 

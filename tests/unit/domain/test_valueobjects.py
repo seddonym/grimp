@@ -4,9 +4,9 @@ from grimp.domain.valueobjects import DirectImport, Module
 
 
 class TestModule:
-    def test_repr(self):
+    def test_str(self):
         module = Module("foo.bar")
-        assert repr(module) == "<Module: foo.bar>"
+        assert str(module) == "foo.bar"
 
     def test_equals(self):
         a = Module("foo.bar")
@@ -43,14 +43,14 @@ class TestModule:
 
 
 class TestDirectImport:
-    def test_repr(self):
+    def test_str(self):
         import_path = DirectImport(
             importer=Module("foo"),
             imported=Module("bar"),
             line_number=10,
             line_contents="import bar",
         )
-        assert repr(import_path) == "<DirectImport: foo -> bar (l. 10)>"
+        assert str(import_path) == "foo -> bar (l. 10)"
 
     def test_equals(self):
         a = DirectImport(
