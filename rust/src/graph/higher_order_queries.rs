@@ -208,3 +208,80 @@ impl Graph {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::graph::Graph;
+    use rustc_hash::FxHashSet;
+
+    #[test]
+    fn test_generate_module_permutations_simple_layers() {
+        let mut graph = Graph::default();
+
+        let top_module = graph.get_or_add_module("app.top").token;
+        let middle_module = graph.get_or_add_module("app.middle").token;
+        let bottom_module = graph.get_or_add_module("app.bottom").token;
+
+        let mut top_layer = FxHashSet::default();
+        top_layer.insert(top_module);
+
+        let mut middle_layer = FxHashSet::default();
+        middle_layer.insert(middle_module);
+
+        let mut bottom_layer = FxHashSet::default();
+        bottom_layer.insert(bottom_module);
+
+        let top_level = Level::new(top_layer, false);
+        let middle_level = Level::new(middle_layer, false);
+        let bottom_level = Level::new(bottom_layer, false);
+
+        let levels = vec![top_level, middle_level, bottom_level];
+
+        let permutations = graph.generate_module_permutations(&levels);
+
+        assert_eq!(
+            permutations,
+            vec![
+                (middle_module, top_module),
+                (bottom_module, top_module),
+                (bottom_module, middle_module),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_generate_module_permutations_independent_layer() {
+        let mut graph = Graph::default();
+
+        let module_a = graph.get_or_add_module("app.independent.a").token;
+        let module_b = graph.get_or_add_module("app.independent.b").token;
+
+        let mut independent_layer = FxHashSet::default();
+        independent_layer.insert(module_a);
+        independent_layer.insert(module_b);
+
+        let independent_level = Level::new(independent_layer, true);
+
+        let levels = vec![independent_level];
+
+        let permutations = graph.generate_module_permutations(&levels);
+
+        // Modules in independent layer should not import each other
+        assert_eq!(
+            permutations.len(),
+            2,
+            "Expected 2 permutations for independent layer with 2 modules"
+        );
+
+        assert!(
+            permutations.contains(&(module_a, module_b)),
+            "Module A should not import Module B"
+        );
+
+        assert!(
+            permutations.contains(&(module_b, module_a)),
+            "Module B should not import Module A"
+        );
+    }
+}
