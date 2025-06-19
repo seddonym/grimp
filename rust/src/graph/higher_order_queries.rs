@@ -16,6 +16,9 @@ pub struct Level {
 
     #[getset(get_copy = "pub")]
     independent: bool,
+
+    #[getset(get_copy = "pub")]
+    closed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, new, Getters)]
@@ -232,9 +235,9 @@ mod tests {
         let mut bottom_layer = FxHashSet::default();
         bottom_layer.insert(bottom_module);
 
-        let top_level = Level::new(top_layer, false);
-        let middle_level = Level::new(middle_layer, false);
-        let bottom_level = Level::new(bottom_layer, false);
+        let top_level = Level::new(top_layer, false, false);
+        let middle_level = Level::new(middle_layer, false, false);
+        let bottom_level = Level::new(bottom_layer, false, false);
 
         let levels = vec![top_level, middle_level, bottom_level];
 
@@ -261,7 +264,7 @@ mod tests {
         independent_layer.insert(module_a);
         independent_layer.insert(module_b);
 
-        let independent_level = Level::new(independent_layer, true);
+        let independent_level = Level::new(independent_layer, true, false);
 
         let levels = vec![independent_level];
 

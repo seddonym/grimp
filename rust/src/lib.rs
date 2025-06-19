@@ -561,7 +561,14 @@ impl GraphWrapper {
                     .extract::<bool>()
                     .unwrap();
 
-                levels.push(Level::new(layers, independent));
+                let closed = level_dict
+                    .get_item("closed")
+                    .unwrap()
+                    .unwrap()
+                    .extract::<bool>()
+                    .unwrap();
+
+                levels.push(Level::new(layers, independent, closed));
             }
             levels_by_container.push(levels);
         }

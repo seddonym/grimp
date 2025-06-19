@@ -42,6 +42,7 @@ fn test_large_graph_deep_layers() {
                     .token()
                     .conv::<FxHashSet<_>>(),
                 true,
+                false,
             )
         })
         .collect();
