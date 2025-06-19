@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Unreleasd
+---------
+
+- Implement optional module expression fragments.
+
 3.9 (2025-05-05)
 ----------------
 

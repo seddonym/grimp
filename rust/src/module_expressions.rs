@@ -3,22 +3,27 @@ use const_format::formatcp;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::collections::HashSet;
 use std::fmt::Display;
 use std::str::FromStr;
+use tap::Tap;
 
 lazy_static! {
     static ref MODULE_EXPRESSION_PATTERN: Regex =
         Regex::new(r"^(\w+|\*{1,2})(\.(\w+|\*{1,2}))*$").unwrap();
+    static ref OPTIONAL_FRAGMENT_PATTERN: Regex = Regex::new(r"\[([^\[\]]*)\]").unwrap();
 }
 
 /// A module expression is used to refer to sets of modules.
 ///
 /// - `*` stands in for a module name, without including subpackages.
 /// - `**` includes subpackages too.
+/// - `[...]` denotes an optional fragment that may or may not be present.
+///   For example, `a.b[.**]` matches both `a.b` and `a.b.**`.
 #[derive(Debug, Clone)]
 pub struct ModuleExpression {
     expression: String,
-    pattern: Regex,
+    patterns: Vec<Regex>,
 }
 
 impl Display for ModuleExpression {
@@ -37,22 +42,29 @@ impl FromStr for ModuleExpression {
     type Err = GrimpError;
 
     fn from_str(expression: &str) -> Result<Self, Self::Err> {
-        if !MODULE_EXPRESSION_PATTERN.is_match(expression) {
-            return Err(GrimpError::InvalidModuleExpression(expression.to_owned()));
-        }
+        // Handle optional fragments by expanding into all possible combinations
+        let expanded_expressions = Self::expand_optional_fragments(expression);
 
-        for (part, next_part) in expression.split(".").tuple_windows() {
-            match (part, next_part) {
-                ("*", "**") | ("**", "*") | ("**", "**") => {
-                    return Err(GrimpError::InvalidModuleExpression(expression.to_owned()));
-                }
-                _ => {}
+        let mut patterns = Vec::new();
+        for expanded in &expanded_expressions {
+            // Validate each expanded expression
+            if !MODULE_EXPRESSION_PATTERN.is_match(expanded) {
+                return Err(GrimpError::InvalidModuleExpression(expanded.to_owned()));
             }
+            for (part, next_part) in expanded.split(".").tuple_windows() {
+                match (part, next_part) {
+                    ("*", "**") | ("**", "*") | ("**", "**") => {
+                        return Err(GrimpError::InvalidModuleExpression(expanded.to_owned()));
+                    }
+                    _ => {}
+                }
+            }
+            patterns.push(Self::create_pattern(expanded)?);
         }
 
         Ok(Self {
             expression: expression.to_owned(),
-            pattern: Self::create_pattern(expression)?,
+            patterns,
         })
     }
 }
@@ -63,7 +75,9 @@ const ONE_OR_MANY_MODULE_NAMES_PATTERN: &str =
 
 impl ModuleExpression {
     pub fn is_match(&self, module_name: &str) -> bool {
-        self.pattern.is_match(module_name)
+        self.patterns
+            .iter()
+            .any(|pattern| pattern.is_match(module_name))
     }
 
     fn create_pattern(expression: &str) -> GrimpResult<Regex> {
@@ -80,6 +94,42 @@ impl ModuleExpression {
         }
 
         Ok(Regex::new(&(r"^".to_owned() + &pattern_parts.join(r"\.") + r"$")).unwrap())
+    }
+
+    /// Expands an expression with optional fragments into all possible combinations.
+    ///
+    /// For example:
+    /// - a.b[.c] expands to ["a.b", "a.b.c"]
+    /// - a[.b[.c]] expands to ["a", "a.b", "a.b.c"]
+    fn expand_optional_fragments(expression: &str) -> HashSet<String> {
+        if !OPTIONAL_FRAGMENT_PATTERN.is_match(expression) {
+            // No optional fragments, return the original expression
+            return [expression.to_owned()].iter().cloned().collect();
+        }
+
+        let mut result = HashSet::new();
+
+        // Find the first optional fragment
+        if let Some(captures) = OPTIONAL_FRAGMENT_PATTERN.captures(expression) {
+            let full_match = captures.get(0).unwrap();
+            let content = captures.get(1).unwrap();
+
+            // Create the expression without this optional fragment
+            let without_optional = expression
+                .to_owned()
+                .tap_mut(|s| s.replace_range(full_match.range(), ""));
+            let without_optional_expanded = Self::expand_optional_fragments(&without_optional);
+            result.extend(without_optional_expanded);
+
+            // Create the expression with this optional fragment
+            let with_optional = expression
+                .to_owned()
+                .tap_mut(|s| s.replace_range(full_match.range(), content.as_str()));
+            let with_optional_expanded = Self::expand_optional_fragments(&with_optional);
+            result.extend(with_optional_expanded);
+        }
+
+        result
     }
 }
 
@@ -110,6 +160,9 @@ mod tests {
         NewModuleExpressionTestCase::new(r"foo.*.bar.**", true),
         NewModuleExpressionTestCase::new(r"foo.**.bar.*", true),
         NewModuleExpressionTestCase::new(r"foo.*.*.bar", true),
+        NewModuleExpressionTestCase::new(r"foo[.bar]", true),
+        NewModuleExpressionTestCase::new(r"[foo.]bar", true),
+        NewModuleExpressionTestCase::new(r"foo[.bar[.baz]]", true),
         // Invalid
         NewModuleExpressionTestCase::new(r"foo.bar*", false),
         NewModuleExpressionTestCase::new(r".foo", false),
@@ -122,6 +175,7 @@ mod tests {
         NewModuleExpressionTestCase::new(r"foo.*.**.bar", false),
         NewModuleExpressionTestCase::new(r"foo.**.*.bar", false),
         NewModuleExpressionTestCase::new(r"foo.**.**.bar", false),
+        NewModuleExpressionTestCase::new(r"foo[.bar.baz", false),
     })]
     fn test_parse(case: NewModuleExpressionTestCase) -> GrimpResult<()> {
         let module_expression = case.expression.parse::<ModuleExpression>();
@@ -186,6 +240,40 @@ mod tests {
         MatchesModuleNameTestCase::new(r"foo.**.bar.*", "foo.a.bar.b.c", false),
     })]
     fn test_is_match(case: MatchesModuleNameTestCase) -> GrimpResult<()> {
+        let module_expression: ModuleExpression = case.expression.parse()?;
+        assert_eq!(
+            module_expression.is_match(&case.module_name),
+            case.expect_match
+        );
+        Ok(())
+    }
+
+    #[parameterized(case = {
+        // Optional fragments
+        MatchesModuleNameTestCase::new(r"a.b[.c]", r"a.b", true),
+        MatchesModuleNameTestCase::new(r"a.b[.c]", r"a.b.c", true),
+        MatchesModuleNameTestCase::new(r"a.b[.c]", r"a.b.d", false),
+        // Optional fragments with wildcards
+        MatchesModuleNameTestCase::new(r"a.b[.**]", r"a.b", true),
+        MatchesModuleNameTestCase::new(r"a.b[.**]", r"a.b.c", true),
+        MatchesModuleNameTestCase::new(r"a.b[.**]", r"a.b.c.d", true),
+        // Multiple optional fragments
+        MatchesModuleNameTestCase::new(r"a[.b].c[.d]", r"a.c", true),
+        MatchesModuleNameTestCase::new(r"a[.b].c[.d]", r"a.b.c", true),
+        MatchesModuleNameTestCase::new(r"a[.b].c[.d]", r"a.c.d", true),
+        MatchesModuleNameTestCase::new(r"a[.b].c[.d]", r"a.b.c.d", true),
+        MatchesModuleNameTestCase::new(r"a[.b].c[.d]", r"a.b.c.d.e", false),
+        // Optional at start
+        MatchesModuleNameTestCase::new(r"[a.]b.c", r"b.c", true),
+        MatchesModuleNameTestCase::new(r"[a.]b.c", r"a.b.c", true),
+        MatchesModuleNameTestCase::new(r"[a.]b.c", r"a.a.b.c", false),
+        // Nested optional fragments
+        MatchesModuleNameTestCase::new(r"a[.b[.c]]", r"a", true),
+        MatchesModuleNameTestCase::new(r"a[.b[.c]]", r"a.b", true),
+        MatchesModuleNameTestCase::new(r"a[.b[.c]]", r"a.b.c", true),
+        MatchesModuleNameTestCase::new(r"a[.b[.c]]", r"a.b.c.d", false),
+    })]
+    fn test_optional_fragments(case: MatchesModuleNameTestCase) -> GrimpResult<()> {
         let module_expression: ModuleExpression = case.expression.parse()?;
         assert_eq!(
             module_expression.is_match(&case.module_name),

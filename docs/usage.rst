@@ -563,6 +563,8 @@ Module expressions
 
   - ``*`` stands in for a module name, without including subpackages.
   - ``**`` includes subpackages too.
+  - `[...]` denotes an optional fragment that may or may not be present.
+    For example, `a.b[.**]` matches both `a.b` and `a.b.**`.
 
   Examples:
 
