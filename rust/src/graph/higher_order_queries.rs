@@ -105,6 +105,17 @@ impl Graph {
                         permutations.push((*module, *sibling_module));
                     }
                 }
+
+                // Should not be imported by higher layers if there is a closed layer inbetween.
+                let mut closed = false;
+                for higher_level in levels[..index].iter().rev() {
+                    if closed {
+                        for higher_module in &higher_level.layers {
+                            permutations.push((*higher_module, *module));
+                        }
+                    }
+                    closed |= higher_level.closed;
+                }
             }
         }
 
@@ -280,6 +291,51 @@ mod tests {
                 ))
                 .collect_vec(),
             vec![(module_a, module_b), (module_b, module_a),]
+        );
+    }
+
+    #[test]
+    fn test_generate_module_permutations_closed_layer() {
+        let mut graph = Graph::default();
+
+        // Create three layers with the middle one closed
+        let top_module = graph.get_or_add_module("app.top").token;
+        let middle_module = graph.get_or_add_module("app.middle").token;
+        let bottom_module = graph.get_or_add_module("app.bottom").token;
+
+        let mut top_layer = FxHashSet::default();
+        top_layer.insert(top_module);
+
+        let mut middle_layer = FxHashSet::default();
+        middle_layer.insert(middle_module);
+
+        let mut bottom_layer = FxHashSet::default();
+        bottom_layer.insert(bottom_module);
+
+        let top_level = Level::new(top_layer, false, false);
+        let middle_level = Level::new(middle_layer, false, true); // Closed layer
+        let bottom_level = Level::new(bottom_layer, false, false);
+
+        let levels = vec![top_level, middle_level, bottom_level];
+
+        let permutations = graph.generate_module_permutations(&levels);
+
+        assert_eq!(
+            permutations
+                .into_iter()
+                // Sorted for stable comparision.
+                .sorted_by_key(|(importer, imported)| (
+                    graph.get_module(*importer).unwrap().name(),
+                    graph.get_module(*imported).unwrap().name()
+                ))
+                .collect_vec(),
+            vec![
+                (bottom_module, middle_module),
+                (bottom_module, top_module),
+                (middle_module, top_module),
+                // Top should not import Bottom due to closed middle layer
+                (top_module, bottom_module),
+            ]
         );
     }
 }
