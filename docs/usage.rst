@@ -304,7 +304,8 @@ Higher level analysis
         passing ``independent=False`` when instantiating the :class:`.Layer`. For convenience, if a layer consists
         only of one module name then a string may be passed in place of the :class:`.Layer` object. Additionally, if
         the layer consists of multiple *independent* modules, that can be passed as a set of strings instead of a
-        :class:`.Layer` object.
+        :class:`.Layer` object. A closed layer may be created by passing ``closed=True`` to prevent higher layers
+        from importing directly from layers below the closed layer (see `Closed layers`_ section below).
         *Any modules specified that don't exist in the graph will be silently ignored.*
     :param set[str] containers: The parent modules of the layers, as absolute names that you could
         import, such as ``mypackage.foo``. (Optional.)
@@ -408,6 +409,18 @@ Higher level analysis
                 "mypackage.a",
             ),
         )
+
+    Closed layers
+    ^^^^^^^^^^^^^
+
+    A closed layer may be created by passing ``closed=True``. Closed layers provide an additional
+    constraint in your architecture that prevents higher layers from "reaching through" to access
+    lower layers directly. Imports from higher to lower layers cannot bypass closed layers - the
+    closed layer must be included in the import chain.
+
+    This is particularly useful for enforcing architectural boundaries where you want to hide
+    implementation details of lower layers and ensure that higher layers only interact with
+    the public interface provided by the closed layer.
 
     Return value
     ^^^^^^^^^^^^

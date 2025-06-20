@@ -958,3 +958,79 @@ def _pairwise(iterable):
     a, b = itertools.tee(iterable)
     next(b, None)
     return zip(a, b)
+
+
+class TestClosedLayers:
+    @pytest.mark.parametrize(
+        "importer, imported",
+        [
+            ("mypackage.highest", "mypackage.low"),
+            ("mypackage.highest", "mypackage.lowest"),
+            ("mypackage.high", "mypackage.low"),
+            ("mypackage.high", "mypackage.lowest"),
+        ],
+    )
+    def test_cannot_import_through_closed_mid(self, importer, imported):
+        graph = self._build_legal_graph()
+        graph.add_import(importer=importer, imported=imported)
+
+        result = self._analyze(graph)
+
+        assert result == {
+            PackageDependency.new(
+                importer=importer,
+                imported=imported,
+                routes={Route.single_chained(importer, imported)},
+            ),
+        }
+
+    def test_cannot_import_through_closed_mid_indirect(self):
+        graph = self._build_legal_graph()
+        graph.add_import(importer="mypackage.high", imported="mypackage.other")
+        graph.add_import(importer="mypackage.other", imported="mypackage.low")
+
+        result = self._analyze(graph)
+
+        assert result == {
+            PackageDependency.new(
+                importer="mypackage.high",
+                imported="mypackage.low",
+                routes={
+                    Route.single_chained("mypackage.high", "mypackage.other", "mypackage.low")
+                },
+            ),
+        }
+
+    def _build_legal_graph(self):
+        graph = ImportGraph()
+        for module in (
+            "mypackage",
+            "mypackage.highest",
+            "mypackage.high",
+            "mypackage.mid",
+            "mypackage.low",
+            "mypackage.lowest",
+            "mypackage.other",
+        ):
+            graph.add_module(module)
+
+        # Add some 'legal' imports that respect the layering
+        graph.add_import(importer="mypackage.highest", imported="mypackage.high")
+        graph.add_import(importer="mypackage.high", imported="mypackage.mid")
+        graph.add_import(importer="mypackage.mid", imported="mypackage.low")
+        graph.add_import(importer="mypackage.low", imported="mypackage.lowest")
+        graph.add_import(importer="mypackage.highest", imported="mypackage.mid")
+        graph.add_import(importer="mypackage.mid", imported="mypackage.lowest")
+
+        return graph
+
+    def _analyze(self, graph: ImportGraph) -> set[PackageDependency]:
+        return graph.find_illegal_dependencies_for_layers(
+            layers=(
+                Layer("mypackage.highest", closed=False),
+                Layer("mypackage.high", closed=False),
+                Layer("mypackage.mid", closed=True),  # Closed layer
+                Layer("mypackage.low", closed=False),
+                Layer("mypackage.lowest", closed=False),
+            ),
+        )
