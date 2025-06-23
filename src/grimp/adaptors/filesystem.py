@@ -3,6 +3,7 @@ import tokenize
 from typing import Iterator, List, Tuple
 
 from grimp.application.ports.filesystem import AbstractFileSystem, BasicFileSystem
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 
 
 class FileSystem(AbstractFileSystem):
@@ -46,4 +47,4 @@ class FileSystem(AbstractFileSystem):
             print(contents, file=file)
 
     def convert_to_basic(self) -> BasicFileSystem:
-        return self  # FileSystem already corresponds to the BasicFileSystem protocol.
+        return rust.RealBasicFileSystem()
