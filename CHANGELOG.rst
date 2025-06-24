@@ -2,6 +2,11 @@
 Changelog
 =========
 
+latest
+------
+
+* Publish wheels for Python 3.14.
+
 3.9 (2025-05-05)
 ----------------
 
