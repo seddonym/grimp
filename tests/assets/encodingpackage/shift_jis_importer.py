@@ -1,0 +1,3 @@
+# -*- coding: shift_jis -*-
+
+from .imported import ƒÎ
