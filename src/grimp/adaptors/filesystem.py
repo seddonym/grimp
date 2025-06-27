@@ -2,7 +2,8 @@ import os
 import tokenize
 from typing import Iterator, List, Tuple
 
-from grimp.application.ports.filesystem import AbstractFileSystem
+from grimp.application.ports.filesystem import AbstractFileSystem, BasicFileSystem
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 
 
 class FileSystem(AbstractFileSystem):
@@ -44,3 +45,6 @@ class FileSystem(AbstractFileSystem):
             os.makedirs(dirname)
         with open(file_name, "w") as file:
             print(contents, file=file)
+
+    def convert_to_basic(self) -> BasicFileSystem:
+        return rust.RealBasicFileSystem()

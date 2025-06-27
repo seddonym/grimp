@@ -13,7 +13,7 @@ from .application.usecases import build_graph
 settings.configure(
     MODULE_FINDER=ModuleFinder(),
     FILE_SYSTEM=FileSystem(),
-    IMPORT_SCANNER_CLASS=ImportScanner,
+    IMPORT_SCANNER_CLASS=ImportScanner,  # type: ignore[has-type]
     IMPORT_GRAPH_CLASS=ImportGraph,
     PACKAGE_FINDER=ImportLibPackageFinder(),
     CACHE_CLASS=Cache,
