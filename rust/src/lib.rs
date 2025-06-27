@@ -543,7 +543,7 @@ impl GraphWrapper {
                     .unwrap()
                     .into_iter()
                     .map(|name| match container.clone() {
-                        Some(container) => format!("{}.{}", container, name),
+                        Some(container) => format!("{container}.{name}"),
                         None => name,
                     })
                     .filter_map(|name| match self.get_visible_module_by_name(&name) {
