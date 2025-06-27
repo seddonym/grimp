@@ -3,7 +3,6 @@ from typing import Set
 
 import pytest  # type: ignore
 
-from grimp.adaptors.importscanner import ImportScanner
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.domain.valueobjects import DirectImport, Module
 
@@ -62,7 +61,7 @@ def test_absolute_imports(include_external_packages, expected_result):
         }
     )
 
-    import_scanner = ImportScanner(
+    import_scanner = rust.ImportScanner(
         found_packages={
             FoundPackage(
                 name="foo",
@@ -94,7 +93,7 @@ def test_non_ascii():
         },
     )
 
-    import_scanner = ImportScanner(
+    import_scanner = rust.ImportScanner(
         found_packages={
             FoundPackage(
                 name="mypackage",
@@ -167,7 +166,7 @@ def test_single_namespace_package_portion():
         }
     )
 
-    import_scanner = ImportScanner(
+    import_scanner = rust.ImportScanner(
         found_packages={
             FoundPackage(
                 name="namespace.foo",
@@ -254,7 +253,7 @@ def test_import_of_portion_not_in_graph(include_external_packages):
         }
     )
 
-    import_scanner = ImportScanner(
+    import_scanner = rust.ImportScanner(
         found_packages={
             FoundPackage(
                 name="namespace.foo",
@@ -443,7 +442,7 @@ def test_absolute_from_imports(include_external_packages, expected_result):
         },
     )
 
-    import_scanner = ImportScanner(
+    import_scanner = rust.ImportScanner(
         found_packages={
             FoundPackage(
                 name="foo",
@@ -460,14 +459,24 @@ def test_absolute_from_imports(include_external_packages, expected_result):
     assert expected_result == result
 
 
-def test_relative_from_imports():
+@pytest.mark.parametrize("module_to_scan_is_package", (True, False))
+def test_relative_from_imports(module_to_scan_is_package):
     all_modules = {
+        Module("foo"),
+        Module("foo.one"),
         Module("foo.one.blue"),
         Module("foo.one.green"),
         Module("foo.two.brown"),
         Module("foo.two.yellow"),
         Module("foo.three"),
     }
+    if module_to_scan_is_package:
+        module_to_scan = Module("foo.one")
+        module_filename = "/path/to/foo/one/__init__.py"
+    else:
+        module_to_scan = Module("foo.one.blue")
+        module_filename = "/path/to/foo/one/blue.py"
+
     file_system = rust.FakeBasicFileSystem(
         contents="""
             /path/to/foo/
@@ -483,7 +492,7 @@ def test_relative_from_imports():
                 three.py
         """,
         content_map={
-            "/path/to/foo/one/blue.py": """
+            module_filename: """
                 from . import green
                 from ..two import yellow
                 from .. import three
@@ -492,7 +501,7 @@ def test_relative_from_imports():
         },
     )
 
-    import_scanner = ImportScanner(
+    import_scanner = rust.ImportScanner(
         found_packages={
             FoundPackage(
                 name="foo",
@@ -503,23 +512,23 @@ def test_relative_from_imports():
         file_system=file_system,
     )
 
-    result = import_scanner.scan_for_imports(Module("foo.one.blue"))
+    result = import_scanner.scan_for_imports(module_to_scan)
 
     assert result == {
         DirectImport(
-            importer=Module("foo.one.blue"),
+            importer=module_to_scan,
             imported=Module("foo.one.green"),
             line_number=1,
             line_contents="from . import green",
         ),
         DirectImport(
-            importer=Module("foo.one.blue"),
+            importer=module_to_scan,
             imported=Module("foo.two.yellow"),
             line_number=2,
             line_contents="from ..two import yellow",
         ),
         DirectImport(
-            importer=Module("foo.one.blue"),
+            importer=module_to_scan,
             imported=Module("foo.three"),
             line_number=3,
             line_contents="from .. import three",
@@ -550,7 +559,7 @@ def test_trims_to_known_modules(import_source):
         content_map={"/path/to/foo/one.py": import_source},
     )
 
-    import_scanner = ImportScanner(
+    import_scanner = rust.ImportScanner(
         found_packages={
             FoundPackage(
                 name="foo",
@@ -598,7 +607,7 @@ def test_trims_to_known_modules_within_init_file():
         },
     )
 
-    import_scanner = ImportScanner(
+    import_scanner = rust.ImportScanner(
         found_packages={
             FoundPackage(
                 name="foo",
@@ -649,7 +658,7 @@ def test_trims_whitespace_from_start_of_line_contents():
         },
     )
 
-    import_scanner = ImportScanner(
+    import_scanner = rust.ImportScanner(
         found_packages={
             FoundPackage(
                 name="foo",
@@ -713,7 +722,7 @@ def test_external_package_imports_for_namespace_packages(statement, expected_mod
         }
     )
 
-    import_scanner = ImportScanner(
+    import_scanner = rust.ImportScanner(
         found_packages={
             FoundPackage(
                 name="namespace.foo.blue",
@@ -764,7 +773,7 @@ def test_scans_multiple_packages(statement):
         }
     )
 
-    import_scanner = ImportScanner(
+    import_scanner = rust.ImportScanner(
         found_packages={
             FoundPackage(
                 name="foo",
@@ -833,7 +842,7 @@ def test_exclude_type_checking_imports(
         }
     )
 
-    import_scanner = ImportScanner(
+    import_scanner = rust.ImportScanner(
         found_packages={
             FoundPackage(
                 name="foo",

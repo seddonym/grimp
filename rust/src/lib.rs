@@ -4,11 +4,14 @@ pub mod graph;
 pub mod import_parsing;
 pub mod module_expressions;
 mod filesystem;
+mod import_scanning;
+mod module_finding;
 
 use crate::errors::{GrimpError, GrimpResult};
 use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
+use crate::import_scanning::ImportScanner;
 use crate::module_expressions::ModuleExpression;
 use derive_new::new;
 use itertools::Itertools;
@@ -27,6 +30,7 @@ fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<GraphWrapper>()?;
     m.add_class::<PyRealBasicFileSystem>()?;
     m.add_class::<PyFakeBasicFileSystem>()?;
+    m.add_class::<ImportScanner>()?;
     m.add("ModuleNotPresent", py.get_type::<ModuleNotPresent>())?;
     m.add("NoSuchContainer", py.get_type::<NoSuchContainer>())?;
     m.add(
