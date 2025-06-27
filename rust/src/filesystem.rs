@@ -6,24 +6,34 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use unindent::unindent;
 
-// Implements a BasicFileSystem (defined in grimp.application.ports.filesystem.BasicFileSystem)
-// that actually reads files.
+pub trait FileSystem: Send + Sync {
+    fn sep(&self) -> String;
+
+    fn join(&self, components: Vec<String>) -> String;
+
+    fn split(&self, file_name: &str) -> (String, String);
+
+    fn exists(&self, file_name: &str) -> bool;
+
+    fn read(&self, file_name: &str) -> PyResult<String>;
+}
+
+#[derive(Clone)]
 #[pyclass]
 pub struct RealBasicFileSystem {}
 
-#[pymethods]
-impl RealBasicFileSystem {
-    #[new]
-    fn new() -> Self {
-        RealBasicFileSystem {}
-    }
+// Implements a BasicFileSystem (defined in grimp.application.ports.filesystem.BasicFileSystem)
+// that actually reads files.
+#[pyclass(name = "RealBasicFileSystem")]
+pub struct PyRealBasicFileSystem {
+    pub inner: RealBasicFileSystem,
+}
 
-    #[getter]
+impl FileSystem for RealBasicFileSystem {
     fn sep(&self) -> String {
         std::path::MAIN_SEPARATOR.to_string()
     }
 
-    #[pyo3(signature = (*components))]
     fn join(&self, components: Vec<String>) -> String {
         let mut path = PathBuf::new();
         for component in components {
@@ -110,18 +120,52 @@ impl RealBasicFileSystem {
     }
 }
 
-type FileSystemContents = HashMap<String, String>;
+#[pymethods]
+impl PyRealBasicFileSystem {
+    #[new]
+    fn new() -> Self {
+        PyRealBasicFileSystem {
+            inner: RealBasicFileSystem {},
+        }
+    }
 
-// Implements BasicFileSystem (defined in grimp.application.ports.filesystem.BasicFileSystem).
-#[pyclass]
-pub struct FakeBasicFileSystem {
-    contents: FileSystemContents,
+    #[getter]
+    fn sep(&self) -> String {
+        self.inner.sep()
+    }
+
+    #[pyo3(signature = (*components))]
+    fn join(&self, components: Vec<String>) -> String {
+        self.inner.join(components)
+    }
+
+    fn split(&self, file_name: &str) -> (String, String) {
+        self.inner.split(file_name)
+    }
+
+    fn exists(&self, file_name: &str) -> bool {
+        self.inner.exists(file_name)
+    }
+
+    fn read(&self, file_name: &str) -> PyResult<String> {
+        self.inner.read(file_name)
+    }
 }
 
-#[pymethods]
+type FileSystemContents = HashMap<String, String>;
+
+#[derive(Clone)]
+pub struct FakeBasicFileSystem {
+    contents: Box<FileSystemContents>,
+}
+
+// Implements BasicFileSystem (defined in grimp.application.ports.filesystem.BasicFileSystem).
+#[pyclass(name = "FakeBasicFileSystem")]
+pub struct PyFakeBasicFileSystem {
+    pub inner: FakeBasicFileSystem,
+}
+
 impl FakeBasicFileSystem {
-    #[pyo3(signature = (contents=None, content_map=None))]
-    #[new]
     fn new(contents: Option<&str>, content_map: Option<HashMap<String, String>>) -> PyResult<Self> {
         let mut parsed_contents = match contents {
             Some(contents) => parse_indented_file_system_string(contents),
@@ -135,16 +179,16 @@ impl FakeBasicFileSystem {
             parsed_contents.extend(unindented_map);
         };
         Ok(FakeBasicFileSystem {
-            contents: parsed_contents,
+            contents: Box::new(parsed_contents),
         })
     }
+}
 
-    #[getter]
+impl FileSystem for FakeBasicFileSystem {
     fn sep(&self) -> String {
         "/".to_string()
     }
 
-    #[pyo3(signature = (*components))]
     fn join(&self, components: Vec<String>) -> String {
         let sep = self.sep();
         components
@@ -194,6 +238,40 @@ impl FakeBasicFileSystem {
             Some(file_name) => Ok(file_name.clone()),
             None => Err(PyFileNotFoundError::new_err("")),
         }
+    }
+}
+
+#[pymethods]
+impl PyFakeBasicFileSystem {
+    #[pyo3(signature = (contents=None, content_map=None))]
+    #[new]
+    fn new(contents: Option<&str>, content_map: Option<HashMap<String, String>>) -> PyResult<Self> {
+        Ok(PyFakeBasicFileSystem {
+            inner: FakeBasicFileSystem::new(contents, content_map)?,
+        })
+    }
+
+    #[getter]
+    fn sep(&self) -> String {
+        self.inner.sep()
+    }
+
+    #[pyo3(signature = (*components))]
+    fn join(&self, components: Vec<String>) -> String {
+        self.inner.join(components)
+    }
+
+    fn split(&self, file_name: &str) -> (String, String) {
+        self.inner.split(file_name)
+    }
+
+    /// Checks if a file or directory exists within the file system.
+    fn exists(&self, file_name: &str) -> bool {
+        self.inner.exists(file_name)
+    }
+
+    fn read(&self, file_name: &str) -> PyResult<String> {
+        self.inner.read(file_name)
     }
 }
 
