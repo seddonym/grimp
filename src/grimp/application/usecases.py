@@ -2,20 +2,19 @@
 Use cases handle application logic.
 """
 
-from typing import Dict, Sequence, Set, Type, Union, cast, Iterable, Collection
-import math
-
-import joblib  # type: ignore
+from typing import Dict, Sequence, Set, Type, Union, cast, Iterable, Collection, Optional
+import re
 
 from ..application.ports import caching
 from ..application.ports.filesystem import AbstractFileSystem
 from ..application.ports.graph import ImportGraph
-from ..application.ports.importscanner import AbstractImportScanner
 from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage, ModuleFile
 from ..application.ports.packagefinder import AbstractPackageFinder
 from ..domain.valueobjects import DirectImport, Module
 from .config import settings
-import os
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
+
+_LEADING_DOT_REGEX = re.compile(r"^(\.+)\w")
 
 
 class NotSupplied:
@@ -218,77 +217,202 @@ def _scan_imports(
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
 ) -> Dict[ModuleFile, Set[DirectImport]]:
-    chunks = _create_chunks(module_files)
-    return _scan_chunks(
-        chunks,
-        file_system,
-        found_packages,
-        include_external_packages,
-        exclude_type_checking_imports,
-    )
+    # Preparation
+    # ===========
 
+    modules: Set[Module] = set()
+    for package in found_packages:
+        modules |= {mf.module for mf in package.module_files}
 
-def _create_chunks(module_files: Collection[ModuleFile]) -> tuple[tuple[ModuleFile, ...], ...]:
-    """
-    Split the module files into chunks, each to be worked on by a separate OS process.
-    """
-    module_files_tuple = tuple(module_files)
+    found_packages_by_module: Dict[Module, FoundPackage] = {
+        module_file.module: package
+        for package in found_packages
+        for module_file in package.module_files
+    }
 
-    number_of_module_files = len(module_files_tuple)
-    n_chunks = _decide_number_of_processes(number_of_module_files)
-    chunk_size = math.ceil(number_of_module_files / n_chunks)
-
-    return tuple(
-        module_files_tuple[i * chunk_size : (i + 1) * chunk_size] for i in range(n_chunks)
-    )
-
-
-def _decide_number_of_processes(number_of_module_files: int) -> int:
-    min_number_of_modules = int(
-        os.environ.get(
-            MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME,
-            DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING,
+    module_filenames_by_module = {}
+    for module_file in module_files:
+        found_package = found_packages_by_module[module_file.module]
+        module_filename = _determine_module_filename(
+            file_system, module_file.module, found_package
         )
-    )
-    if number_of_module_files < min_number_of_modules:
-        # Don't incur the overhead of multiple processes.
-        return 1
-    return min(joblib.cpu_count(), number_of_module_files)
+        module_filenames_by_module[module_file.module] = module_filename
 
+    # Scan raw imported objects in parallel via rust
+    # ==============================================
 
-def _scan_chunks(
-    chunks: Collection[Collection[ModuleFile]],
-    file_system: AbstractFileSystem,
-    found_packages: Set[FoundPackage],
-    include_external_packages: bool,
-    exclude_type_checking_imports: bool,
-) -> Dict[ModuleFile, Set[DirectImport]]:
-    import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
-        file_system=file_system,
-        found_packages=found_packages,
-        include_external_packages=include_external_packages,
+    imported_objects_by_module_name = rust.parse_imported_objects(
+        [
+            (module_file.module.name, module_filenames_by_module[module_file.module])
+            for module_file in module_files
+        ]
     )
 
-    number_of_processes = len(chunks)
-    import_scanning_jobs = joblib.Parallel(n_jobs=number_of_processes)(
-        joblib.delayed(_scan_chunk)(import_scanner, exclude_type_checking_imports, chunk)
-        for chunk in chunks
-    )
+    # Post-processing of raw imports to obtain final result
+    # =====================================================
 
     imports_by_module_file = {}
-    for chunk_imports_by_module_file in import_scanning_jobs:
-        imports_by_module_file.update(chunk_imports_by_module_file)
+    for module_file in module_files:
+        module = module_file.module
+        module_filename = module_filenames_by_module[module]
+
+        is_package = _module_is_package(file_system, module_filename)
+
+        imports = set()
+        for imported_object in imported_objects_by_module_name[module_file.module.name]:
+            # Filter on `exclude_type_checking_imports`.
+            if exclude_type_checking_imports and imported_object["typechecking_only"]:
+                continue
+
+            # Resolve relative imports.
+            imported_object_name = _get_absolute_imported_object_name(
+                module=module, is_package=is_package, imported_object_name=imported_object["name"]
+            )
+
+            # Resolve imported module.
+            imported_module = _get_internal_module(imported_object_name, modules=modules)
+            if imported_module is None:
+                # => External import.
+
+                # Filter on `include_external_packages`.
+                if not include_external_packages:
+                    continue
+
+                # Distill module.
+                imported_module = _distill_external_module(
+                    Module(imported_object_name), found_packages=found_packages
+                )
+                if imported_module is None:
+                    continue
+
+            imports.add(
+                DirectImport(
+                    importer=module,
+                    imported=imported_module,
+                    line_number=imported_object["line_number"],
+                    line_contents=imported_object["line_contents"],
+                )
+            )
+
+        imports_by_module_file[module_file] = imports
+
     return imports_by_module_file
 
 
-def _scan_chunk(
-    import_scanner: AbstractImportScanner,
-    exclude_type_checking_imports: bool,
-    chunk: Iterable[ModuleFile],
-) -> Dict[ModuleFile, Set[DirectImport]]:
-    return {
-        module_file: import_scanner.scan_for_imports(
-            module_file.module, exclude_type_checking_imports=exclude_type_checking_imports
-        )
-        for module_file in chunk
-    }
+def _determine_module_filename(
+    file_system: AbstractFileSystem, module: Module, found_package: FoundPackage
+) -> str:
+    """
+    Work out the full filename of the given module.
+
+    Any given module can either be a straight Python file (foo.py) or else a package
+    (in which case the file is an __init__.py within a directory).
+    """
+    top_level_components = found_package.name.split(".")
+    module_components = module.name.split(".")
+    leaf_components = module_components[len(top_level_components) :]
+    package_directory = found_package.directory
+
+    filename_root = file_system.join(package_directory, *leaf_components)
+    candidate_filenames = (
+        f"{filename_root}.py",
+        file_system.join(filename_root, "__init__.py"),
+    )
+    for candidate_filename in candidate_filenames:
+        if file_system.exists(candidate_filename):
+            return candidate_filename
+    raise FileNotFoundError(f"Could not find module {module}.")
+
+
+def _module_is_package(file_system: AbstractFileSystem, module_filename: str) -> bool:
+    """
+    Whether or not the supplied module filename is a package.
+    """
+    return file_system.split(module_filename)[-1] == "__init__.py"
+
+
+def _get_absolute_imported_object_name(
+    *, module: Module, is_package: bool, imported_object_name: str
+) -> str:
+    leading_dot_match = _LEADING_DOT_REGEX.match(imported_object_name)
+    if leading_dot_match is None:
+        return imported_object_name
+
+    n_leading_dots = len(leading_dot_match.group(1))
+    if is_package:
+        if n_leading_dots == 1:
+            imported_object_name_base = module.name
+        else:
+            imported_object_name_base = ".".join(module.name.split(".")[: -(n_leading_dots - 1)])
+    else:
+        imported_object_name_base = ".".join(module.name.split(".")[:-n_leading_dots])
+    return imported_object_name_base + "." + imported_object_name[n_leading_dots:]
+
+
+def _get_internal_module(object_name: str, *, modules: Set[Module]) -> Optional[Module]:
+    candidate_module = Module(object_name)
+    if candidate_module in modules:
+        return candidate_module
+
+    try:
+        candidate_module = candidate_module.parent
+    except ValueError:
+        return None
+    else:
+        if candidate_module in modules:
+            return candidate_module
+        else:
+            return None
+
+
+def _distill_external_module(
+    module: Module, *, found_packages: Set[FoundPackage]
+) -> Optional[Module]:
+    """
+    Given a module that we already know is external, turn it into a module to add to the graph.
+
+    The 'distillation' process involves removing any unwanted subpackages. For example,
+    Module("django.models.db") should be turned into simply Module("django").
+
+    The process is more complex for potential namespace packages, as it's not possible to
+    determine the portion package simply from name. Rather than adding the overhead of a
+    filesystem read, we just get the shallowest component that does not clash with an internal
+    module namespace. Take, for example, a Module("foo.blue.alpha.one"). If one of the found
+    packages is foo.blue.beta, the module will be distilled to Module("foo.blue.alpha").
+    Alternatively, if the found package is foo.green, the distilled module will
+    be Module("foo.blue").
+    """
+    # If it's a module that is a parent of one of the internal packages, return None
+    # as it doesn't make sense and is probably an import of a namespace package.
+    if any(Module(package.name).is_descendant_of(module) for package in found_packages):
+        return None
+
+    # If it shares a namespace with an internal module, get the shallowest component that does
+    # not clash with an internal module namespace.
+    candidate_portions: Set[Module] = set()
+    for found_package in sorted(found_packages, key=lambda p: p.name, reverse=True):
+        root_module = Module(found_package.name)
+        if root_module.is_descendant_of(module.root):
+            (
+                internal_path_components,
+                external_path_components,
+            ) = root_module.name.split(
+                "."
+            ), module.name.split(".")
+            external_namespace_components = []
+            while external_path_components[0] == internal_path_components[0]:
+                external_namespace_components.append(external_path_components[0])
+                external_path_components = external_path_components[1:]
+                internal_path_components = internal_path_components[1:]
+            external_namespace_components.append(external_path_components[0])
+            candidate_portions.add(Module(".".join(external_namespace_components)))
+
+    if candidate_portions:
+        # If multiple found packages share a namespace with this module, use the deepest one
+        # as we know that that will be a namespace too.
+        deepest_candidate_portion = sorted(
+            candidate_portions, key=lambda p: len(p.name.split("."))
+        )[-1]
+        return deepest_candidate_portion
+    else:
+        return module.root
