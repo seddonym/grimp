@@ -2,6 +2,14 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+* Implement closed layers - a feature that prevents imports from higher layers
+  bypassing intermediate layers. Closed layers force higher layers to access
+  lower layers only through the closed layer's interface, enforcing stricter
+  architectural boundaries.
+
 3.9 (2025-05-05)
 ----------------
 
