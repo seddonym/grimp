@@ -84,15 +84,18 @@ impl Graph {
             )
     }
 
-    fn generate_module_permutations(&self, levels: &[Level]) -> Vec<(ModuleToken, ModuleToken)> {
-        let mut permutations = vec![];
+    fn generate_module_permutations(
+        &self,
+        levels: &[Level],
+    ) -> FxHashSet<(ModuleToken, ModuleToken)> {
+        let mut permutations = FxHashSet::default();
 
         for (index, level) in levels.iter().enumerate() {
             for module in &level.layers {
                 // Should not be imported by lower layers.
                 for lower_level in &levels[index + 1..] {
                     for lower_module in &lower_level.layers {
-                        permutations.push((*lower_module, *module));
+                        permutations.insert((*lower_module, *module));
                     }
                 }
 
@@ -102,7 +105,7 @@ impl Graph {
                         if sibling_module == module {
                             continue;
                         }
-                        permutations.push((*module, *sibling_module));
+                        permutations.insert((*module, *sibling_module));
                     }
                 }
 
@@ -111,7 +114,7 @@ impl Graph {
                 for higher_level in levels[..index].iter().rev() {
                     if closed {
                         for higher_module in &higher_level.layers {
-                            permutations.push((*higher_module, *module));
+                            permutations.insert((*higher_module, *module));
                         }
                     }
                     closed |= higher_level.closed;
@@ -256,11 +259,11 @@ mod tests {
 
         assert_eq!(
             permutations,
-            vec![
-                (middle_module, top_module),
-                (bottom_module, top_module),
+            FxHashSet::from_iter([
                 (bottom_module, middle_module),
-            ]
+                (bottom_module, top_module),
+                (middle_module, top_module),
+            ])
         );
     }
 
@@ -282,15 +285,8 @@ mod tests {
         let permutations = graph.generate_module_permutations(&levels);
 
         assert_eq!(
-            permutations
-                .into_iter()
-                // Sorted for stable comparision.
-                .sorted_by_key(|(importer, imported)| (
-                    graph.get_module(*importer).unwrap().name(),
-                    graph.get_module(*imported).unwrap().name()
-                ))
-                .collect_vec(),
-            vec![(module_a, module_b), (module_b, module_a),]
+            permutations,
+            FxHashSet::from_iter([(module_a, module_b), (module_b, module_a),])
         );
     }
 
@@ -321,21 +317,14 @@ mod tests {
         let permutations = graph.generate_module_permutations(&levels);
 
         assert_eq!(
-            permutations
-                .into_iter()
-                // Sorted for stable comparision.
-                .sorted_by_key(|(importer, imported)| (
-                    graph.get_module(*importer).unwrap().name(),
-                    graph.get_module(*imported).unwrap().name()
-                ))
-                .collect_vec(),
-            vec![
+            permutations,
+            FxHashSet::from_iter([
                 (bottom_module, middle_module),
                 (bottom_module, top_module),
                 (middle_module, top_module),
                 // Top should not import Bottom due to closed middle layer
                 (top_module, bottom_module),
-            ]
+            ])
         );
     }
 }
