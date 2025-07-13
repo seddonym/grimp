@@ -60,7 +60,7 @@ impl Graph {
             .flat_map(|m| m.conv::<FxHashSet<_>>().with_descendants(self))
             .collect::<FxHashSet<_>>();
 
-        self.generate_module_permutations(levels)
+        self.generate_illegal_import_permutations_for_layers(levels)
             .into_par_iter()
             .try_fold(
                 Vec::new,
@@ -84,7 +84,9 @@ impl Graph {
             )
     }
 
-    fn generate_module_permutations(
+    /// Returns a set of tuples (importer, imported) describing the illegal
+    /// import permutations for the given layers.
+    fn generate_illegal_import_permutations_for_layers(
         &self,
         levels: &[Level],
     ) -> FxHashSet<(ModuleToken, ModuleToken)> {
@@ -255,7 +257,7 @@ mod tests {
 
         let levels = vec![top_level, middle_level, bottom_level];
 
-        let permutations = graph.generate_module_permutations(&levels);
+        let permutations = graph.generate_illegal_import_permutations_for_layers(&levels);
 
         assert_eq!(
             permutations,
@@ -282,7 +284,7 @@ mod tests {
 
         let levels = vec![independent_level];
 
-        let permutations = graph.generate_module_permutations(&levels);
+        let permutations = graph.generate_illegal_import_permutations_for_layers(&levels);
 
         assert_eq!(
             permutations,
@@ -314,7 +316,7 @@ mod tests {
 
         let levels = vec![top_level, middle_level, bottom_level];
 
-        let permutations = graph.generate_module_permutations(&levels);
+        let permutations = graph.generate_illegal_import_permutations_for_layers(&levels);
 
         assert_eq!(
             permutations,
