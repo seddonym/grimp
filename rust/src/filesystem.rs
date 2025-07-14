@@ -2,6 +2,7 @@ use pyo3::exceptions::{PyFileNotFoundError, PyUnicodeDecodeError};
 use pyo3::prelude::*;
 use regex::Regex;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use unindent::unindent;
@@ -199,33 +200,21 @@ impl FileSystem for FakeBasicFileSystem {
     }
 
     fn split(&self, file_name: &str) -> (String, String) {
-        let components: Vec<&str> = file_name.split('/').collect();
-
-        if components.is_empty() {
-            return ("".to_string(), "".to_string());
-        }
-
-        let tail = components.last().unwrap_or(&""); // Last component, or empty if components is empty (shouldn't happen from split)
-
-        let head_components = &components[..components.len() - 1]; // All components except the last
-
-        let head = if head_components.is_empty() {
-            // Case for single component paths like "filename.txt" or empty string ""
-            "".to_string()
-        } else if file_name.starts_with('/')
-            && head_components.len() == 1
-            && head_components[0].is_empty()
-        {
-            // Special handling for paths starting with '/', e.g., "/" or "/filename.txt"
-            // If components were ["", ""], head_components is [""] -> should be "/"
-            // If components were ["", "file.txt"], head_components is [""] -> should be "/"
-            "/".to_string()
+        let path;
+        let head;
+        let tail;
+        if let Some(file_name_without_trailing_slash) = file_name.strip_suffix("/") {
+            head = Path::new(file_name_without_trailing_slash);
+            tail = OsStr::new("");
         } else {
-            // Default joining for multiple components
-            head_components.join("/")
-        };
-
-        (head, tail.to_string())
+            path = Path::new(file_name);
+            head = path.parent().unwrap_or(Path::new(""));
+            tail = path.file_name().unwrap_or(OsStr::new(""));
+        }
+        (
+            head.to_str().unwrap().to_string(),
+            tail.to_str().unwrap().to_string(),
+        )
     }
 
     /// Checks if a file or directory exists within the file system.

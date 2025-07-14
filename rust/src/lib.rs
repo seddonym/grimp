@@ -1,14 +1,15 @@
 pub mod errors;
 pub mod exceptions;
+mod filesystem;
 pub mod graph;
 pub mod import_parsing;
-pub mod module_expressions;
-mod filesystem;
 mod import_scanning;
+pub mod module_expressions;
 mod module_finding;
 
 use crate::errors::{GrimpError, GrimpResult};
 use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError};
+use crate::filesystem::{PyFakeBasicFileSystem, PyRealBasicFileSystem};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
 use crate::import_scanning::ImportScanner;
@@ -22,7 +23,6 @@ use pyo3::types::{IntoPyDict, PyDict, PyFrozenSet, PyList, PySet, PyString, PyTu
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
 use std::collections::HashSet;
-use crate::filesystem::{PyRealBasicFileSystem,PyFakeBasicFileSystem};
 
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {

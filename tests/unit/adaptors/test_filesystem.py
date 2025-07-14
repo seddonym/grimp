@@ -18,9 +18,20 @@ class _Base:
         file_system = self.file_system_cls()
         assert "/path/to/mypackage/file.py" == file_system.join(path, "mypackage", "file.py")
 
-    def test_split(self):
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            ("", ("", "")),
+            ("/path", ("/", "path")),
+            ("some-file", ("", "some-file")),
+            ("/path/to/mypackage/", ("/path/to/mypackage", "")),
+            ("/path/to/mypackage/some-file", ("/path/to/mypackage", "some-file")),
+            ("/path/to/mypackage/some-file.py", ("/path/to/mypackage", "some-file.py")),
+        ],
+    )
+    def test_split(self, path, expected):
         file_system = self.file_system_cls()
-        assert ("/path/to/mypackage", "file.py") == file_system.split("/path/to/mypackage/file.py")
+        assert file_system.split(path) == expected
 
     @pytest.mark.parametrize(
         "file_name, expected",
