@@ -59,7 +59,6 @@ def build_graph(
             "mypackage", "anotherpackage", "onemore", include_external_packages=True,
         )
     """
-
     file_system: AbstractFileSystem = settings.FILE_SYSTEM
 
     found_packages = _find_packages(
@@ -145,7 +144,6 @@ def _scan_packages(
         imports_by_module_file.update(
             _scan_imports(
                 remaining_module_files_to_scan,
-                file_system=file_system,
                 found_packages=found_packages,
                 include_external_packages=include_external_packages,
                 exclude_type_checking_imports=exclude_type_checking_imports,
@@ -213,7 +211,6 @@ def _read_imports_from_cache(
 def _scan_imports(
     module_files: Collection[ModuleFile],
     *,
-    file_system: AbstractFileSystem,
     found_packages: Set[FoundPackage],
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
@@ -221,7 +218,6 @@ def _scan_imports(
     chunks = _create_chunks(module_files)
     return _scan_chunks(
         chunks,
-        file_system,
         found_packages,
         include_external_packages,
         exclude_type_checking_imports,
@@ -256,22 +252,40 @@ def _decide_number_of_processes(number_of_module_files: int) -> int:
     return min(joblib.cpu_count(), number_of_module_files)
 
 
+def _scan_chunk(
+    found_packages: Set[FoundPackage],
+    include_external_packages: bool,
+    exclude_type_checking_imports: bool,
+    chunk: Iterable[ModuleFile],
+) -> Dict[ModuleFile, Set[DirectImport]]:
+    file_system: AbstractFileSystem = settings.FILE_SYSTEM
+    basic_file_system = file_system.convert_to_basic()
+    import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
+        file_system=basic_file_system,
+        found_packages=found_packages,
+        # Ensure that the passed exclude_type_checking_imports is definitely a boolean,
+        # otherwise the Rust class will error.
+        include_external_packages=bool(include_external_packages),
+    )
+    return {
+        module_file: import_scanner.scan_for_imports(
+            module_file.module, exclude_type_checking_imports=exclude_type_checking_imports
+        )
+        for module_file in chunk
+    }
+
+
 def _scan_chunks(
     chunks: Collection[Collection[ModuleFile]],
-    file_system: AbstractFileSystem,
     found_packages: Set[FoundPackage],
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
 ) -> Dict[ModuleFile, Set[DirectImport]]:
-    import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
-        file_system=file_system,
-        found_packages=found_packages,
-        include_external_packages=include_external_packages,
-    )
-
     number_of_processes = len(chunks)
     import_scanning_jobs = joblib.Parallel(n_jobs=number_of_processes)(
-        joblib.delayed(_scan_chunk)(import_scanner, exclude_type_checking_imports, chunk)
+        joblib.delayed(_scan_chunk)(
+            found_packages, include_external_packages, exclude_type_checking_imports, chunk
+        )
         for chunk in chunks
     )
 
@@ -279,16 +293,3 @@ def _scan_chunks(
     for chunk_imports_by_module_file in import_scanning_jobs:
         imports_by_module_file.update(chunk_imports_by_module_file)
     return imports_by_module_file
-
-
-def _scan_chunk(
-    import_scanner: AbstractImportScanner,
-    exclude_type_checking_imports: bool,
-    chunk: Iterable[ModuleFile],
-) -> Dict[ModuleFile, Set[DirectImport]]:
-    return {
-        module_file: import_scanner.scan_for_imports(
-            module_file.module, exclude_type_checking_imports=exclude_type_checking_imports
-        )
-        for module_file in chunk
-    }
