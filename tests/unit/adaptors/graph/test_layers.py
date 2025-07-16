@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import logging
 import re
+from collections.abc import Iterable
 
 import pytest  # type: ignore
 
@@ -962,75 +963,153 @@ def _pairwise(iterable):
 
 class TestClosedLayers:
     @pytest.mark.parametrize(
-        "importer, imported",
+        "importer, imported, expect_ok",
         [
-            ("mypackage.highest", "mypackage.low"),
-            ("mypackage.highest", "mypackage.lowest"),
-            ("mypackage.high", "mypackage.low"),
-            ("mypackage.high", "mypackage.lowest"),
+            # Legal imports (sample)
+            ("highest", "high", True),
+            ("highest", "mid", True),
+            ("mid", "lowest", True),
+            # Illegal imports (exhaustive)
+            ("highest", "low", False),
+            ("highest", "lowest", False),
+            ("high", "low", False),
+            ("high", "lowest", False),
         ],
     )
-    def test_cannot_import_through_closed_mid(self, importer, imported):
-        graph = self._build_legal_graph()
+    def test_one_closed_layer(self, importer, imported, expect_ok):
+        layers = [
+            Layer("highest"),
+            Layer("high"),
+            Layer("mid", closed=True),
+            Layer("low"),
+            Layer("lowest"),
+        ]
+        graph = self._build_layers(layers)
+
         graph.add_import(importer=importer, imported=imported)
 
-        result = self._analyze(graph)
+        result = graph.find_illegal_dependencies_for_layers(layers)
+
+        if expect_ok:
+            assert result == set()
+        else:
+            assert result == {
+                PackageDependency.new(
+                    importer=importer,
+                    imported=imported,
+                    routes={Route.single_chained(importer, imported)},
+                ),
+            }
+
+    @pytest.mark.parametrize(
+        "importer, imported, expect_ok",
+        [
+            ("highest", "high", True),
+            ("highest", "mid", False),
+            ("highest", "low", False),
+            ("highest", "lowest", False),
+            ("high", "mid", True),
+            ("high", "low", True),
+            ("high", "lowest", False),
+            ("mid", "low", True),
+            ("mid", "lowest", False),
+            ("low", "lowest", True),
+        ],
+    )
+    def test_two_closed_layers(self, importer, imported, expect_ok):
+        layers = [
+            Layer("highest"),
+            Layer("high", closed=True),
+            Layer("mid"),
+            Layer("low", closed=True),
+            Layer("lowest"),
+        ]
+        graph = self._build_layers(layers)
+
+        graph.add_import(importer=importer, imported=imported)
+
+        result = graph.find_illegal_dependencies_for_layers(layers)
+
+        if expect_ok:
+            assert result == set()
+        else:
+            assert result == {
+                PackageDependency.new(
+                    importer=importer,
+                    imported=imported,
+                    routes={Route.single_chained(importer, imported)},
+                ),
+            }
+
+    @pytest.mark.parametrize(
+        "importer, imported, expect_ok",
+        [
+            ("high", "mid_high", True),
+            ("high", "mid_low", False),
+            ("high", "low", False),
+            ("mid_high", "mid_low", True),
+            ("mid_high", "low", False),
+            ("mid_low", "low", True),
+        ],
+    )
+    def test_two_consecutive_closed_layers(self, importer, imported, expect_ok):
+        layers = [
+            Layer("high"),
+            Layer("mid_high", closed=True),
+            Layer("mid_low", closed=True),
+            Layer("low"),
+        ]
+        graph = self._build_layers(layers)
+
+        graph.add_import(importer=importer, imported=imported)
+
+        result = graph.find_illegal_dependencies_for_layers(layers)
+
+        if expect_ok:
+            assert result == set()
+        else:
+            assert result == {
+                PackageDependency.new(
+                    importer=importer,
+                    imported=imported,
+                    routes={Route.single_chained(importer, imported)},
+                ),
+            }
+
+    def test_indirect_import_cannot_bypass_closed_layer(self):
+        layers = [
+            Layer("high"),
+            Layer("mid", closed=True),
+            Layer("low"),
+        ]
+        graph = self._build_layers(layers)
+
+        graph.add_module("other")
+        graph.add_import(importer="high", imported="other")
+        graph.add_import(importer="other", imported="low")
+
+        result = graph.find_illegal_dependencies_for_layers(layers)
 
         assert result == {
             PackageDependency.new(
-                importer=importer,
-                imported=imported,
-                routes={Route.single_chained(importer, imported)},
+                importer="high",
+                imported="low",
+                routes={Route.single_chained("high", "other", "low")},
             ),
         }
 
-    def test_cannot_import_through_closed_mid_indirect(self):
-        graph = self._build_legal_graph()
-        graph.add_import(importer="mypackage.high", imported="mypackage.other")
-        graph.add_import(importer="mypackage.other", imported="mypackage.low")
-
-        result = self._analyze(graph)
-
-        assert result == {
-            PackageDependency.new(
-                importer="mypackage.high",
-                imported="mypackage.low",
-                routes={
-                    Route.single_chained("mypackage.high", "mypackage.other", "mypackage.low")
-                },
-            ),
-        }
-
-    def _build_legal_graph(self):
+    def _build_layers(self, layers: Iterable[Layer]):
         graph = ImportGraph()
-        for module in (
-            "mypackage",
-            "mypackage.highest",
-            "mypackage.high",
-            "mypackage.mid",
-            "mypackage.low",
-            "mypackage.lowest",
-            "mypackage.other",
-        ):
-            graph.add_module(module)
 
-        # Add some 'legal' imports that respect the layering
-        graph.add_import(importer="mypackage.highest", imported="mypackage.high")
-        graph.add_import(importer="mypackage.high", imported="mypackage.mid")
-        graph.add_import(importer="mypackage.mid", imported="mypackage.low")
-        graph.add_import(importer="mypackage.low", imported="mypackage.lowest")
-        graph.add_import(importer="mypackage.highest", imported="mypackage.mid")
-        graph.add_import(importer="mypackage.mid", imported="mypackage.lowest")
+        modules = []
+        for layer in layers:
+            assert len(layer.module_tails) == 1
+            module = list(layer.module_tails)[0]
+            graph.add_module(module)
+            modules.append(module)
+
+        # Legal imports, from higher layer to immediate lower layer
+        for higher_module, lower_module in zip(modules[:-1], modules[1:]):
+            graph.add_import(importer=higher_module, imported=lower_module)
 
         return graph
-
-    def _analyze(self, graph: ImportGraph) -> set[PackageDependency]:
-        return graph.find_illegal_dependencies_for_layers(
-            layers=(
-                Layer("mypackage.highest", closed=False),
-                Layer("mypackage.high", closed=False),
-                Layer("mypackage.mid", closed=True),  # Closed layer
-                Layer("mypackage.low", closed=False),
-                Layer("mypackage.lowest", closed=False),
-            ),
-        )
