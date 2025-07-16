@@ -16,6 +16,9 @@ pub struct Level {
 
     #[getset(get_copy = "pub")]
     independent: bool,
+
+    #[getset(get_copy = "pub")]
+    closed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, new, Getters)]
@@ -57,7 +60,7 @@ impl Graph {
             .flat_map(|m| m.conv::<FxHashSet<_>>().with_descendants(self))
             .collect::<FxHashSet<_>>();
 
-        self.generate_module_permutations(levels)
+        self.generate_illegal_import_permutations_for_layers(levels)
             .into_par_iter()
             .try_fold(
                 Vec::new,
@@ -81,15 +84,20 @@ impl Graph {
             )
     }
 
-    fn generate_module_permutations(&self, levels: &[Level]) -> Vec<(ModuleToken, ModuleToken)> {
-        let mut permutations = vec![];
+    /// Returns a set of tuples (importer, imported) describing the illegal
+    /// import permutations for the given layers.
+    fn generate_illegal_import_permutations_for_layers(
+        &self,
+        levels: &[Level],
+    ) -> FxHashSet<(ModuleToken, ModuleToken)> {
+        let mut permutations = FxHashSet::default();
 
         for (index, level) in levels.iter().enumerate() {
             for module in &level.layers {
                 // Should not be imported by lower layers.
                 for lower_level in &levels[index + 1..] {
                     for lower_module in &lower_level.layers {
-                        permutations.push((*lower_module, *module));
+                        permutations.insert((*lower_module, *module));
                     }
                 }
 
@@ -99,8 +107,19 @@ impl Graph {
                         if sibling_module == module {
                             continue;
                         }
-                        permutations.push((*module, *sibling_module));
+                        permutations.insert((*module, *sibling_module));
                     }
+                }
+
+                // Should not be imported by higher layers if there is a closed layer inbetween.
+                let mut closed = false;
+                for higher_level in levels[..index].iter().rev() {
+                    if closed {
+                        for higher_module in &higher_level.layers {
+                            permutations.insert((*higher_module, *module));
+                        }
+                    }
+                    closed |= higher_level.closed;
                 }
             }
         }
@@ -206,5 +225,108 @@ impl Graph {
             Some(chain[1..chain.len() - 1].to_vec()),
             chain[chain.len() - 1],
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::graph::Graph;
+    use rustc_hash::FxHashSet;
+
+    #[test]
+    fn test_generate_module_permutations_simple_layers() {
+        let mut graph = Graph::default();
+
+        let top_module = graph.get_or_add_module("app.top").token;
+        let middle_module = graph.get_or_add_module("app.middle").token;
+        let bottom_module = graph.get_or_add_module("app.bottom").token;
+
+        let mut top_layer = FxHashSet::default();
+        top_layer.insert(top_module);
+
+        let mut middle_layer = FxHashSet::default();
+        middle_layer.insert(middle_module);
+
+        let mut bottom_layer = FxHashSet::default();
+        bottom_layer.insert(bottom_module);
+
+        let top_level = Level::new(top_layer, false, false);
+        let middle_level = Level::new(middle_layer, false, false);
+        let bottom_level = Level::new(bottom_layer, false, false);
+
+        let levels = vec![top_level, middle_level, bottom_level];
+
+        let permutations = graph.generate_illegal_import_permutations_for_layers(&levels);
+
+        assert_eq!(
+            permutations,
+            FxHashSet::from_iter([
+                (bottom_module, middle_module),
+                (bottom_module, top_module),
+                (middle_module, top_module),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_generate_module_permutations_independent_layer() {
+        let mut graph = Graph::default();
+
+        let module_a = graph.get_or_add_module("app.independent.a").token;
+        let module_b = graph.get_or_add_module("app.independent.b").token;
+
+        let mut independent_layer = FxHashSet::default();
+        independent_layer.insert(module_a);
+        independent_layer.insert(module_b);
+
+        let independent_level = Level::new(independent_layer, true, false);
+
+        let levels = vec![independent_level];
+
+        let permutations = graph.generate_illegal_import_permutations_for_layers(&levels);
+
+        assert_eq!(
+            permutations,
+            FxHashSet::from_iter([(module_a, module_b), (module_b, module_a),])
+        );
+    }
+
+    #[test]
+    fn test_generate_module_permutations_closed_layer() {
+        let mut graph = Graph::default();
+
+        // Create three layers with the middle one closed
+        let top_module = graph.get_or_add_module("app.top").token;
+        let middle_module = graph.get_or_add_module("app.middle").token;
+        let bottom_module = graph.get_or_add_module("app.bottom").token;
+
+        let mut top_layer = FxHashSet::default();
+        top_layer.insert(top_module);
+
+        let mut middle_layer = FxHashSet::default();
+        middle_layer.insert(middle_module);
+
+        let mut bottom_layer = FxHashSet::default();
+        bottom_layer.insert(bottom_module);
+
+        let top_level = Level::new(top_layer, false, false);
+        let middle_level = Level::new(middle_layer, false, true); // Closed layer
+        let bottom_level = Level::new(bottom_layer, false, false);
+
+        let levels = vec![top_level, middle_level, bottom_level];
+
+        let permutations = graph.generate_illegal_import_permutations_for_layers(&levels);
+
+        assert_eq!(
+            permutations,
+            FxHashSet::from_iter([
+                (bottom_module, middle_module),
+                (bottom_module, top_module),
+                (middle_module, top_module),
+                // Top should not import Bottom due to closed middle layer
+                (top_module, bottom_module),
+            ])
+        );
     }
 }

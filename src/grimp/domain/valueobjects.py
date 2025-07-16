@@ -69,12 +69,15 @@ class Layer:
 
     module_tails: Set[str]
     independent: bool
+    closed: bool
 
     # A custom `__init__` is needed since `module_tails` is a variadic argument.
-    def __init__(self, *module_tails: str, independent: bool = True) -> None:
+    def __init__(self, *module_tails: str, independent: bool = True, closed: bool = False) -> None:
         # `object.__setattr__` is needed since the dataclass is frozen.
         object.__setattr__(self, "module_tails", set(module_tails))
         object.__setattr__(self, "independent", independent)
+        object.__setattr__(self, "closed", closed)
 
     def __str__(self) -> str:
-        return f"{self.module_tails}, independent={self.independent}"
+        module_tails = sorted(self.module_tails)
+        return f"{module_tails}, independent={self.independent}, closed={self.closed}"

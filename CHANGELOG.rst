@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+* Add closed layers to layer contract.
+
 3.9 (2025-05-05)
 ----------------
 

@@ -161,7 +161,11 @@ class ImportGraph(graph.ImportGraph):
         try:
             result = self._rustgraph.find_illegal_dependencies_for_layers(
                 layers=tuple(
-                    {"layers": layer.module_tails, "independent": layer.independent}
+                    {
+                        "layers": layer.module_tails,
+                        "independent": layer.independent,
+                        "closed": layer.closed,
+                    }
                     for layer in layers
                 ),
                 containers=set(containers) if containers else set(),
@@ -201,9 +205,9 @@ def _parse_layers(layers: Sequence[Layer | str | set[str]]) -> tuple[Layer, ...]
         if isinstance(layer, Layer):
             out_layers.append(layer)
         elif isinstance(layer, str):
-            out_layers.append(Layer(layer, independent=True))
+            out_layers.append(Layer(layer))
         else:
-            out_layers.append(Layer(*tuple(layer), independent=True))
+            out_layers.append(Layer(*tuple(layer)))
     return tuple(out_layers)
 
 

@@ -373,6 +373,11 @@ class ImportGraph(abc.ABC):
         compatibility it is also possible to pass a simple `set[str]` to describe a layer. In this
         case the sibling modules within the layer will be considered independent.
 
+        By default layers are open. `Layer.closed` can be set to True to create a closed layer.
+        Imports from higher to lower layers cannot bypass closed layers - the closed layer must be
+        included in the import chain. For example, given the layers high -> mid (closed) -> low then
+        all import chains from high -> low must go via mid.
+
         Arguments:
 
         - layers:     A sequence, each element of which consists either of a `Layer`, the name

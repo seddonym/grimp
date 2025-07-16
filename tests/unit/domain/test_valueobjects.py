@@ -1,6 +1,6 @@
 import pytest  # type: ignore
 
-from grimp.domain.valueobjects import DirectImport, Module
+from grimp.domain.valueobjects import DirectImport, Module, Layer
 
 
 class TestModule:
@@ -33,3 +33,9 @@ class TestDirectImport:
             line_contents="import bar",
         )
         assert str(import_path) == "foo -> bar (l. 10)"
+
+
+class TestLayer:
+    def test_str(self):
+        layer = Layer("foo", "bar", independent=True, closed=False)
+        assert str(layer) == "['bar', 'foo'], independent=True, closed=False"
