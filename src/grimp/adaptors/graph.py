@@ -175,6 +175,12 @@ class ImportGraph(graph.ImportGraph):
 
         return _dependencies_from_tuple(result)
 
+    def find_cycles(
+            self
+        ) -> list[list[str]]:
+        result: list[list[str]] = self._rustgraph.find_cycles()
+        return result
+
     # Dunder methods
     # --------------
 
