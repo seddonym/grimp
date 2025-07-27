@@ -1,33 +1,15 @@
-from typing import Any
+from dataclasses import dataclass
+from typing import Set
 
 
-class ValueObject:
-    def __repr__(self) -> str:
-        return "<{}: {}>".format(self.__class__.__name__, self)
-
-    def __eq__(self, other: Any) -> bool:
-        if isinstance(other, type(self)) or isinstance(self, type(other)):
-            return hash(self) == hash(other)
-        else:
-            return False
-
-    def __hash__(self) -> int:
-        return hash(str(self))
-
-
-class Module(ValueObject):
+@dataclass(frozen=True)
+class Module:
     """
     A Python module.
     """
 
-    __slots__ = ("name",)
-
-    def __init__(self, name: str) -> None:
-        """
-        Args:
-            name: The fully qualified name of a Python module, e.g. 'package.foo.bar'.
-        """
-        self.name = name
+    # The fully qualified name of a Python module, e.g. 'package.foo.bar'.
+    name: str
 
     def __str__(self) -> str:
         return self.name
@@ -61,32 +43,23 @@ class Module(ValueObject):
         return self.name.startswith(f"{module.name}.")
 
 
-class DirectImport(ValueObject):
+@dataclass(frozen=True)
+class DirectImport:
     """
     An import between one module and another.
     """
 
-    def __init__(
-        self,
-        *,
-        importer: Module,
-        imported: Module,
-        line_number: int,
-        line_contents: str,
-    ) -> None:
-        self.importer = importer
-        self.imported = imported
-        self.line_number = line_number
-        self.line_contents = line_contents
+    importer: Module
+    imported: Module
+    line_number: int
+    line_contents: str
 
     def __str__(self) -> str:
-        return "{} -> {} (l. {})".format(self.importer, self.imported, self.line_number)
-
-    def __hash__(self) -> int:
-        return hash((str(self), self.line_contents))
+        return f"{self.importer} -> {self.imported} (l. {self.line_number})"
 
 
-class Layer(ValueObject):
+@dataclass(frozen=True)
+class Layer:
     """
     A layer within a layered architecture.
 
@@ -94,13 +67,17 @@ class Layer(ValueObject):
     independent. This is the default.
     """
 
-    def __init__(
-        self,
-        *module_tails: str,
-        independent: bool = True,
-    ) -> None:
-        self.module_tails = set(module_tails)
-        self.independent = independent
+    module_tails: Set[str]
+    independent: bool
+    closed: bool
+
+    # A custom `__init__` is needed since `module_tails` is a variadic argument.
+    def __init__(self, *module_tails: str, independent: bool = True, closed: bool = False) -> None:
+        # `object.__setattr__` is needed since the dataclass is frozen.
+        object.__setattr__(self, "module_tails", set(module_tails))
+        object.__setattr__(self, "independent", independent)
+        object.__setattr__(self, "closed", closed)
 
     def __str__(self) -> str:
-        return f"{self.module_tails}, independent={self.independent}"
+        module_tails = sorted(self.module_tails)
+        return f"{module_tails}, independent={self.independent}, closed={self.closed}"

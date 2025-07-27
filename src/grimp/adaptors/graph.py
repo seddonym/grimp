@@ -1,10 +1,15 @@
 from __future__ import annotations
 from typing import List, Optional, Sequence, Set, Tuple, TypedDict
-from grimp.application.ports.graph import DetailedImport
+from grimp.application.ports.graph import DetailedImport, Import
 from grimp.domain.analysis import PackageDependency, Route
 from grimp.domain.valueobjects import Layer
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
-from grimp.exceptions import ModuleNotPresent, NoSuchContainer
+from grimp.exceptions import (
+    ModuleNotPresent,
+    NoSuchContainer,
+    InvalidModuleExpression,
+    InvalidImportExpression,
+)
 from grimp.application.ports import graph
 
 
@@ -23,6 +28,12 @@ class ImportGraph(graph.ImportGraph):
         if self._cached_modules is None:
             self._cached_modules = self._rustgraph.get_modules()
         return self._cached_modules
+
+    def find_matching_modules(self, expression: str) -> Set[str]:
+        try:
+            return self._rustgraph.find_matching_modules(expression)
+        except rust.InvalidModuleExpression as e:
+            raise InvalidModuleExpression(str(e)) from e
 
     def add_module(self, module: str, is_squashed: bool = False) -> None:
         self._cached_modules = None
@@ -102,6 +113,21 @@ class ImportGraph(graph.ImportGraph):
             imported=imported,
         )
 
+    def find_matching_direct_imports(self, import_expression: str) -> List[Import]:
+        try:
+            importer_expression, imported_expression = import_expression.split(" -> ")
+        except ValueError:
+            raise InvalidImportExpression(f"{import_expression} is not a valid import expression.")
+
+        try:
+            return self._rustgraph.find_matching_direct_imports(
+                importer_expression=importer_expression, imported_expression=imported_expression
+            )
+        except rust.InvalidModuleExpression as e:
+            raise InvalidImportExpression(
+                f"{import_expression} is not a valid import expression."
+            ) from e
+
     def find_downstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
         return self._rustgraph.find_downstream_modules(module, as_package)
 
@@ -144,7 +170,11 @@ class ImportGraph(graph.ImportGraph):
         try:
             result = self._rustgraph.find_illegal_dependencies_for_layers(
                 layers=tuple(
-                    {"layers": layer.module_tails, "independent": layer.independent}
+                    {
+                        "layers": layer.module_tails,
+                        "independent": layer.independent,
+                        "closed": layer.closed,
+                    }
                     for layer in layers
                 ),
                 containers=set(containers) if containers else set(),
@@ -184,9 +214,9 @@ def _parse_layers(layers: Sequence[Layer | str | set[str]]) -> tuple[Layer, ...]
         if isinstance(layer, Layer):
             out_layers.append(layer)
         elif isinstance(layer, str):
-            out_layers.append(Layer(layer, independent=True))
+            out_layers.append(Layer(layer))
         else:
-            out_layers.append(Layer(*tuple(layer), independent=True))
+            out_layers.append(Layer(*tuple(layer)))
     return tuple(out_layers)
 
 

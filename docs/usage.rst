@@ -82,7 +82,12 @@ Building the graph
     :param str, optional cache_dir: The directory to use for caching the graph. Defaults to ``.grimp_cache``. To disable caching,
         pass ``None``. See :doc:`caching`.
     :return: An import graph that you can use to analyse the package.
-    :rtype: ImportGraph
+    :rtype: ``ImportGraph``
+
+    This method uses multiple operating system processes to build the graph, if the number of modules to scan (not
+    including modules in the cache) is 50 or more. This threshold can be adjusted by setting the ``GRIMP_MIN_MULTIPROCESSING_MODULES``
+    environment variable to a different number. To disable multiprocessing altogether, set it to a large number (more than
+    the number of modules in the codebase being analyzed).
 
 .. _typing module documentation: https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING
 
@@ -120,6 +125,16 @@ Methods for analysing the module tree
     :rtype: A set of strings.
     :raises: ``ValueError`` if the module is a squashed module, as by definition it represents both itself and all
       of its descendants.
+
+.. py:function:: ImportGraph.find_matching_modules(expression)
+
+    Find all modules matching the passed expression (see :ref:`module_expressions`).
+
+    :param str expression: A module expression used for matching.
+    :return: A set of module names matching the expression.
+    :rtype: A set of strings.
+    :raises: ``grimp.exceptions.InvalidModuleExpression`` if the module expression is invalid.
+
 
 Methods for analysing direct imports
 ------------------------------------
@@ -183,6 +198,28 @@ Methods for analysing direct imports
         return the number of imports, but the number of dependencies between modules.
         So if a module is imported twice from the same module, it will only be counted once.
     :rtype: Integer.
+
+.. py:function:: ImportGraph.find_matching_direct_imports(import_expression)
+
+    Find all direct imports matching the passed import expression.
+
+    The imports are returned are in the following form::
+
+        [
+            {
+                'importer': 'mypackage.importer',
+                'imported': 'mypackage.imported',
+            },
+            # (additional imports here)
+        ]
+
+    :param str import_expression: An expression in the form ``"importer_expression -> imported_expression"``,
+        where each expression is a module expression (see :ref:`module_expressions`).
+        Example: ``"mypackage.*.blue -> mypackage.*.green"``.
+    :return: An ordered list of direct imports matching the expressions (ordered alphabetically).
+    :rtype: List of dictionaries with the structure shown above. If you want to use type annotations, you may use the
+        ``grimp.Import`` TypedDict for each dictionary.
+    :raises: ``grimp.exceptions.InvalidImportExpression`` if the expression is not well-formed.
 
 Methods for analysing import chains
 -----------------------------------
@@ -267,7 +304,8 @@ Higher level analysis
         passing ``independent=False`` when instantiating the :class:`.Layer`. For convenience, if a layer consists
         only of one module name then a string may be passed in place of the :class:`.Layer` object. Additionally, if
         the layer consists of multiple *independent* modules, that can be passed as a set of strings instead of a
-        :class:`.Layer` object.
+        :class:`.Layer` object. A closed layer may be created by passing ``closed=True`` to prevent higher layers
+        from importing directly from layers below the closed layer (see `Closed layers`_ section below).
         *Any modules specified that don't exist in the graph will be silently ignored.*
     :param set[str] containers: The parent modules of the layers, as absolute names that you could
         import, such as ``mypackage.foo``. (Optional.)
@@ -371,6 +409,18 @@ Higher level analysis
                 "mypackage.a",
             ),
         )
+
+    Closed layers
+    ^^^^^^^^^^^^^
+
+    A closed layer may be created by passing ``closed=True``. Closed layers provide an additional
+    constraint in your architecture that prevents higher layers from "reaching through" to access
+    lower layers directly. Imports from higher to lower layers cannot bypass closed layers - the
+    closed layer must be included in the import chain.
+
+    This is particularly useful for enforcing architectural boundaries where you want to hide
+    implementation details of lower layers and ensure that higher layers only interact with
+    the public interface provided by the closed layer.
 
     Return value
     ^^^^^^^^^^^^
@@ -516,6 +566,26 @@ Methods for manipulating the graph
 
     :param str module: The name of a module, for example ``'mypackage.foo'``.
     :return: bool
+
+.. _module_expressions:
+
+Module expressions
+------------------
+
+  A module expression is used to refer to sets of modules.
+
+  - ``*`` stands in for a module name, without including subpackages.
+  - ``**`` includes subpackages too.
+
+  Examples:
+
+  - ``mypackage.foo``:  matches ``mypackage.foo`` exactly.
+  - ``mypackage.*``:  matches ``mypackage.foo`` but not ``mypackage.foo.bar``.
+  - ``mypackage.*.baz``: matches ``mypackage.foo.baz`` but not ``mypackage.foo.bar.baz``.
+  - ``mypackage.*.*``: matches ``mypackage.foo.bar`` and ``mypackage.foobar.baz``.
+  - ``mypackage.**``: matches ``mypackage.foo.bar`` and ``mypackage.foo.bar.baz``.
+  - ``mypackage.**.qux``: matches ``mypackage.foo.bar.qux`` and ``mypackage.foo.bar.baz.qux``.
+  - ``mypackage.foo*``: is not a valid expression. (The wildcard must replace a whole module name.)
 
 .. _namespace packages: https://docs.python.org/3/glossary.html#term-namespace-package
 .. _namespace portion: https://docs.python.org/3/glossary.html#term-portion

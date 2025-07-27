@@ -3,7 +3,7 @@ use derive_new::new;
 use getset::{CopyGetters, Getters};
 use lazy_static::lazy_static;
 use rustc_hash::{FxHashMap, FxHashSet};
-use slotmap::{new_key_type, SecondaryMap, SlotMap};
+use slotmap::{SecondaryMap, SlotMap, new_key_type};
 use std::sync::RwLock;
 use string_interner::backend::StringBackend;
 use string_interner::{DefaultSymbol, StringInterner};

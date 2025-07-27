@@ -9,9 +9,12 @@ from grimp.domain.analysis import PackageDependency
 from grimp.domain.valueobjects import Layer
 
 
-class DetailedImport(TypedDict):
+class Import(TypedDict):
     importer: str
     imported: str
+
+
+class DetailedImport(Import):
     line_number: int
     line_contents: str
 
@@ -29,6 +32,40 @@ class ImportGraph(abc.ABC):
     def modules(self) -> Set[str]:
         """
         The names of all the modules in the graph.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def find_matching_modules(self, expression: str) -> Set[str]:
+        """
+        Find all modules matching the passed expression.
+
+        Args:
+            expression: A module expression used for matching.
+        Returns:
+            A set of module names matching the expression.
+        Raises:
+            InvalidModuleExpression if the passed expression is invalid.
+
+        Module Expressions
+        ==================
+
+        A module expression is used to refer to sets of modules.
+
+        - ``*`` stands in for a module name, without including subpackages.
+        - ``**`` includes subpackages too.
+
+        Examples
+        --------
+
+        - ``mypackage.foo``:  matches ``mypackage.foo`` exactly.
+        - ``mypackage.*``:  matches ``mypackage.foo`` but not ``mypackage.foo.bar``.
+        - ``mypackage.*.baz``: matches ``mypackage.foo.baz`` but not ``mypackage.foo.bar.baz``.
+        - ``mypackage.*.*``: matches ``mypackage.foo.bar`` and ``mypackage.foobar.baz``.
+        - ``mypackage.**``: matches ``mypackage.foo.bar`` and ``mypackage.foo.bar.baz``.
+        - ``mypackage.**.qux``: matches ``mypackage.foo.bar.qux`` and ``mypackage.foo.bar.baz.qux``.
+        - ``mypackage.foo*``: is not a valid expression. (The wildcard must replace a whole module
+          name.)
         """
         raise NotImplementedError
 
@@ -177,6 +214,36 @@ class ImportGraph(abc.ABC):
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def find_matching_direct_imports(self, *, import_expression: str) -> List[Import]:
+        """
+        Find all direct imports matching the passed expressions.
+
+        The imports are returned are in the following form:
+
+        [
+            {
+                'importer': 'mypackage.importer',
+                'imported': 'mypackage.imported',
+            },
+            ...
+        ]
+
+        Args:
+            import_expression: An expression used for matching importing modules, in the form
+                "importer_expression -> imported_expression", where both expressions are
+                module expressions.
+        Returns:
+            A list of direct imports matching the expressions, ordered alphabetically by importer,
+            then imported.
+            (We return a list rather than a set purely because dictionaries aren't hashable.)
+        Raises:
+            InvalidImportExpression if either of the passed expressions are invalid.
+
+        See `ImportGraph.find_matching_modules` for a description of module expressions.
+        """
+        raise NotImplementedError
+
     # Indirect imports
     # ----------------
 
@@ -321,6 +388,11 @@ class ImportGraph(abc.ABC):
         - should imports between sibling modules be forbidden (default) or allowed? For backwards
         compatibility it is also possible to pass a simple `set[str]` to describe a layer. In this
         case the sibling modules within the layer will be considered independent.
+
+        By default layers are open. `Layer.closed` can be set to True to create a closed layer.
+        Imports from higher to lower layers cannot bypass closed layers - the closed layer must be
+        included in the import chain. For example, given the layers high -> mid (closed) -> low then
+        all import chains from high -> low must go via mid.
 
         Arguments:
 

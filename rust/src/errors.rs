@@ -1,6 +1,7 @@
-use crate::exceptions::{ModuleNotPresent, NoSuchContainer};
-use pyo3::exceptions::PyValueError;
+use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError};
 use pyo3::PyErr;
+use pyo3::exceptions::PyValueError;
+use ruff_python_parser::ParseError as RuffParseError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -13,6 +14,17 @@ pub enum GrimpError {
 
     #[error("Modules have shared descendants.")]
     SharedDescendants,
+
+    #[error("{0} is not a valid module expression.")]
+    InvalidModuleExpression(String),
+
+    #[error("Error parsing python code (line {line_number}, text {text}).")]
+    ParseError {
+        line_number: usize,
+        text: String,
+        #[source]
+        parse_error: RuffParseError,
+    },
 }
 
 pub type GrimpResult<T> = Result<T, GrimpError>;
@@ -24,6 +36,12 @@ impl From<GrimpError> for PyErr {
             GrimpError::ModuleNotPresent(_) => ModuleNotPresent::new_err(value.to_string()),
             GrimpError::NoSuchContainer(_) => NoSuchContainer::new_err(value.to_string()),
             GrimpError::SharedDescendants => PyValueError::new_err(value.to_string()),
+            GrimpError::InvalidModuleExpression(_) => {
+                InvalidModuleExpression::new_err(value.to_string())
+            }
+            GrimpError::ParseError {
+                line_number, text, ..
+            } => PyErr::new::<ParseError, _>((line_number, text)),
         }
     }
 }

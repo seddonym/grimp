@@ -56,22 +56,29 @@ jobs:
   benchmarks:
       runs-on: ubuntu-22.04
       steps:
-        - uses: actions/checkout@v3
+        - uses: actions/checkout@v4
 
-        - uses: actions/setup-python@v4
+        - name: Install uv
+          uses: astral-sh/setup-uv@v5
+
+        - name: Setup python
+          uses: actions/setup-python@v5
           with:
             python-version: "3.13"
             allow-prereleases: true
 
+        # Temporarily install hardcoded dependencies here.
+        # Codspeed doesn't work well with tox, as it runs the tox installation process as part of the benchmarking
+        # process, which is very slow.
         - name: Install dependencies
           run: |
             python -VV
-            python -m site
-            python -m pip install --upgrade pip setuptools wheel
-            python -m pip install --upgrade tox tox-gh-actions          
+            uv venv
+            uv pip install pytest==7.4.4 pyyaml==6.0.1 pytest-codspeed==3.2.0 Django==5.1.1 /home/runner/work/grimp/grimp         
 
         - name: Run benchmarks
-          uses: CodSpeedHQ/action@v2
+          uses: CodSpeedHQ/action@v3
           with:
             token: ${{ secrets.CODSPEED_TOKEN }}
-            run: tox -ecodspeed
+            run: |
+              uv run pytest tests/benchmarking/ --codspeed

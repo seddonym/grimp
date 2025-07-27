@@ -1,27 +1,66 @@
 pub mod errors;
 pub mod exceptions;
+mod filesystem;
 pub mod graph;
+pub mod import_parsing;
+mod import_scanning;
+pub mod module_expressions;
+mod module_finding;
 
 use crate::errors::{GrimpError, GrimpResult};
-use crate::exceptions::{ModuleNotPresent, NoSuchContainer};
+use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError};
+use crate::filesystem::{PyFakeBasicFileSystem, PyRealBasicFileSystem};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
+use crate::import_scanning::ImportScanner;
+use crate::module_expressions::ModuleExpression;
 use derive_new::new;
 use itertools::Itertools;
+use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyDict, PyFrozenSet, PyList, PySet, PyString, PyTuple};
-use pyo3::IntoPyObjectExt;
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
 use std::collections::HashSet;
 
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_wrapped(wrap_pyfunction!(parse_imported_objects_from_code))?;
     m.add_class::<GraphWrapper>()?;
+    m.add_class::<PyRealBasicFileSystem>()?;
+    m.add_class::<PyFakeBasicFileSystem>()?;
+    m.add_class::<ImportScanner>()?;
     m.add("ModuleNotPresent", py.get_type::<ModuleNotPresent>())?;
     m.add("NoSuchContainer", py.get_type::<NoSuchContainer>())?;
+    m.add(
+        "InvalidModuleExpression",
+        py.get_type::<InvalidModuleExpression>(),
+    )?;
+    m.add("ParseError", py.get_type::<ParseError>())?;
     Ok(())
+}
+
+#[pyfunction]
+fn parse_imported_objects_from_code<'py>(
+    py: Python<'py>,
+    module_code: &str,
+) -> PyResult<Vec<Bound<'py, PyDict>>> {
+    let imports = import_parsing::parse_imports_from_code(module_code)?;
+
+    Ok(imports
+        .into_iter()
+        .map(|import| {
+            let dict = PyDict::new(py);
+            dict.set_item("name", import.name).unwrap();
+            dict.set_item("line_number", import.line_number).unwrap();
+            dict.set_item("line_contents", import.line_contents)
+                .unwrap();
+            dict.set_item("typechecking_only", import.typechecking_only)
+                .unwrap();
+            dict
+        })
+        .collect())
 }
 
 #[pyclass(name = "Graph")]
@@ -169,6 +208,16 @@ impl GraphWrapper {
             .collect())
     }
 
+    pub fn find_matching_modules(&self, expression: &str) -> PyResult<HashSet<String>> {
+        let expression: ModuleExpression = expression.parse()?;
+        Ok(self
+            ._graph
+            .find_matching_modules(&expression)
+            .visible()
+            .names()
+            .collect())
+    }
+
     #[pyo3(signature = (*, importer, imported, as_packages = false))]
     pub fn direct_import_exists(
         &self,
@@ -249,6 +298,41 @@ impl GraphWrapper {
                             "line_contents",
                             import_details.line_contents.into_py_any(py).unwrap(),
                         ),
+                    ]
+                    .into_py_dict(py)
+                    .unwrap()
+                }),
+        )
+    }
+
+    #[pyo3(signature = (*, importer_expression, imported_expression))]
+    pub fn find_matching_direct_imports<'py>(
+        &self,
+        py: Python<'py>,
+        importer_expression: &str,
+        imported_expression: &str,
+    ) -> PyResult<Bound<'py, PyList>> {
+        let importer_expression: ModuleExpression = importer_expression.parse()?;
+        let imported_expression: ModuleExpression = imported_expression.parse()?;
+
+        let matching_imports = self
+            ._graph
+            .find_matching_direct_imports(&importer_expression, &imported_expression);
+
+        PyList::new(
+            py,
+            matching_imports
+                .into_iter()
+                .map(|(importer, imported)| {
+                    let importer = self._graph.get_module(importer).unwrap();
+                    let imported = self._graph.get_module(imported).unwrap();
+                    Import::new(importer.name(), imported.name())
+                })
+                .sorted()
+                .map(|import| {
+                    [
+                        ("importer", import.importer.into_py_any(py).unwrap()),
+                        ("imported", import.imported.into_py_any(py).unwrap()),
                     ]
                     .into_py_dict(py)
                     .unwrap()
@@ -486,7 +570,7 @@ impl GraphWrapper {
                     .unwrap()
                     .into_iter()
                     .map(|name| match container.clone() {
-                        Some(container) => format!("{}.{}", container, name),
+                        Some(container) => format!("{container}.{name}"),
                         None => name,
                     })
                     .filter_map(|name| match self.get_visible_module_by_name(&name) {
@@ -504,7 +588,14 @@ impl GraphWrapper {
                     .extract::<bool>()
                     .unwrap();
 
-                levels.push(Level::new(layers, independent));
+                let closed = level_dict
+                    .get_item("closed")
+                    .unwrap()
+                    .unwrap()
+                    .extract::<bool>()
+                    .unwrap();
+
+                levels.push(Level::new(layers, independent, closed));
             }
             levels_by_container.push(levels);
         }
@@ -554,6 +645,12 @@ impl GraphWrapper {
 
         PyTuple::new(py, python_dependencies)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, new)]
+struct Import {
+    importer: String,
+    imported: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, new)]

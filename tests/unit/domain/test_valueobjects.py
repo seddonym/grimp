@@ -1,40 +1,12 @@
 import pytest  # type: ignore
 
-from grimp.domain.valueobjects import DirectImport, Module
+from grimp.domain.valueobjects import DirectImport, Module, Layer
 
 
 class TestModule:
-    def test_repr(self):
+    def test_str(self):
         module = Module("foo.bar")
-        assert repr(module) == "<Module: foo.bar>"
-
-    def test_equals(self):
-        a = Module("foo.bar")
-        b = Module("foo.bar")
-        c = Module("foo.bar.baz")
-
-        assert a == b
-        assert a != c
-        # Also non-Module instances should not be treated as equal.
-        assert a != "foo"
-
-    def test_equals_obeys_liskov(self):
-        class SpecialModule(Module):
-            pass
-
-        module = Module("foo.bar")
-        special_module = SpecialModule("foo.bar")
-
-        assert module == special_module
-        assert special_module == module
-
-    def test_hash(self):
-        a = Module("foo.bar")
-        b = Module("foo.bar")
-        c = Module("foo.bar.baz")
-
-        assert hash(a) == hash(b)
-        assert hash(a) != hash(c)
+        assert str(module) == "foo.bar"
 
     @pytest.mark.parametrize(
         "module, expected",
@@ -53,101 +25,17 @@ class TestModule:
 
 
 class TestDirectImport:
-    def test_repr(self):
+    def test_str(self):
         import_path = DirectImport(
             importer=Module("foo"),
             imported=Module("bar"),
             line_number=10,
             line_contents="import bar",
         )
-        assert repr(import_path) == "<DirectImport: foo -> bar (l. 10)>"
+        assert str(import_path) == "foo -> bar (l. 10)"
 
-    def test_equals(self):
-        a = DirectImport(
-            importer=Module("foo"),
-            imported=Module("bar"),
-            line_number=10,
-            line_contents="import bar",
-        )
-        b = DirectImport(
-            importer=Module("foo"),
-            imported=Module("bar"),
-            line_number=10,
-            line_contents="import bar",
-        )
-        c = DirectImport(
-            importer=Module("foo"),
-            imported=Module("baz"),
-            line_number=10,
-            line_contents="import bar",
-        )
-        d = DirectImport(
-            importer=Module("foobar"),
-            imported=Module("bar"),
-            line_number=10,
-            line_contents="import bar",
-        )
-        e = DirectImport(
-            importer=Module("foo"),
-            imported=Module("bar"),
-            line_number=11,
-            line_contents="import bar",
-        )
-        f = DirectImport(
-            importer=Module("foo"),
-            imported=Module("bar"),
-            line_number=10,
-            line_contents="from . import bar",
-        )
 
-        assert a == b
-        assert a != c
-        assert a != d
-        assert a != e
-        assert a != f
-        # Also non-DirectImport instances should not be treated as equal.
-        assert a != "foo"
-
-    def test_hash(self):
-        a = DirectImport(
-            importer=Module("foo"),
-            imported=Module("bar"),
-            line_number=10,
-            line_contents="import bar",
-        )
-        b = DirectImport(
-            importer=Module("foo"),
-            imported=Module("bar"),
-            line_number=10,
-            line_contents="import bar",
-        )
-        c = DirectImport(
-            importer=Module("foo"),
-            imported=Module("baz"),
-            line_number=10,
-            line_contents="import bar",
-        )
-        d = DirectImport(
-            importer=Module("foobar"),
-            imported=Module("bar"),
-            line_number=10,
-            line_contents="import bar",
-        )
-        e = DirectImport(
-            importer=Module("foo"),
-            imported=Module("bar"),
-            line_number=11,
-            line_contents="import bar",
-        )
-        f = DirectImport(
-            importer=Module("foo"),
-            imported=Module("bar"),
-            line_number=10,
-            line_contents="from . import bar",
-        )
-
-        assert hash(a) == hash(b)
-        assert hash(a) != hash(c)
-        assert hash(a) != hash(d)
-        assert hash(a) != hash(e)
-        assert hash(a) != hash(f)
+class TestLayer:
+    def test_str(self):
+        layer = Layer("foo", "bar", independent=True, closed=False)
+        assert str(layer) == "['bar', 'foo'], independent=True, closed=False"

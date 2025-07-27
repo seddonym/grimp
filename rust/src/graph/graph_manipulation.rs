@@ -1,5 +1,5 @@
 use crate::graph::{
-    Graph, ImportDetails, Module, ModuleIterator, ModuleToken, IMPORT_LINE_CONTENTS, MODULE_NAMES,
+    Graph, IMPORT_LINE_CONTENTS, ImportDetails, MODULE_NAMES, Module, ModuleIterator, ModuleToken,
 };
 use rustc_hash::FxHashSet;
 use slotmap::secondary::Entry;
@@ -178,11 +178,6 @@ impl Graph {
             })
             .collect();
 
-        // Remove any descendants.
-        for descendant in descendants {
-            self.remove_module(descendant);
-        }
-
         // Add descendants and imports to parent module.
         for imported in modules_imported_by_descendants {
             self.add_import(module, imported);
@@ -190,6 +185,11 @@ impl Graph {
 
         for importer in modules_that_import_descendants {
             self.add_import(importer, module);
+        }
+
+        // Remove any descendants.
+        for descendant in descendants {
+            self.remove_module(descendant);
         }
 
         self.mark_module_squashed(module);

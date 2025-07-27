@@ -1,5 +1,7 @@
+from __future__ import annotations
 import abc
 from typing import Iterator, List, Tuple
+from typing import Protocol
 
 
 class AbstractFileSystem(abc.ABC):
@@ -80,3 +82,35 @@ class AbstractFileSystem(abc.ABC):
         Write the contents to a file.
         """
         raise NotImplementedError
+
+    @abc.abstractmethod
+    def convert_to_basic(self) -> BasicFileSystem:
+        """
+        Convert this file system to a BasicFileSystem.
+        """
+        raise NotImplementedError
+
+
+class BasicFileSystem(Protocol):
+    """
+    A more limited file system, used by the ImportScanner.
+
+    Having two different file system APIs is an interim approach, allowing us to
+    implement BasicFileSystem in Rust, for use with the ImportScanner, without needing
+    to implement the full range of methods used by other parts of Grimp.
+
+    Eventually we'll move the full implementation to Rust, and have a single
+    FileSystem interface.
+    """
+
+    def join(self, *components: str) -> str:
+        ...
+
+    def split(self, file_name: str) -> Tuple[str, str]:
+        ...
+
+    def read(self, file_name: str) -> str:
+        ...
+
+    def exists(self, file_name: str) -> bool:
+        ...

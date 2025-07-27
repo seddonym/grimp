@@ -5,6 +5,38 @@ Changelog
 Unreleased
 ----------
 
+* Add closed layers to layer contract.
+
+3.9 (2025-05-05)
+----------------
+
+* Use Rust instead of Python's built-in ast module for import parsing.
+
+3.8.2 (2025-04-24)
+------------------
+
+* Provide more control of multiprocessing via ``GRIMP_MIN_MULTIPROCESSING_MODULES``
+  environment variable.
+
+3.8.1 (2025-04-23)
+------------------
+
+* Use joblib instead of multiprocessing for CPU parallelism. Fixes https://github.com/seddonym/grimp/issues/208.
+
+3.8 (2025-04-11)
+----------------
+
+* Accelerate import scanning via CPU parallelism (multiprocessing).
+
+3.7.1 (2025-03-12)
+------------------
+
+* Fixed handling of within-descendant-imports when squashing modules (see `Issue 195 <https://github.com/seddonym/grimp/issues/195>`_).
+
+3.7 (2025-03-07)
+----------------
+
+* Added `find_matching_modules` and `find_matching_direct_imports` methods.
 * Added `as_packages` option to the `find_shortest_chain` method.
 
 3.6 (2025-02-07)
