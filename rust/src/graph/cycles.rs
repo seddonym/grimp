@@ -10,20 +10,19 @@ impl Graph {
         module: ModuleToken,
         as_package: bool,
     ) -> GrimpResult<Option<Vec<ModuleToken>>> {
-        if as_package {
-            pathfinding::find_shortest_cycle(
-                self,
-                &module.conv::<FxHashSet<_>>().with_descendants(self),
-                &FxHashSet::default(),
-                &FxHashMap::default(),
-            )
+        let modules: Vec<ModuleToken> = if as_package {
+            let mut vec = module.conv::<Vec<_>>().with_descendants(self);
+            vec.sort_by_key(|token| self.get_module(*token).unwrap().name());
+            vec
         } else {
-            pathfinding::find_shortest_cycle(
-                self,
-                &module.conv::<FxHashSet<_>>(),
-                &FxHashSet::default(),
-                &FxHashMap::default(),
-            )
-        }
+            let vec: Vec<_> = module.conv::<Vec<ModuleToken>>();
+            vec
+        };
+        pathfinding::find_shortest_cycle(
+            self,
+            &modules,
+            &FxHashSet::default(),
+            &FxHashMap::default(),
+        )
     }
 }

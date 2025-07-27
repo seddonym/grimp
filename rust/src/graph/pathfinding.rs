@@ -41,10 +41,18 @@ pub fn find_shortest_path(
         return Err(GrimpError::SharedDescendants);
     }
 
+    let predecessors: FxIndexMap<ModuleToken, Option<ModuleToken>> = from_modules
+        .clone()
+        .into_iter()
+        .map(|m| (m, None))
+        .collect();
+    let successors: FxIndexMap<ModuleToken, Option<ModuleToken>> =
+        to_modules.clone().into_iter().map(|m| (m, None)).collect();
+
     _find_shortest_path(
         graph,
-        from_modules,
-        to_modules,
+        predecessors,
+        successors,
         excluded_modules,
         excluded_imports,
     )
@@ -53,7 +61,7 @@ pub fn find_shortest_path(
 /// Finds the shortest cycle from `modules` to `modules`, via a bidirectional BFS.
 pub fn find_shortest_cycle(
     graph: &Graph,
-    modules: &FxHashSet<ModuleToken>,
+    modules: &[ModuleToken],
     excluded_modules: &FxHashSet<ModuleToken>,
     excluded_imports: &FxHashMap<ModuleToken, FxHashSet<ModuleToken>>,
 ) -> GrimpResult<Option<Vec<ModuleToken>>> {
@@ -64,39 +72,43 @@ pub fn find_shortest_cycle(
         excluded_imports.entry(*m2).or_default().insert(*m1);
     }
 
-    _find_shortest_path(graph, modules, modules, excluded_modules, &excluded_imports)
+    let predecessors: FxIndexMap<ModuleToken, Option<ModuleToken>> = modules
+        .iter()
+        .cloned()
+        .map(|m| (m, None))
+        .collect();
+
+    let successors: FxIndexMap<ModuleToken, Option<ModuleToken>> = predecessors
+        .clone();
+
+    _find_shortest_path(graph, predecessors, successors, excluded_modules, &excluded_imports)
 }
 
 fn _find_shortest_path(
     graph: &Graph,
-    from_modules: &FxHashSet<ModuleToken>,
-    to_modules: &FxHashSet<ModuleToken>,
+    mut predecessors: FxIndexMap<ModuleToken, Option<ModuleToken>>,
+    mut successors: FxIndexMap<ModuleToken, Option<ModuleToken>>,
     excluded_modules: &FxHashSet<ModuleToken>,
     excluded_imports: &FxHashMap<ModuleToken, FxHashSet<ModuleToken>>,
 ) -> GrimpResult<Option<Vec<ModuleToken>>> {
-    let mut predecessors: FxIndexMap<ModuleToken, Option<ModuleToken>> = from_modules
-        .clone()
-        .into_iter()
-        .map(|m| (m, None))
-        .collect();
-    let mut successors: FxIndexMap<ModuleToken, Option<ModuleToken>> =
-        to_modules.clone().into_iter().map(|m| (m, None)).collect();
+    
 
     let mut i_forwards = 0;
     let mut i_backwards = 0;
     let middle = 'l: loop {
         for _ in 0..(predecessors.len() - i_forwards) {
             let module = *predecessors.get_index(i_forwards).unwrap().0;
-            let next_modules = graph.imports.get(module).unwrap();
+            let mut next_modules: Vec<_> = graph.imports.get(module).unwrap().iter().cloned().collect();
+            next_modules.sort_by_key(|next_module| graph.get_module(*next_module).unwrap().name());
             for next_module in next_modules {
-                if import_is_excluded(&module, next_module, excluded_modules, excluded_imports) {
+                if import_is_excluded(&module, &next_module, excluded_modules, excluded_imports) {
                     continue;
                 }
-                if !predecessors.contains_key(next_module) {
-                    predecessors.insert(*next_module, Some(module));
+                if !predecessors.contains_key(&next_module) {
+                    predecessors.insert(next_module, Some(module));
                 }
-                if successors.contains_key(next_module) {
-                    break 'l Some(*next_module);
+                if successors.contains_key(&next_module) {
+                    break 'l Some(next_module);
                 }
             }
             i_forwards += 1;
@@ -104,16 +116,17 @@ fn _find_shortest_path(
 
         for _ in 0..(successors.len() - i_backwards) {
             let module = *successors.get_index(i_backwards).unwrap().0;
-            let next_modules = graph.reverse_imports.get(module).unwrap();
+            let mut next_modules: Vec<_> = graph.reverse_imports.get(module).unwrap().iter().cloned().collect();
+            next_modules.sort_by_key(|next_module| graph.get_module(*next_module).unwrap().name());
             for next_module in next_modules {
-                if import_is_excluded(next_module, &module, excluded_modules, excluded_imports) {
+                if import_is_excluded(&next_module, &module, excluded_modules, excluded_imports) {
                     continue;
                 }
-                if !successors.contains_key(next_module) {
-                    successors.insert(*next_module, Some(module));
+                if !successors.contains_key(&next_module) {
+                    successors.insert(next_module, Some(module));
                 }
-                if predecessors.contains_key(next_module) {
-                    break 'l Some(*next_module);
+                if predecessors.contains_key(&next_module) {
+                    break 'l Some(next_module);
                 }
             }
             i_backwards += 1;
@@ -184,7 +197,7 @@ mod test_find_shortest_cycle {
 
         let path = find_shortest_cycle(
             &graph,
-            &foo.into(),
+            &[foo],
             &FxHashSet::default(),
             &FxHashMap::default(),
         )?;
@@ -194,7 +207,7 @@ mod test_find_shortest_cycle {
 
         let path = find_shortest_cycle(
             &graph,
-            &foo.into(),
+            &[foo],
             &FxHashSet::default(),
             &FxHashMap::default(),
         )?;
@@ -214,7 +227,7 @@ mod test_find_shortest_cycle {
 
         let path = find_shortest_cycle(
             &graph,
-            &foo.into(),
+            &[foo],
             &FxHashSet::default(),
             &FxHashMap::default(),
         )?;
@@ -250,7 +263,7 @@ mod test_find_shortest_cycle {
 
         let path = find_shortest_cycle(
             &graph,
-            &FxHashSet::from_iter([red, blue]),
+            &Vec::from_iter([red, blue]),
             &FxHashSet::default(),
             &FxHashMap::default(),
         )?;
