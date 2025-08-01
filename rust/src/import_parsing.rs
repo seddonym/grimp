@@ -3,8 +3,6 @@ use ruff_python_ast::statement_visitor::{StatementVisitor, walk_body, walk_stmt}
 use ruff_python_ast::{Expr, Stmt};
 use ruff_python_parser::parse_module;
 use ruff_source_file::{LineIndex, SourceCode};
-use std::fs;
-use std::path::Path;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ImportedObject {

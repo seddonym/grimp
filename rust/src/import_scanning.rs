@@ -1,11 +1,11 @@
 /// Statically analyses some Python modules for import statements within their shared package.
 use rayon::prelude::*;
-use crate::errors::{GrimpError, GrimpResult};
+use crate::errors::GrimpResult;
 use crate::filesystem::{FileSystem, PyFakeBasicFileSystem, PyRealBasicFileSystem};
 use crate::import_parsing;
 use crate::module_finding::{FoundPackage, Module};
 use itertools::Itertools;
-use pyo3::exceptions::{PyFileNotFoundError, PyTypeError};
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PySet};
 use std::collections::{HashMap, HashSet};
@@ -55,8 +55,9 @@ fn module_is_descendant(module_name: &str, potential_ancestor: &str) -> bool {
     module_name.starts_with(&format!("{potential_ancestor}."))
 }
 
+#[allow(clippy::borrowed_box)]
 pub fn get_file_system_boxed<'py>(
-    file_system: &Bound<'_, PyAny>,
+    file_system: &Bound<'py, PyAny>,
 ) -> PyResult<Box<dyn FileSystem + Send + Sync>> {
     let file_system_boxed: Box<dyn FileSystem + Send + Sync>;
 
@@ -74,6 +75,7 @@ pub fn get_file_system_boxed<'py>(
 
 /// Statically analyses the given module and returns a set of Modules that
 /// it imports.
+#[allow(clippy::borrowed_box)]
 pub fn scan_for_imports_no_py(
     file_system: &Box<dyn FileSystem + Send + Sync>,
     found_packages: &HashSet<FoundPackage>,
@@ -101,6 +103,7 @@ pub fn scan_for_imports_no_py(
     results.map(|vec| vec.into_iter().collect())
 }
 
+#[allow(clippy::borrowed_box)]
 fn scan_for_imports_no_py_single_module(
     module: &Module,
     file_system: &Box<dyn FileSystem + Send + Sync>,
@@ -190,8 +193,8 @@ pub fn to_py_direct_imports<'a>(
     pyset
 }
 
-fn _lookup_found_package_for_module<'a, 'b>(
-    module: &'a Module,
+fn _lookup_found_package_for_module<'b>(
+    module: &Module,
     found_packages: &'b HashSet<FoundPackage>,
 ) -> &'b FoundPackage {
     // TODO: it's probably inefficient to do this every time we look up a module.
@@ -205,6 +208,7 @@ fn _lookup_found_package_for_module<'a, 'b>(
     panic!("Could not lookup found package for module {module}");
 }
 
+#[allow(clippy::borrowed_box)]
 fn _determine_module_filename(
     module: &Module,
     found_package: &FoundPackage,
@@ -233,6 +237,7 @@ fn _determine_module_filename(
     ))
 }
 
+#[allow(clippy::borrowed_box)]
 fn _module_is_package(
     module_filename: &str,
     file_system: &Box<dyn FileSystem + Send + Sync>,
