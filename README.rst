@@ -9,7 +9,7 @@ Grimp
     :alt: Python versions
     :target: https://pypi.org/project/grimp/
 
-.. image:: https://github.com/seddonym/grimp/workflows/CI/badge.svg?branch=master
+.. image:: https://github.com/seddonym/grimp/workflows/CI/badge.svg?branch=main
      :target: https://github.com/seddonym/grimp/actions?workflow=CI
      :alt: CI Status
 
