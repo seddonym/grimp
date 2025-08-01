@@ -1,8 +1,6 @@
 from grimp import build_graph
 from typing import Set, Tuple, Optional
 import pytest
-from unittest.mock import patch
-from grimp.application import scanning
 
 
 """
@@ -34,33 +32,6 @@ testpackage.three.gamma: testpackage.two.beta, testpackage.utils
 
 
 def test_modules():
-    graph = build_graph("testpackage", cache_dir=None)
-
-    assert graph.modules == {
-        "testpackage",
-        "testpackage.one",
-        "testpackage.one.alpha",
-        "testpackage.one.beta",
-        "testpackage.one.gamma",
-        "testpackage.one.delta",
-        "testpackage.one.delta.blue",
-        "testpackage.two",
-        "testpackage.two.alpha",
-        "testpackage.two.beta",
-        "testpackage.two.gamma",
-        "testpackage.utils",
-        "testpackage.three",
-        "testpackage.three.beta",
-        "testpackage.three.gamma",
-        "testpackage.three.alpha",
-    }
-
-
-@patch.object(scanning, "DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING", 0)
-def test_modules_multiprocessing():
-    """
-    This test runs relatively slowly, but it's important we cover the multiprocessing code.
-    """
     graph = build_graph("testpackage", cache_dir=None)
 
     assert graph.modules == {

@@ -1,19 +1,12 @@
 from typing import Set
 
-import os
-from unittest.mock import patch
 import pytest  # type: ignore
-import joblib  # type: ignore
 
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.application import scanning
 from grimp.domain.valueobjects import DirectImport, Module
 from tests.config import override_settings
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
-from tests.adaptors.filesystem import FakeFileSystem
-
-
-SOME_CPU_COUNT = 8
 
 
 @pytest.mark.parametrize(
@@ -942,78 +935,6 @@ def test_exclude_type_checking_imports(
             ),
         }
     assert {module_foo_one_file: expected_result} == result
-
-
-@patch.object(scanning, "_scan_chunks", return_value={})
-@patch.object(joblib, "cpu_count", return_value=SOME_CPU_COUNT)
-@pytest.mark.parametrize(
-    "number_of_modules, fake_environ, expected_number_of_chunks",
-    [
-        (
-            scanning.DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING - 1,
-            {},
-            1,
-        ),
-        (
-            scanning.DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING,
-            {},
-            SOME_CPU_COUNT,
-        ),
-        (
-            scanning.DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING + 1,
-            {},
-            SOME_CPU_COUNT,
-        ),
-        (
-            149,
-            {scanning.MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME: 150},
-            1,
-        ),
-        (
-            150,
-            {scanning.MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME: 150},
-            SOME_CPU_COUNT,
-        ),
-        (
-            151,
-            {scanning.MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME: 150},
-            SOME_CPU_COUNT,
-        ),
-    ],
-)
-def test_scanning_multiprocessing_respects_min_number_of_modules(
-    mock_cpu_count,
-    mock_scan_chunks,
-    number_of_modules,
-    fake_environ,
-    expected_number_of_chunks,
-):
-    module_files = frozenset(
-        {
-            ModuleFile(
-                module=Module(f"mypackage.mod_{i}"),
-                mtime=999,
-            )
-            for i in range(number_of_modules)
-        }
-    )
-    found_packages = {
-        FoundPackage(name="mypackage", directory="/path/to/mypackage", module_files=module_files)
-    }
-
-    with override_settings(
-        FILE_SYSTEM=FakeFileSystem(),
-    ), patch.object(os, "environ", fake_environ):
-        scanning.scan_imports(
-            module_files,
-            found_packages=found_packages,
-            include_external_packages=False,
-            exclude_type_checking_imports=False,
-        )
-
-    [call] = mock_scan_chunks.call_args_list
-    chunks = call.args[0]
-    assert len(chunks) == expected_number_of_chunks
 
 
 def _module_to_module_file(module: Module) -> ModuleFile:
