@@ -1,4 +1,5 @@
 /// Statically analyses some Python modules for import statements within their shared package.
+use rayon::prelude::*;
 use crate::errors::GrimpResult;
 use crate::filesystem::{FileSystem, PyFakeBasicFileSystem, PyRealBasicFileSystem};
 use crate::import_parsing;
@@ -82,20 +83,24 @@ pub fn scan_for_imports_no_py(
     modules: &HashSet<Module>,
     exclude_type_checking_imports: bool,
 ) -> GrimpResult<HashMap<Module, HashSet<DirectImport>>> {
-    let mut imports_by_module = HashMap::new();
+    let module_packages = get_modules_from_found_packages(found_packages);
 
-    for module in modules {
-        let imports_for_module = scan_for_imports_no_py_single_module(
-            module,
-            file_system,
-            found_packages,
-            &get_modules_from_found_packages(found_packages),
-            include_external_packages,
-            exclude_type_checking_imports,
-        )?;
-        imports_by_module.insert(module.clone(), imports_for_module);
-    }
-    Ok(imports_by_module)
+    let results: GrimpResult<Vec<(Module, HashSet<DirectImport>)>> = modules
+        .par_iter()
+        .map(|module| {
+            let imports = scan_for_imports_no_py_single_module(
+                module,
+                file_system,
+                found_packages,
+                &module_packages,
+                include_external_packages,
+                exclude_type_checking_imports,
+            )?;
+            Ok((module.clone(), imports))
+        })
+        .collect();
+
+    results.map(|vec| vec.into_iter().collect())
 }
 
 #[allow(clippy::borrowed_box)]
