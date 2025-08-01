@@ -12,7 +12,10 @@ use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContain
 use crate::filesystem::{PyFakeBasicFileSystem, PyRealBasicFileSystem};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
-use crate::import_scanning::ImportScanner;
+use crate::import_scanning::{
+    get_file_system_boxed, py_found_packages_to_rust, scan_for_imports_no_py,
+    to_py_direct_imports,
+};
 use crate::module_expressions::ModuleExpression;
 use derive_new::new;
 use itertools::Itertools;
@@ -26,12 +29,10 @@ use std::collections::HashSet;
 
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_wrapped(wrap_pyfunction!(parse_imported_objects_from_code))?;
     m.add_wrapped(wrap_pyfunction!(scan_for_imports))?;
     m.add_class::<GraphWrapper>()?;
     m.add_class::<PyRealBasicFileSystem>()?;
     m.add_class::<PyFakeBasicFileSystem>()?;
-    m.add_class::<ImportScanner>()?;
     m.add("ModuleNotPresent", py.get_type::<ModuleNotPresent>())?;
     m.add("NoSuchContainer", py.get_type::<NoSuchContainer>())?;
     m.add(
@@ -42,56 +43,81 @@ fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
+/// Statically analyses the given module and returns a set of Modules that
+/// it imports.
+/// Python args:
+///
+/// - module_files                   The modules to scan.
+/// - found_packages:                Set of FoundPackages containing all the modules
+///                                  for analysis.
+/// - include_external_packages:     Whether to include imports of external modules (i.e.
+///                                  modules not contained in modules_by_package_directory)
+///                                  in the results.
+/// - exclude_type_checking_imports: If True, don't include imports behind TYPE_CHECKING guards.
+/// - file_system:                   The file system interface to use. (A BasicFileSystem.)
+///
+/// Returns dict[Module, set[DirectImport]].
 #[pyfunction]
-fn scan_for_imports<'py,>(
+fn scan_for_imports<'py>(
     py: Python<'py>,
     module_files: Vec<Bound<'py, PyAny>>,
     found_packages: Bound<'py, PyAny>,
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
     file_system: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyDict>>{
-    let scanner = ImportScanner::new(
-        py,
-        file_system,
-        found_packages,
-        include_external_packages,
-    )?;
-    
-    let dict = PyDict::new(py);
-    for module_file in module_files {
-        let py_module_instance = module_file.getattr("module").unwrap();
-        let imports = scanner.scan_for_imports(
-            py,
-            py_module_instance,
-            exclude_type_checking_imports,
-        )?;
-        dict.set_item(module_file, imports).unwrap();
-    }
-    Ok(dict)
-}
-
-#[pyfunction]
-fn parse_imported_objects_from_code<'py>(
-    py: Python<'py>,
-    module_code: &str,
-) -> PyResult<Vec<Bound<'py, PyDict>>> {
-    let imports = import_parsing::parse_imports_from_code(module_code)?;
-
-    Ok(imports
-        .into_iter()
-        .map(|import| {
-            let dict = PyDict::new(py);
-            dict.set_item("name", import.name).unwrap();
-            dict.set_item("line_number", import.line_number).unwrap();
-            dict.set_item("line_contents", import.line_contents)
-                .unwrap();
-            dict.set_item("typechecking_only", import.typechecking_only)
-                .unwrap();
-            dict
+) -> PyResult<Bound<'py, PyDict>> {
+    let valueobjects_pymodule = PyModule::import(py, "grimp.domain.valueobjects").unwrap();
+    let py_module_class = valueobjects_pymodule.getattr("Module").unwrap();
+    let file_system_boxed = get_file_system_boxed(&file_system)?;
+    let found_packages_rust = py_found_packages_to_rust(&found_packages);
+    let modules_rust: HashSet<module_finding::Module> = module_files
+        .iter()
+        .map(|module_file| {
+            module_file
+                .getattr("module")
+                .unwrap()
+                .extract::<module_finding::Module>()
+                .unwrap()
         })
-        .collect())
+        .collect();
+
+    let imports_by_module_result = scan_for_imports_no_py(
+        &file_system_boxed,
+        &found_packages_rust,
+        include_external_packages,
+        &modules_rust,
+        exclude_type_checking_imports,
+    );
+
+    match imports_by_module_result {
+        Err(GrimpError::ParseError {
+                module_filename, line_number, text, ..
+            }) => {
+            // TODO: define SourceSyntaxError using pyo3.
+            let exceptions_pymodule = PyModule::import(py, "grimp.exceptions").unwrap();
+            let py_exception_class = exceptions_pymodule.getattr("SourceSyntaxError").unwrap();
+            let exception = py_exception_class
+                .call1((module_filename, line_number, text))
+                .unwrap();
+            return Err(PyErr::from_value(exception));
+        }
+        Err(e) => {
+            return Err(e.into());
+        }
+        _ => (),
+    }
+    let imports_by_module = imports_by_module_result.unwrap();
+
+    let imports_by_module_py = PyDict::new(py);
+    for (module, imports) in imports_by_module.iter() {
+        let py_module_instance = py_module_class.call1((module.name.clone(),)).unwrap();
+        let py_imports = to_py_direct_imports(py, imports);
+        imports_by_module_py.set_item(py_module_instance, py_imports).unwrap();
+    }
+
+    Ok(imports_by_module_py)
 }
+
 
 #[pyclass(name = "Graph")]
 struct GraphWrapper {

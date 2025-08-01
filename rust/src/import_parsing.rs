@@ -3,8 +3,6 @@ use ruff_python_ast::statement_visitor::{StatementVisitor, walk_body, walk_stmt}
 use ruff_python_ast::{Expr, Stmt};
 use ruff_python_parser::parse_module;
 use ruff_source_file::{LineIndex, SourceCode};
-use std::fs;
-use std::path::Path;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ImportedObject {
@@ -30,12 +28,10 @@ impl ImportedObject {
     }
 }
 
-pub fn parse_imports(path: &Path) -> GrimpResult<Vec<ImportedObject>> {
-    let code = fs::read_to_string(path).expect("failed to read file");
-    parse_imports_from_code(&code)
-}
-
-pub fn parse_imports_from_code(code: &str) -> GrimpResult<Vec<ImportedObject>> {
+pub fn parse_imports_from_code(
+    code: &str,
+    module_filename: &str,
+) -> GrimpResult<Vec<ImportedObject>> {
     let line_index = LineIndex::from_source_text(code);
     let source_code = SourceCode::new(code, &line_index);
 
@@ -46,6 +42,7 @@ pub fn parse_imports_from_code(code: &str) -> GrimpResult<Vec<ImportedObject>> {
             let line_number = location_index.get();
             let text = source_code.line_text(location_index).trim();
             Err(GrimpError::ParseError {
+                module_filename: module_filename.to_string(),
                 line_number,
                 text: text.to_owned(),
                 parse_error: e,
@@ -157,13 +154,13 @@ mod tests {
 
     #[test]
     fn test_parse_empty_string() {
-        let imports = parse_imports_from_code("").unwrap();
+        let imports = parse_imports_from_code("", "some_filename.py").unwrap();
         assert!(imports.is_empty());
     }
 
     fn parse_and_check(case: (&str, &[&str])) {
         let (code, expected_imports) = case;
-        let imports = parse_imports_from_code(code).unwrap();
+        let imports = parse_imports_from_code(code, "some_filename.py").unwrap();
         assert_eq!(
             expected_imports,
             imports.into_iter().map(|i| i.name).collect::<Vec<_>>()
@@ -172,7 +169,7 @@ mod tests {
 
     fn parse_and_check_with_typechecking_only(case: (&str, &[(&str, bool)])) {
         let (code, expected_imports) = case;
-        let imports = parse_imports_from_code(code).unwrap();
+        let imports = parse_imports_from_code(code, "some_filename.py").unwrap();
         assert_eq!(
             expected_imports
                 .iter()
@@ -526,6 +523,7 @@ import a
 from b import c
 from d import (e)
 from f import *",
+            "some_filename.py",
         )
         .unwrap();
         assert_eq!(
@@ -552,6 +550,7 @@ if TYPE_CHECKING:
 from d import (e)
 if TYPE_CHECKING:
     from f import *",
+            "some_filename.py",
         )
         .unwrap();
         assert_eq!(
