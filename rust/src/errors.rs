@@ -20,6 +20,7 @@ pub enum GrimpError {
 
     #[error("Error parsing python code (line {line_number}, text {text}).")]
     ParseError {
+        module_filename: String,
         line_number: usize,
         text: String,
         #[source]
