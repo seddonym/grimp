@@ -10,9 +10,9 @@ import joblib  # type: ignore
 from ..application.ports import caching
 from ..application.ports.filesystem import AbstractFileSystem
 from ..application.ports.graph import ImportGraph
-from ..application.ports.importscanner import AbstractImportScanner
 from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage, ModuleFile
 from ..application.ports.packagefinder import AbstractPackageFinder
+from ..application.scanning import ImportScanner
 from ..domain.valueobjects import DirectImport, Module
 from .config import settings
 import os
@@ -260,7 +260,7 @@ def _scan_chunk(
 ) -> Dict[ModuleFile, Set[DirectImport]]:
     file_system: AbstractFileSystem = settings.FILE_SYSTEM
     basic_file_system = file_system.convert_to_basic()
-    import_scanner: AbstractImportScanner = settings.IMPORT_SCANNER_CLASS(
+    import_scanner = ImportScanner(
         file_system=basic_file_system,
         found_packages=found_packages,
         # Ensure that the passed exclude_type_checking_imports is definitely a boolean,
