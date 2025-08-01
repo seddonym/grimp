@@ -84,11 +84,6 @@ Building the graph
     :return: An import graph that you can use to analyse the package.
     :rtype: ``ImportGraph``
 
-    This method uses multiple operating system processes to build the graph, if the number of modules to scan (not
-    including modules in the cache) is 50 or more. This threshold can be adjusted by setting the ``GRIMP_MIN_MULTIPROCESSING_MODULES``
-    environment variable to a different number. To disable multiprocessing altogether, set it to a large number (more than
-    the number of modules in the codebase being analyzed).
-
 .. _typing module documentation: https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING
 
 Methods for analysing the module tree
