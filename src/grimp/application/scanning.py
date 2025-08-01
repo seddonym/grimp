@@ -4,7 +4,8 @@ from typing import Collection, Set, Dict, Iterable
 
 import joblib  # type: ignore
 
-from grimp import _rustgrimp as rust, DirectImport  # type: ignore[attr-defined]
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
+from grimp.domain.valueobjects import DirectImport
 from grimp.application.config import settings
 from grimp.application.ports.filesystem import AbstractFileSystem
 from grimp.application.ports.modulefinder import ModuleFile, FoundPackage

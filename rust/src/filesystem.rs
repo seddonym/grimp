@@ -262,6 +262,13 @@ impl PyFakeBasicFileSystem {
     fn read(&self, file_name: &str) -> PyResult<String> {
         self.inner.read(file_name)
     }
+    
+    // Temporary workaround method for Python tests.
+    fn convert_to_basic(&self) -> PyResult<Self> {
+        Ok(PyFakeBasicFileSystem {
+            inner: self.inner.clone()
+        })
+    }
 }
 
 /// Parses an indented string representing a file system structure
