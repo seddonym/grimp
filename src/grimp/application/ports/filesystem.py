@@ -93,11 +93,11 @@ class AbstractFileSystem(abc.ABC):
 
 class BasicFileSystem(Protocol):
     """
-    A more limited file system, used by the ImportScanner.
+    A more limited file system, used by the Rust-based scan_for_imports function.
 
     Having two different file system APIs is an interim approach, allowing us to
-    implement BasicFileSystem in Rust, for use with the ImportScanner, without needing
-    to implement the full range of methods used by other parts of Grimp.
+    implement BasicFileSystem in Rust without needing to implement the full range
+    of methods used by other parts of Grimp.
 
     Eventually we'll move the full implementation to Rust, and have a single
     FileSystem interface.
