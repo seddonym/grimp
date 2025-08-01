@@ -44,17 +44,7 @@ impl ImportScanner {
         found_packages: Bound<'_, PyAny>,
         include_external_packages: bool,
     ) -> PyResult<Self> {
-        let file_system_boxed: Box<dyn FileSystem + Send + Sync>;
-
-        if let Ok(py_real) = file_system.extract::<PyRef<PyRealBasicFileSystem>>() {
-            file_system_boxed = Box::new(py_real.inner.clone());
-        } else if let Ok(py_fake) = file_system.extract::<PyRef<PyFakeBasicFileSystem>>() {
-            file_system_boxed = Box::new(py_fake.inner.clone());
-        } else {
-            return Err(PyTypeError::new_err(
-                "file_system must be an instance of RealBasicFileSystem or FakeBasicFileSystem",
-            ));
-        }
+        let file_system_boxed = get_file_system_boxed(&file_system)?;
         let found_packages_rust = _py_found_packages_to_rust(found_packages);
         let modules = _get_modules_from_found_packages(&found_packages_rust);
 
@@ -372,4 +362,19 @@ fn count_leading_dots(s: &str) -> usize {
 
 fn module_is_descendant(module_name: &str, potential_ancestor: &str) -> bool {
     module_name.starts_with(&format!("{potential_ancestor}."))
+}
+
+fn get_file_system_boxed<'py>(file_system: &Bound<'_, PyAny>) -> PyResult<Box<dyn FileSystem + Send + Sync>>{
+    let file_system_boxed: Box<dyn FileSystem + Send + Sync>;
+
+    if let Ok(py_real) = file_system.extract::<PyRef<PyRealBasicFileSystem>>() {
+        file_system_boxed = Box::new(py_real.inner.clone());
+    } else if let Ok(py_fake) = file_system.extract::<PyRef<PyFakeBasicFileSystem>>() {
+        file_system_boxed = Box::new(py_fake.inner.clone());
+    } else {
+        return Err(PyTypeError::new_err(
+            "file_system must be an instance of RealBasicFileSystem or FakeBasicFileSystem",
+        ));
+    }
+    Ok(file_system_boxed)
 }
