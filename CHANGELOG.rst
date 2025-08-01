@@ -6,6 +6,7 @@ Unreleased
 ----------
 
 * Add closed layers to layer contract.
+* Rename default repository branch to 'main'.
 
 3.9 (2025-05-05)
 ----------------
