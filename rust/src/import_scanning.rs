@@ -38,7 +38,7 @@ impl ImportScanner {
     #[allow(unused_variables)]
     #[new]
     #[pyo3(signature = (file_system, found_packages, include_external_packages=false))]
-    fn new(
+    pub fn new(
         py: Python,
         file_system: Bound<'_, PyAny>,
         found_packages: Bound<'_, PyAny>,
@@ -59,7 +59,7 @@ impl ImportScanner {
     /// Statically analyses the given module and returns a set of Modules that
     /// it imports.
     #[pyo3(signature = (module, exclude_type_checking_imports=false))]
-    fn scan_for_imports<'a>(
+    pub fn scan_for_imports<'a>(
         &self,
         py: Python<'a>,
         module: Bound<'_, PyAny>,

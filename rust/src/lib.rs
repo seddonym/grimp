@@ -27,6 +27,7 @@ use std::collections::HashSet;
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(parse_imported_objects_from_code))?;
+    m.add_wrapped(wrap_pyfunction!(scan_for_imports))?;
     m.add_class::<GraphWrapper>()?;
     m.add_class::<PyRealBasicFileSystem>()?;
     m.add_class::<PyFakeBasicFileSystem>()?;
@@ -39,6 +40,35 @@ fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     )?;
     m.add("ParseError", py.get_type::<ParseError>())?;
     Ok(())
+}
+
+#[pyfunction]
+fn scan_for_imports<'py,>(
+    py: Python<'py>,
+    module_files: Vec<Bound<'py, PyAny>>,
+    found_packages: Bound<'py, PyAny>,
+    include_external_packages: bool,
+    exclude_type_checking_imports: bool,
+    file_system: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyDict>>{
+    let scanner = ImportScanner::new(
+        py,
+        file_system,
+        found_packages,
+        include_external_packages,
+    )?;
+    
+    let dict = PyDict::new(py);
+    for module_file in module_files {
+        let py_module_instance = module_file.getattr("module").unwrap();
+        let imports = scanner.scan_for_imports(
+            py,
+            py_module_instance,
+            exclude_type_checking_imports,
+        )?;
+        dict.set_item(module_file, imports).unwrap();
+    }
+    Ok(dict)
 }
 
 #[pyfunction]
