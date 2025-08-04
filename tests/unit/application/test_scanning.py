@@ -1,12 +1,19 @@
 from typing import Set
 
-
+import os
+from unittest.mock import patch
 import pytest  # type: ignore
+import joblib  # type: ignore
 
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
+from grimp.application import scanning
 from grimp.domain.valueobjects import DirectImport, Module
-
+from tests.config import override_settings
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
+from tests.adaptors.filesystem import FakeFileSystem
+
+
+SOME_CPU_COUNT = 8
 
 
 @pytest.mark.parametrize(
@@ -49,7 +56,8 @@ from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
     ),
 )
 def test_absolute_imports(include_external_packages, expected_result):
-    all_modules = {Module("foo.one"), Module("foo.two")}
+    module_file_to_scan = _module_to_module_file(Module("foo.one"))
+    all_module_files = frozenset({module_file_to_scan, _module_to_module_file(Module("foo.two"))})
     file_system = rust.FakeBasicFileSystem(
         content_map={
             "/path/to/foo/one.py": """
@@ -61,25 +69,26 @@ def test_absolute_imports(include_external_packages, expected_result):
         }
     )
 
-    import_scanner = rust.ImportScanner(
-        found_packages={
-            FoundPackage(
-                name="foo",
-                directory="/path/to/foo",
-                module_files=frozenset(_modules_to_module_files(all_modules)),
-            )
-        },
-        file_system=file_system,
-        include_external_packages=include_external_packages,
-    )
+    with override_settings(FILE_SYSTEM=file_system):
+        result = scanning.scan_imports(
+            {module_file_to_scan},
+            found_packages={
+                FoundPackage(
+                    name="foo",
+                    directory="/path/to/foo",
+                    module_files=all_module_files,
+                )
+            },
+            include_external_packages=include_external_packages,
+            exclude_type_checking_imports=False,
+        )
 
-    result = import_scanner.scan_for_imports(Module("foo.one"))
-
-    assert expected_result == result
+    assert {module_file_to_scan: expected_result} == result
 
 
 def test_non_ascii():
     blue_module = Module("mypackage.blue")
+    blue_module_file = _module_to_module_file(blue_module)
     non_ascii_modules = {Module("mypackage.ñon_ascii_变"), Module("mypackage.ñon_ascii_变.ラーメン")}
     file_system = rust.FakeBasicFileSystem(
         content_map={
@@ -92,42 +101,44 @@ def test_non_ascii():
             "/path/to/mypackage/ñon_ascii_变/ラーメン.py": "",
         },
     )
+    found_packages = {
+        FoundPackage(
+            name="mypackage",
+            directory="/path/to/mypackage",
+            module_files=frozenset({blue_module_file})
+            | _modules_to_module_files(non_ascii_modules),
+        )
+    }
 
-    import_scanner = rust.ImportScanner(
-        found_packages={
-            FoundPackage(
-                name="mypackage",
-                directory="/path/to/mypackage",
-                module_files=frozenset(
-                    _modules_to_module_files({blue_module} | non_ascii_modules)
-                ),
-            )
-        },
-        file_system=file_system,
-        include_external_packages=True,
-    )
-
-    result = import_scanner.scan_for_imports(blue_module)
+    with override_settings(FILE_SYSTEM=file_system):
+        result = scanning.scan_imports(
+            {blue_module_file},
+            found_packages=found_packages,
+            include_external_packages=True,
+            exclude_type_checking_imports=False,
+        )
 
     assert result == {
-        DirectImport(
-            importer=Module("mypackage.blue"),
-            imported=Module("ñon_ascii_变"),
-            line_number=1,
-            line_contents="from ñon_ascii_变 import *",
-        ),
-        DirectImport(
-            importer=Module("mypackage.blue"),
-            imported=Module("mypackage.ñon_ascii_变"),
-            line_number=2,
-            line_contents="from . import ñon_ascii_变",
-        ),
-        DirectImport(
-            importer=Module("mypackage.blue"),
-            imported=Module("mypackage.ñon_ascii_变.ラーメン"),
-            line_number=3,
-            line_contents="import mypackage.ñon_ascii_变.ラーメン",
-        ),
+        blue_module_file: {
+            DirectImport(
+                importer=Module("mypackage.blue"),
+                imported=Module("ñon_ascii_变"),
+                line_number=1,
+                line_contents="from ñon_ascii_变 import *",
+            ),
+            DirectImport(
+                importer=Module("mypackage.blue"),
+                imported=Module("mypackage.ñon_ascii_变"),
+                line_number=2,
+                line_contents="from . import ñon_ascii_变",
+            ),
+            DirectImport(
+                importer=Module("mypackage.blue"),
+                imported=Module("mypackage.ñon_ascii_变.ラーメン"),
+                line_number=3,
+                line_contents="import mypackage.ñon_ascii_变.ラーメン",
+            ),
+        }
     }
 
 
@@ -151,7 +162,8 @@ def test_single_namespace_package_portion():
         MODULE_BLUE,
         MODULE_ALPHA,
     }
-
+    module_one_file = _module_to_module_file(MODULE_ONE)
+    module_alpha_file = _module_to_module_file(MODULE_ALPHA)
     file_system = rust.FakeBasicFileSystem(
         content_map={
             "/path/to/namespace/foo/one.py": """
@@ -165,25 +177,24 @@ def test_single_namespace_package_portion():
             """,
         }
     )
+    found_packages = {
+        FoundPackage(
+            name="namespace.foo",
+            directory="/path/to/namespace/foo",
+            module_files=frozenset(_modules_to_module_files(all_modules)),
+        )
+    }
 
-    import_scanner = rust.ImportScanner(
-        found_packages={
-            FoundPackage(
-                name="namespace.foo",
-                directory="/path/to/namespace/foo",
-                module_files=frozenset(_modules_to_module_files(all_modules)),
-            )
-        },
-        file_system=file_system,
-    )
+    with override_settings(FILE_SYSTEM=file_system):
+        result = scanning.scan_imports(
+            {module_one_file, module_alpha_file},
+            found_packages=found_packages,
+            include_external_packages=True,
+            exclude_type_checking_imports=False,
+        )
 
-    results = (
-        import_scanner.scan_for_imports(MODULE_ONE),
-        import_scanner.scan_for_imports(MODULE_ALPHA),
-    )
-
-    assert results == (
-        {
+    assert result == {
+        module_one_file: {
             DirectImport(
                 importer=MODULE_ONE,
                 imported=MODULE_TWO,
@@ -203,7 +214,7 @@ def test_single_namespace_package_portion():
                 line_contents="from . import four",
             ),
         },
-        {
+        module_alpha_file: {
             DirectImport(
                 importer=MODULE_ALPHA,
                 imported=MODULE_BLUE,
@@ -217,7 +228,7 @@ def test_single_namespace_package_portion():
                 line_contents="from ... import three",
             ),
         },
-    )
+    }
 
 
 @pytest.mark.parametrize("include_external_packages", (True, False))
@@ -229,7 +240,8 @@ def test_import_of_portion_not_in_graph(include_external_packages):
     MODULE_FOO = Module("namespace.foo")
     MODULE_FOO_ONE = Module("namespace.foo.one")
     MODULE_FOO_BLUE = Module("namespace.foo.one.blue")
-
+    module_foo_one_file = _module_to_module_file(MODULE_FOO_ONE)
+    module_foo_blue_file = _module_to_module_file(MODULE_FOO_BLUE)
     all_modules = {
         MODULE_FOO,
         MODULE_FOO_ONE,
@@ -253,38 +265,37 @@ def test_import_of_portion_not_in_graph(include_external_packages):
         }
     )
 
-    import_scanner = rust.ImportScanner(
-        found_packages={
-            FoundPackage(
-                name="namespace.foo",
-                directory="/path/to/namespace/foo",
-                module_files=frozenset(_modules_to_module_files(all_modules)),
+    found_packages = {
+        FoundPackage(
+            name="namespace.foo",
+            directory="/path/to/namespace/foo",
+            module_files=frozenset(_modules_to_module_files(all_modules)),
+        ),
+        FoundPackage(
+            name="namespace.bar.one.green",
+            directory="/path/to/namespace/bar/one/green",
+            module_files=frozenset(
+                _modules_to_module_files(
+                    {
+                        MODULE_BAR_ONE_GREEN,
+                        MODULE_BAR_ONE_GREEN_ALPHA,
+                    }
+                )
             ),
-            FoundPackage(
-                name="namespace.bar.one.green",
-                directory="/path/to/namespace/bar/one/green",
-                module_files=frozenset(
-                    _modules_to_module_files(
-                        {
-                            MODULE_BAR_ONE_GREEN,
-                            MODULE_BAR_ONE_GREEN_ALPHA,
-                        }
-                    )
-                ),
-            ),
-        },
-        file_system=file_system,
-        include_external_packages=include_external_packages,
-    )
+        ),
+    }
 
-    results = (
-        import_scanner.scan_for_imports(MODULE_FOO_ONE),
-        import_scanner.scan_for_imports(MODULE_FOO_BLUE),
-    )
+    with override_settings(FILE_SYSTEM=file_system):
+        result = scanning.scan_imports(
+            {module_foo_one_file, module_foo_blue_file},
+            found_packages=found_packages,
+            include_external_packages=include_external_packages,
+            exclude_type_checking_imports=False,
+        )
 
     if include_external_packages:
-        assert results == (
-            {
+        assert result == {
+            module_foo_one_file: {
                 DirectImport(
                     importer=MODULE_FOO_ONE,
                     imported=Module("namespace.bar.one.orange"),
@@ -316,7 +327,7 @@ def test_import_of_portion_not_in_graph(include_external_packages):
                     line_contents="from ..magenta.one import alpha",
                 ),
             },
-            {
+            module_foo_blue_file: {
                 DirectImport(
                     importer=MODULE_FOO_BLUE,
                     imported=Module("namespace.teal"),
@@ -336,9 +347,12 @@ def test_import_of_portion_not_in_graph(include_external_packages):
                     line_contents="from ...scarlet.one import alpha",
                 ),
             },
-        )
+        }
     else:
-        assert results == (set(), set())
+        assert result == {
+            module_foo_one_file: set(),
+            module_foo_blue_file: set(),
+        }
 
 
 @pytest.mark.parametrize(
@@ -415,6 +429,7 @@ def test_absolute_from_imports(include_external_packages, expected_result):
         Module("foo.two.yellow"),
         Module("foo.three"),
     }
+    module_foo_one_blue_file = _module_to_module_file(Module("foo.one.blue"))
     file_system = rust.FakeBasicFileSystem(
         contents="""
             /path/to/foo/
@@ -441,22 +456,23 @@ def test_absolute_from_imports(include_external_packages, expected_result):
             """
         },
     )
+    found_packages = {
+        FoundPackage(
+            name="foo",
+            directory="/path/to/foo",
+            module_files=frozenset(_modules_to_module_files(all_modules)),
+        )
+    }
 
-    import_scanner = rust.ImportScanner(
-        found_packages={
-            FoundPackage(
-                name="foo",
-                directory="/path/to/foo",
-                module_files=frozenset(_modules_to_module_files(all_modules)),
-            )
-        },
-        file_system=file_system,
-        include_external_packages=include_external_packages,
-    )
+    with override_settings(FILE_SYSTEM=file_system):
+        result = scanning.scan_imports(
+            {module_foo_one_blue_file},
+            found_packages=found_packages,
+            include_external_packages=include_external_packages,
+            exclude_type_checking_imports=False,
+        )
 
-    result = import_scanner.scan_for_imports(Module("foo.one.blue"))
-
-    assert expected_result == result
+    assert {module_foo_one_blue_file: expected_result} == result
 
 
 @pytest.mark.parametrize("module_to_scan_is_package", (True, False))
@@ -476,7 +492,7 @@ def test_relative_from_imports(module_to_scan_is_package):
     else:
         module_to_scan = Module("foo.one.blue")
         module_filename = "/path/to/foo/one/blue.py"
-
+    module_file_to_scan = _module_to_module_file(module_to_scan)
     file_system = rust.FakeBasicFileSystem(
         contents="""
             /path/to/foo/
@@ -500,39 +516,43 @@ def test_relative_from_imports(module_to_scan_is_package):
             """
         },
     )
+    found_packages = {
+        FoundPackage(
+            name="foo",
+            directory="/path/to/foo",
+            module_files=frozenset(_modules_to_module_files(all_modules)),
+        )
+    }
 
-    import_scanner = rust.ImportScanner(
-        found_packages={
-            FoundPackage(
-                name="foo",
-                directory="/path/to/foo",
-                module_files=frozenset(_modules_to_module_files(all_modules)),
-            )
-        },
-        file_system=file_system,
-    )
-
-    result = import_scanner.scan_for_imports(module_to_scan)
+    with override_settings(FILE_SYSTEM=file_system):
+        result = scanning.scan_imports(
+            {module_file_to_scan},
+            found_packages=found_packages,
+            include_external_packages=False,
+            exclude_type_checking_imports=True,
+        )
 
     assert result == {
-        DirectImport(
-            importer=module_to_scan,
-            imported=Module("foo.one.green"),
-            line_number=1,
-            line_contents="from . import green",
-        ),
-        DirectImport(
-            importer=module_to_scan,
-            imported=Module("foo.two.yellow"),
-            line_number=2,
-            line_contents="from ..two import yellow",
-        ),
-        DirectImport(
-            importer=module_to_scan,
-            imported=Module("foo.three"),
-            line_number=3,
-            line_contents="from .. import three",
-        ),
+        module_file_to_scan: {
+            DirectImport(
+                importer=module_to_scan,
+                imported=Module("foo.one.green"),
+                line_number=1,
+                line_contents="from . import green",
+            ),
+            DirectImport(
+                importer=module_to_scan,
+                imported=Module("foo.two.yellow"),
+                line_number=2,
+                line_contents="from ..two import yellow",
+            ),
+            DirectImport(
+                importer=module_to_scan,
+                imported=Module("foo.three"),
+                line_number=3,
+                line_contents="from .. import three",
+            ),
+        }
     }
 
 
@@ -547,6 +567,7 @@ def test_trims_to_known_modules(import_source):
         Module("foo.two"),
         Module("foo.two.yellow"),
     }
+    module_file_to_scan = _module_to_module_file(Module("foo.one"))
     file_system = rust.FakeBasicFileSystem(
         contents="""
                 /path/to/foo/
@@ -558,27 +579,31 @@ def test_trims_to_known_modules(import_source):
             """,
         content_map={"/path/to/foo/one.py": import_source},
     )
+    found_packages = {
+        FoundPackage(
+            name="foo",
+            directory="/path/to/foo",
+            module_files=frozenset(_modules_to_module_files(all_modules)),
+        )
+    }
 
-    import_scanner = rust.ImportScanner(
-        found_packages={
-            FoundPackage(
-                name="foo",
-                directory="/path/to/foo",
-                module_files=frozenset(_modules_to_module_files(all_modules)),
-            )
-        },
-        file_system=file_system,
-    )
-
-    result = import_scanner.scan_for_imports(Module("foo.one"))
+    with override_settings(FILE_SYSTEM=file_system):
+        result = scanning.scan_imports(
+            {module_file_to_scan},
+            found_packages=found_packages,
+            include_external_packages=False,
+            exclude_type_checking_imports=False,
+        )
 
     assert result == {
-        DirectImport(
-            importer=Module("foo.one"),
-            imported=Module("foo.two.yellow"),
-            line_number=1,
-            line_contents=import_source,
-        )
+        module_file_to_scan: {
+            DirectImport(
+                importer=Module("foo.one"),
+                imported=Module("foo.two.yellow"),
+                line_number=1,
+                line_contents=import_source,
+            )
+        }
     }
 
 
@@ -590,6 +615,8 @@ def test_trims_to_known_modules_within_init_file():
         Module("foo.one.blue"),
         Module("foo.one.blue.alpha"),
     }
+    module_file_foo_one = _module_to_module_file(Module("foo.one"))
+    module_file_foo_one_blue = _module_to_module_file(Module("foo.one.blue"))
     file_system = rust.FakeBasicFileSystem(
         contents="""
                 /path/to/foo/
@@ -606,43 +633,45 @@ def test_trims_to_known_modules_within_init_file():
             "/path/to/foo/one/blue/__init__.py": "from .alpha import my_function",
         },
     )
-
-    import_scanner = rust.ImportScanner(
-        found_packages={
-            FoundPackage(
-                name="foo",
-                directory="/path/to/foo",
-                module_files=frozenset(_modules_to_module_files(all_modules)),
-            )
-        },
-        file_system=file_system,
-    )
-
-    result = import_scanner.scan_for_imports(Module("foo.one"))
-
-    assert result == {
-        DirectImport(
-            importer=Module("foo.one"),
-            imported=Module("foo.one.yellow"),
-            line_number=1,
-            line_contents="from .yellow import my_function",
+    found_packages = {
+        FoundPackage(
+            name="foo",
+            directory="/path/to/foo",
+            module_files=frozenset(_modules_to_module_files(all_modules)),
         )
     }
 
-    result = import_scanner.scan_for_imports(Module("foo.one.blue"))
+    with override_settings(FILE_SYSTEM=file_system):
+        result = scanning.scan_imports(
+            {module_file_foo_one, module_file_foo_one_blue},
+            found_packages=found_packages,
+            include_external_packages=False,
+            exclude_type_checking_imports=False,
+        )
 
     assert result == {
-        DirectImport(
-            importer=Module("foo.one.blue"),
-            imported=Module("foo.one.blue.alpha"),
-            line_number=1,
-            line_contents="from .alpha import my_function",
-        )
+        module_file_foo_one: {
+            DirectImport(
+                importer=Module("foo.one"),
+                imported=Module("foo.one.yellow"),
+                line_number=1,
+                line_contents="from .yellow import my_function",
+            )
+        },
+        module_file_foo_one_blue: {
+            DirectImport(
+                importer=Module("foo.one.blue"),
+                imported=Module("foo.one.blue.alpha"),
+                line_number=1,
+                line_contents="from .alpha import my_function",
+            )
+        },
     }
 
 
 def test_trims_whitespace_from_start_of_line_contents():
     all_modules = {Module("foo"), Module("foo.one"), Module("foo.two")}
+    module_file_to_scan = _module_to_module_file(Module("foo.one"))
     file_system = rust.FakeBasicFileSystem(
         contents="""
                     /path/to/foo/
@@ -657,27 +686,31 @@ def test_trims_whitespace_from_start_of_line_contents():
             """
         },
     )
+    found_packages = {
+        FoundPackage(
+            name="foo",
+            directory="/path/to/foo",
+            module_files=frozenset(_modules_to_module_files(all_modules)),
+        )
+    }
 
-    import_scanner = rust.ImportScanner(
-        found_packages={
-            FoundPackage(
-                name="foo",
-                directory="/path/to/foo",
-                module_files=frozenset(_modules_to_module_files(all_modules)),
-            )
-        },
-        file_system=file_system,
-    )
-
-    result = import_scanner.scan_for_imports(Module("foo.one"))
+    with override_settings(FILE_SYSTEM=file_system):
+        result = scanning.scan_imports(
+            {module_file_to_scan},
+            found_packages=found_packages,
+            include_external_packages=False,
+            exclude_type_checking_imports=False,
+        )
 
     assert result == {
-        DirectImport(
-            importer=Module("foo.one"),
-            imported=Module("foo.two"),
-            line_number=2,
-            line_contents="from . import two",
-        )
+        module_file_to_scan: {
+            DirectImport(
+                importer=Module("foo.one"),
+                imported=Module("foo.two"),
+                line_number=2,
+                line_contents="from . import two",
+            ),
+        }
     }
 
 
@@ -715,52 +748,56 @@ def test_trims_whitespace_from_start_of_line_contents():
 )
 def test_external_package_imports_for_namespace_packages(statement, expected_module_name):
     module_to_scan = Module("namespace.foo.blue.alpha")
-
+    module_file_to_scan = _module_to_module_file(module_to_scan)
     file_system = rust.FakeBasicFileSystem(
         content_map={
             "/path/to/namespace/foo/blue/alpha.py": statement,
         }
     )
+    found_packages = {
+        FoundPackage(
+            name="namespace.foo.blue",
+            directory="/path/to/namespace/foo/blue",
+            module_files=frozenset(
+                _modules_to_module_files(
+                    {
+                        Module("namespace.foo.blue"),
+                        module_to_scan,
+                        Module("namespace.foo.blue.beta"),
+                    }
+                )
+            ),
+        )
+    }
 
-    import_scanner = rust.ImportScanner(
-        found_packages={
-            FoundPackage(
-                name="namespace.foo.blue",
-                directory="/path/to/namespace/foo/blue",
-                module_files=frozenset(
-                    _modules_to_module_files(
-                        {
-                            Module("namespace.foo.blue"),
-                            module_to_scan,
-                            Module("namespace.foo.blue.beta"),
-                        }
-                    )
-                ),
-            )
-        },
-        file_system=file_system,
-        include_external_packages=True,
-    )
-
-    result = import_scanner.scan_for_imports(module_to_scan)
+    with override_settings(FILE_SYSTEM=file_system):
+        result = scanning.scan_imports(
+            {module_file_to_scan},
+            found_packages=found_packages,
+            include_external_packages=True,
+            exclude_type_checking_imports=False,
+        )
 
     if expected_module_name:
         assert {
-            DirectImport(
-                importer=module_to_scan,
-                imported=Module(expected_module_name),
-                line_number=1,
-                line_contents=statement,
-            ),
+            module_file_to_scan: {
+                DirectImport(
+                    importer=module_to_scan,
+                    imported=Module(expected_module_name),
+                    line_number=1,
+                    line_contents=statement,
+                ),
+            }
         } == result
     else:
-        assert result == set()
+        assert {module_file_to_scan: set()} == result
 
 
 @pytest.mark.parametrize("statement", ("import bar.blue", "from bar import blue"))
 def test_scans_multiple_packages(statement):
     foo_modules = {Module("foo"), Module("foo.one"), Module("foo.two")}
     bar_modules = {Module("bar"), Module("bar.green"), Module("bar.blue")}
+    foo_one_module_file = _module_to_module_file(Module("foo.one"))
     file_system = rust.FakeBasicFileSystem(
         content_map={
             "/path/to/foo/one.py": f"""
@@ -772,38 +809,42 @@ def test_scans_multiple_packages(statement):
             """
         }
     )
+    found_packages = {
+        FoundPackage(
+            name="foo",
+            directory="/path/to/foo",
+            module_files=frozenset(_modules_to_module_files(foo_modules)),
+        ),
+        FoundPackage(
+            name="bar",
+            directory="/path/to/bar",
+            module_files=frozenset(_modules_to_module_files(bar_modules)),
+        ),
+    }
 
-    import_scanner = rust.ImportScanner(
-        found_packages={
-            FoundPackage(
-                name="foo",
-                directory="/path/to/foo",
-                module_files=frozenset(_modules_to_module_files(foo_modules)),
-            ),
-            FoundPackage(
-                name="bar",
-                directory="/path/to/bar",
-                module_files=frozenset(_modules_to_module_files(bar_modules)),
-            ),
-        },
-        file_system=file_system,
-    )
-
-    result = import_scanner.scan_for_imports(Module("foo.one"))
+    with override_settings(FILE_SYSTEM=file_system):
+        result = scanning.scan_imports(
+            {foo_one_module_file},
+            found_packages=found_packages,
+            include_external_packages=False,
+            exclude_type_checking_imports=False,
+        )
 
     assert {
-        DirectImport(
-            importer=Module("foo.one"),
-            imported=Module("foo.two"),
-            line_number=1,
-            line_contents="import foo.two",
-        ),
-        DirectImport(
-            importer=Module("foo.one"),
-            imported=Module("bar.blue"),
-            line_number=2,
-            line_contents=statement,
-        ),
+        foo_one_module_file: {
+            DirectImport(
+                importer=Module("foo.one"),
+                imported=Module("foo.two"),
+                line_number=1,
+                line_contents="import foo.two",
+            ),
+            DirectImport(
+                importer=Module("foo.one"),
+                imported=Module("bar.blue"),
+                line_number=2,
+                line_contents=statement,
+            ),
+        }
     } == result
 
 
@@ -829,6 +870,7 @@ def test_exclude_type_checking_imports(
         Module("foo.four"),
         Module("foo.five"),
     }
+    module_foo_one_file = _module_to_module_file(Module("foo.one"))
     file_system = rust.FakeBasicFileSystem(
         content_map={
             "/path/to/foo/one.py": f"""
@@ -841,17 +883,21 @@ def test_exclude_type_checking_imports(
             """
         }
     )
+    found_packages = {
+        FoundPackage(
+            name="foo",
+            directory="/path/to/foo",
+            module_files=frozenset(_modules_to_module_files(all_modules)),
+        )
+    }
 
-    import_scanner = rust.ImportScanner(
-        found_packages={
-            FoundPackage(
-                name="foo",
-                directory="/path/to/foo",
-                module_files=frozenset(_modules_to_module_files(all_modules)),
-            )
-        },
-        file_system=file_system,
-    )
+    with override_settings(FILE_SYSTEM=file_system):
+        result = scanning.scan_imports(
+            {module_foo_one_file},
+            found_packages=found_packages,
+            include_external_packages=False,
+            exclude_type_checking_imports=exclude_type_checking_imports,
+        )
 
     if exclude_type_checking_imports and is_statement_valid:
         expected_result = {
@@ -895,14 +941,85 @@ def test_exclude_type_checking_imports(
                 line_contents="import foo.five",
             ),
         }
+    assert {module_foo_one_file: expected_result} == result
 
-    result = import_scanner.scan_for_imports(
-        Module("foo.one"), exclude_type_checking_imports=exclude_type_checking_imports
+
+@patch.object(scanning, "_scan_chunks", return_value={})
+@patch.object(joblib, "cpu_count", return_value=SOME_CPU_COUNT)
+@pytest.mark.parametrize(
+    "number_of_modules, fake_environ, expected_number_of_chunks",
+    [
+        (
+            scanning.DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING - 1,
+            {},
+            1,
+        ),
+        (
+            scanning.DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING,
+            {},
+            SOME_CPU_COUNT,
+        ),
+        (
+            scanning.DEFAULT_MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING + 1,
+            {},
+            SOME_CPU_COUNT,
+        ),
+        (
+            149,
+            {scanning.MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME: 150},
+            1,
+        ),
+        (
+            150,
+            {scanning.MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME: 150},
+            SOME_CPU_COUNT,
+        ),
+        (
+            151,
+            {scanning.MIN_NUMBER_OF_MODULES_TO_SCAN_USING_MULTIPROCESSING_ENV_NAME: 150},
+            SOME_CPU_COUNT,
+        ),
+    ],
+)
+def test_scanning_multiprocessing_respects_min_number_of_modules(
+    mock_cpu_count,
+    mock_scan_chunks,
+    number_of_modules,
+    fake_environ,
+    expected_number_of_chunks,
+):
+    module_files = frozenset(
+        {
+            ModuleFile(
+                module=Module(f"mypackage.mod_{i}"),
+                mtime=999,
+            )
+            for i in range(number_of_modules)
+        }
     )
+    found_packages = {
+        FoundPackage(name="mypackage", directory="/path/to/mypackage", module_files=module_files)
+    }
 
-    assert expected_result == result
+    with override_settings(
+        FILE_SYSTEM=FakeFileSystem(),
+    ), patch.object(os, "environ", fake_environ):
+        scanning.scan_imports(
+            module_files,
+            found_packages=found_packages,
+            include_external_packages=False,
+            exclude_type_checking_imports=False,
+        )
+
+    [call] = mock_scan_chunks.call_args_list
+    chunks = call.args[0]
+    assert len(chunks) == expected_number_of_chunks
+
+
+def _module_to_module_file(module: Module) -> ModuleFile:
+    some_mtime = 100933.4
+    return ModuleFile(module=module, mtime=some_mtime)
 
 
 def _modules_to_module_files(modules: Set[Module]) -> Set[ModuleFile]:
-    some_mtime = 100933.4
-    return {ModuleFile(module=module, mtime=some_mtime) for module in modules}
+    return {_module_to_module_file(module) for module in modules}

@@ -18,5 +18,5 @@ ignore_imports =
     ; is an object within grimp, rather than a module in its own right,
     ; so we ignore these imports here.
     grimp.adaptors.graph -> grimp
-    grimp.adaptors.importscanner -> grimp
     grimp.adaptors.filesystem -> grimp
+    grimp.application.scanning -> grimp
