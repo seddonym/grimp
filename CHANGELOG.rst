@@ -7,6 +7,7 @@ Unreleased
 
 * Add closed layers to layer contract.
 * Rename default repository branch to 'main'.
+* Optimise `find_shortest_chains` query.
 
 3.9 (2025-05-05)
 ----------------
