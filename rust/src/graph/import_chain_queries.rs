@@ -100,22 +100,14 @@ impl Graph {
             downstream_modules.extend_with_descendants(self);
             upstream_modules.extend_with_descendants(self);
         }
-        let all_modules = &downstream_modules | &upstream_modules;
 
-        let chains = downstream_modules
-            .iter()
-            .cartesian_product(upstream_modules.iter())
-            .filter_map(|(downstream_module, upstream_module)| {
-                let excluded_modules =
-                    &all_modules - &FxHashSet::from_iter([*downstream_module, *upstream_module]);
-                self.find_shortest_chain_with_excluded_modules_and_imports(
-                    &(*downstream_module).into(),
-                    &(*upstream_module).into(),
-                    &excluded_modules,
-                    &FxHashMap::default(),
-                )
-                .unwrap()
-            })
+        let chains = self
+            ._find_shortest_chains(
+                &downstream_modules,
+                &upstream_modules,
+                &FxHashSet::from_iter([]),
+            )?
+            .into_iter()
             .collect();
 
         Ok(chains)
