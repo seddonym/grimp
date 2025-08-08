@@ -46,6 +46,8 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+      - name: Print versions
+        run: cargo version --verbose && cargo clippy --version
       - name: Run tests
         run: cargo test --no-default-features
         working-directory: ./rust
