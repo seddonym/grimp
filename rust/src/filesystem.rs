@@ -87,12 +87,11 @@ impl FileSystem for RealBasicFileSystem {
 
         // Coding specification needs to be in the first two lines, or it's ignored.
         for line in s.lines().take(2) {
-            if let Some(captures) = encoding_re.captures(line) {
-                if let Some(encoding_name) = captures.get(1) {
+            if let Some(captures) = encoding_re.captures(line)
+                && let Some(encoding_name) = captures.get(1) {
                     detected_encoding = Some(encoding_name.as_str().to_string());
                     break;
                 }
-            }
         }
 
         if let Some(enc_name) = detected_encoding {

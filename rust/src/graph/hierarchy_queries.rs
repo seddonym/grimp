@@ -17,7 +17,7 @@ impl Graph {
     }
 
     // TODO(peter) Guarantee order?
-    pub fn all_modules(&self) -> impl ModuleIterator {
+    pub fn all_modules(&self) -> impl ModuleIterator<'_> {
         self.modules.values()
     }
 
@@ -28,7 +28,7 @@ impl Graph {
         }
     }
 
-    pub fn get_module_children(&self, module: ModuleToken) -> impl ModuleIterator {
+    pub fn get_module_children(&self, module: ModuleToken) -> impl ModuleIterator<'_> {
         let children = match self.module_children.get(module) {
             Some(children) => children
                 .iter()
@@ -42,7 +42,7 @@ impl Graph {
     /// Returns an iterator over the passed modules descendants.
     ///
     /// Parent modules will be yielded before their child modules.
-    pub fn get_module_descendants(&self, module: ModuleToken) -> impl ModuleIterator {
+    pub fn get_module_descendants(&self, module: ModuleToken) -> impl ModuleIterator<'_> {
         let mut descendants = self.get_module_children(module).collect::<Vec<_>>();
         for child in descendants.clone() {
             descendants.extend(self.get_module_descendants(child.token).collect::<Vec<_>>())
@@ -53,7 +53,7 @@ impl Graph {
     pub fn find_matching_modules(
         &self,
         expression: &ModuleExpression,
-    ) -> impl ModuleIterator + use<'_> {
+    ) -> impl ModuleIterator<'_> + use<'_> {
         let interner = MODULE_NAMES.read().unwrap();
         let modules: FxHashSet<_> = self
             .modules
