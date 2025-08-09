@@ -140,8 +140,8 @@ fn scan_for_imports_no_py_single_module(
             }
             None => {
                 // It's an external import.
-                if include_external_packages {
-                    if let Some(imported_module) =
+                if include_external_packages
+                    && let Some(imported_module) =
                         _distill_external_module(&imported_object_name, found_packages)
                     {
                         imports.insert(DirectImport {
@@ -151,7 +151,6 @@ fn scan_for_imports_no_py_single_module(
                             line_contents: imported_object.line_contents,
                         });
                     }
-                }
             }
         }
     }
