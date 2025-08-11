@@ -2,9 +2,8 @@ use crate::errors::GrimpResult;
 use crate::graph::{ExtendWithDescendants, Graph, ModuleToken};
 use derive_new::new;
 use getset::Getters;
-use itertools::Itertools;
 use rayon::prelude::*;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashSet;
 
 use tap::prelude::*;
 
@@ -146,35 +145,18 @@ impl Graph {
         let excluded_modules =
             all_layers_modules - &(&from_layer_with_descendants | &to_layer_with_descendants);
 
-        // Disallow chains via these imports.
-        // We'll add chains to this set as we discover them.
-        let mut excluded_imports = FxHashMap::default();
+        let chains = self._find_shortest_chains(
+            &from_layer_with_descendants,
+            &to_layer_with_descendants,
+            &excluded_modules,
+        )?;
 
         // Collect direct imports...
         let mut direct_imports = vec![];
         // ...and the middles of any indirect imports.
         let mut middles = vec![];
-        loop {
-            let chain = self.find_shortest_chain_with_excluded_modules_and_imports(
-                &from_layer_with_descendants,
-                &to_layer_with_descendants,
-                &excluded_modules,
-                &excluded_imports,
-            )?;
 
-            if chain.is_none() {
-                break;
-            }
-            let chain = chain.unwrap();
-
-            // Exclude this chain from further searching.
-            for (importer, imported) in chain.iter().tuple_windows() {
-                excluded_imports
-                    .entry(*importer)
-                    .or_default()
-                    .insert(*imported);
-            }
-
+        for chain in chains {
             let (head, middle, tail) = self.split_chain(&chain);
             match middle {
                 Some(middle) => middles.push(middle),
