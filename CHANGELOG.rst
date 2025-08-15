@@ -2,8 +2,8 @@
 Changelog
 =========
 
-Unreleased
-----------
+3.10 (2025-08-15)
+-----------------
 
 * Add closed layers to layer contract.
 * Rename default repository branch to 'main'.
