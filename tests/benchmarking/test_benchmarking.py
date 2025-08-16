@@ -464,6 +464,40 @@ class TestFindShortestChains:
         )
         assert result == set()
 
+    def test_chains_found_sparse_imports(self, benchmark):
+        """
+        A test case where the number of import chains is significantly less
+        than the number of module combinations. In this case package `a` has
+        100 modules and package `c` has 100 modules, however the number of import
+        chains between them is only 10.
+
+        This case of "sparse" imports is typical of realistic scenarios, where there are
+        large packages and only a small handful of contract violations.
+
+        This test case is designed to expose weaknesses of naive O(N^2) algorithms
+        which compute chains by pathfinding between every pair of modules.
+        """
+        graph = ImportGraph()
+        graph.add_module("a")
+        graph.add_module("b")
+        graph.add_module("c")
+        for i in range(100):
+            graph.add_module(f"a.m{i}")
+            graph.add_module(f"b.m{i}")
+            graph.add_module(f"c.m{i}")
+            if i % 10 == 0:
+                graph.add_import(importer=f"a.m{i}", imported=f"b.m{i}")
+                graph.add_import(importer=f"b.m{i}", imported=f"c.m{i}")
+
+        result = _run_benchmark(
+            benchmark,
+            graph.find_shortest_chains,
+            "a",
+            "c",
+            as_packages=True,
+        )
+        assert len(result) == 10
+
 
 def test_copy_graph(large_graph, benchmark):
     _run_benchmark(benchmark, lambda: deepcopy(large_graph))

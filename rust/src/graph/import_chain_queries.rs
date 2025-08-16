@@ -100,23 +100,54 @@ impl Graph {
             downstream_modules.extend_with_descendants(self);
             upstream_modules.extend_with_descendants(self);
         }
-        let all_modules = &downstream_modules | &upstream_modules;
 
-        let chains = downstream_modules
-            .iter()
-            .cartesian_product(upstream_modules.iter())
-            .filter_map(|(downstream_module, upstream_module)| {
-                let excluded_modules =
-                    &all_modules - &FxHashSet::from_iter([*downstream_module, *upstream_module]);
-                self.find_shortest_chain_with_excluded_modules_and_imports(
-                    &(*downstream_module).into(),
-                    &(*upstream_module).into(),
-                    &excluded_modules,
-                    &FxHashMap::default(),
-                )
-                .unwrap()
-            })
+        let chains = self
+            ._find_shortest_chains(
+                &downstream_modules,
+                &upstream_modules,
+                &FxHashSet::from_iter([]),
+            )?
+            .into_iter()
             .collect();
+
+        Ok(chains)
+    }
+
+    pub(crate) fn _find_shortest_chains(
+        &self,
+        from_modules: &FxHashSet<ModuleToken>,
+        to_modules: &FxHashSet<ModuleToken>,
+        excluded_modules: &FxHashSet<ModuleToken>,
+    ) -> GrimpResult<Vec<Vec<ModuleToken>>> {
+        let mut chains = vec![];
+
+        // Disallow chains via these imports.
+        // We'll add chains to this set as we discover them.
+        let mut excluded_imports = FxHashMap::default();
+
+        loop {
+            let chain = self.find_shortest_chain_with_excluded_modules_and_imports(
+                from_modules,
+                to_modules,
+                excluded_modules,
+                &excluded_imports,
+            )?;
+
+            if chain.is_none() {
+                break;
+            }
+            let chain = chain.unwrap();
+
+            // Exclude this chain from further searching.
+            for (importer, imported) in chain.iter().tuple_windows() {
+                excluded_imports
+                    .entry(*importer)
+                    .or_default()
+                    .insert(*imported);
+            }
+
+            chains.push(chain);
+        }
 
         Ok(chains)
     }
