@@ -1,5 +1,3 @@
-/// Statically analyses some Python modules for import statements within their shared package.
-use rayon::prelude::*;
 use crate::errors::GrimpResult;
 use crate::filesystem::{FileSystem, PyFakeBasicFileSystem, PyRealBasicFileSystem};
 use crate::import_parsing;
@@ -8,6 +6,8 @@ use itertools::Itertools;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PySet};
+/// Statically analyses some Python modules for import statements within their shared package.
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::io::{self, ErrorKind};
 
@@ -85,12 +85,20 @@ pub fn scan_for_imports_no_py(
 ) -> GrimpResult<HashMap<Module, HashSet<DirectImport>>> {
     let module_packages = get_modules_from_found_packages(found_packages);
 
+    // Assemble a lookup table so we only need to do this once.
+    let mut found_packages_by_module = HashMap::new();
+    for found_package in found_packages {
+        for module_file in &found_package.module_files {
+            found_packages_by_module.insert(&module_file.module, found_package);
+        }
+    }
     let results: GrimpResult<Vec<(Module, HashSet<DirectImport>)>> = modules
         .par_iter()
         .map(|module| {
             let imports = scan_for_imports_no_py_single_module(
                 module,
                 file_system,
+                &found_packages_by_module,
                 found_packages,
                 &module_packages,
                 include_external_packages,
@@ -107,13 +115,14 @@ pub fn scan_for_imports_no_py(
 fn scan_for_imports_no_py_single_module(
     module: &Module,
     file_system: &Box<dyn FileSystem + Send + Sync>,
+    found_packages_by_module: &HashMap<&Module, &FoundPackage>,
     found_packages: &HashSet<FoundPackage>,
     all_modules: &HashSet<Module>,
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
 ) -> GrimpResult<HashSet<DirectImport>> {
     let mut imports: HashSet<DirectImport> = HashSet::new();
-    let found_package_for_module = _lookup_found_package_for_module(module, found_packages);
+    let found_package_for_module = found_packages_by_module[module];
     let module_filename =
         _determine_module_filename(module, found_package_for_module, file_system).unwrap();
     let module_contents = file_system.read(&module_filename).unwrap();
@@ -148,14 +157,14 @@ fn scan_for_imports_no_py_single_module(
                 if include_external_packages
                     && let Some(imported_module) =
                         _distill_external_module(&imported_object_name, found_packages)
-                    {
-                        imports.insert(DirectImport {
-                            importer: module.name.to_string(),
-                            imported: imported_module,
-                            line_number: imported_object.line_number,
-                            line_contents: imported_object.line_contents,
-                        });
-                    }
+                {
+                    imports.insert(DirectImport {
+                        importer: module.name.to_string(),
+                        imported: imported_module,
+                        line_number: imported_object.line_number,
+                        line_contents: imported_object.line_contents,
+                    });
+                }
             }
         }
     }
@@ -190,21 +199,6 @@ pub fn to_py_direct_imports<'a>(
     }
 
     pyset
-}
-
-fn _lookup_found_package_for_module<'b>(
-    module: &Module,
-    found_packages: &'b HashSet<FoundPackage>,
-) -> &'b FoundPackage {
-    // TODO: it's probably inefficient to do this every time we look up a module.
-    for found_package in found_packages {
-        for module_file in &found_package.module_files {
-            if module_file.module == *module {
-                return found_package;
-            }
-        }
-    }
-    panic!("Could not lookup found package for module {module}");
 }
 
 #[allow(clippy::borrowed_box)]
