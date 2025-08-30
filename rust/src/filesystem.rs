@@ -6,6 +6,12 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use unindent::unindent;
+use lazy_static::lazy_static;
+
+
+lazy_static! {
+    static ref ENCODING_RE: Regex = Regex::new(r"^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)").unwrap();
+}
 
 pub trait FileSystem: Send + Sync {
     fn sep(&self) -> String;
@@ -81,13 +87,13 @@ impl FileSystem for RealBasicFileSystem {
         })?;
 
         let s = String::from_utf8_lossy(&bytes);
-        let encoding_re = Regex::new(r"^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)").unwrap();
+        
 
         let mut detected_encoding: Option<String> = None;
 
         // Coding specification needs to be in the first two lines, or it's ignored.
         for line in s.lines().take(2) {
-            if let Some(captures) = encoding_re.captures(line)
+            if let Some(captures) = ENCODING_RE.captures(line)
                 && let Some(encoding_name) = captures.get(1) {
                     detected_encoding = Some(encoding_name.as_str().to_string());
                     break;
