@@ -2,8 +2,8 @@
 Changelog
 =========
 
-latest
-------
+3.11 (2025-09-01)
+-----------------
 
 * Speed up graph building by switching from Python multiprocessing to Rust-based multithreading
   for import scanning.
