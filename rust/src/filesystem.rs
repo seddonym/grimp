@@ -47,7 +47,7 @@ impl FileSystem for RealBasicFileSystem {
         for component in components {
             path.push(component);
         }
-        path.to_str().unwrap().to_string()
+        path.to_str().expect("Path components should be valid unicode").to_string()
     }
 
     fn split(&self, file_name: &str) -> (String, String) {
@@ -66,8 +66,8 @@ impl FileSystem for RealBasicFileSystem {
         };
 
         (
-            head.to_str().unwrap().to_string(),
-            tail.to_str().unwrap().to_string(),
+            head.to_str().expect("Path components should be valid unicode").to_string(),
+            tail.to_str().expect("Path components should be valid unicode").to_string(),
         )
     }
 
@@ -217,8 +217,8 @@ impl FileSystem for FakeBasicFileSystem {
             tail = path.file_name().unwrap_or(OsStr::new(""));
         }
         (
-            head.to_str().unwrap().to_string(),
-            tail.to_str().unwrap().to_string(),
+            head.to_str().expect("Path components should be valid unicode").to_string(),
+            tail.to_str().expect("Path components should be valid unicode").to_string(),
         )
     }
 
@@ -354,7 +354,7 @@ pub fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<St
     // Edge case: If the very first line was a file and it ended up on the stack, it needs to be processed.
     // This handles single-file inputs like "myfile.txt"
     if !path_stack.is_empty()
-        && !path_stack.last().unwrap().ends_with('/')
+        && !path_stack.last().expect("path_stack should be non-empty").ends_with('/')
         && !file_paths_map.contains_key(&path_stack.join("/"))
     {
         file_paths_map.insert(path_stack.join("/"), String::new());
