@@ -15,7 +15,7 @@ lazy_static! {
 }
 
 pub trait FileSystem: Send + Sync {
-    fn sep(&self) -> String;
+    fn sep(&self) -> &str;
 
     fn join(&self, components: Vec<String>) -> String;
 
@@ -38,8 +38,8 @@ pub struct PyRealBasicFileSystem {
 }
 
 impl FileSystem for RealBasicFileSystem {
-    fn sep(&self) -> String {
-        std::path::MAIN_SEPARATOR.to_string()
+    fn sep(&self) -> &str {
+        std::path::MAIN_SEPARATOR_STR
     }
 
     fn join(&self, components: Vec<String>) -> String {
@@ -137,7 +137,7 @@ impl PyRealBasicFileSystem {
     }
 
     #[getter]
-    fn sep(&self) -> String {
+    fn sep(&self) -> &str {
         self.inner.sep()
     }
 
@@ -192,16 +192,16 @@ impl FakeBasicFileSystem {
 }
 
 impl FileSystem for FakeBasicFileSystem {
-    fn sep(&self) -> String {
-        "/".to_string()
+    fn sep(&self) -> &str {
+        "/"
     }
 
     fn join(&self, components: Vec<String>) -> String {
         let sep = self.sep();
         components
             .into_iter()
-            .map(|c| c.trim_end_matches(&sep).to_string())
-            .join(&sep)
+            .map(|c| c.trim_end_matches(sep).to_string())
+            .join(sep)
     }
 
     fn split(&self, file_name: &str) -> (String, String) {
@@ -246,7 +246,7 @@ impl PyFakeBasicFileSystem {
     }
 
     #[getter]
-    fn sep(&self) -> String {
+    fn sep(&self) -> &str {
         self.inner.sep()
     }
 
