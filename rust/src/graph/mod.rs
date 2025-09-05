@@ -58,6 +58,7 @@ impl Module {
     }
 }
 
+#[pyclass(name = "Graph")]
 #[derive(Default, Clone)]
 pub struct Graph {
     // Hierarchy
@@ -71,16 +72,9 @@ pub struct Graph {
     import_details: FxHashMap<(ModuleToken, ModuleToken), FxHashSet<ImportDetails>>,
 }
 
-#[pyclass(name = "Graph")]
-#[derive(Clone)]
-pub struct GraphWrapper {
-    _graph: Graph,
-}
-
-impl GraphWrapper {
+impl Graph {
     fn get_visible_module_by_name(&self, name: &str) -> Result<&Module, GrimpError> {
-        self._graph
-            .get_module_by_name(name)
+        self.get_module_by_name(name)
             .filter(|m| !m.is_invisible())
             .ok_or(GrimpError::ModuleNotPresent(name.to_owned()))
     }
@@ -201,18 +195,15 @@ impl GraphWrapper {
     }
 }
 
-/// Wrapper around the Graph struct that integrates with Python.
 #[pymethods]
-impl GraphWrapper {
+impl Graph {
     #[new]
     fn new() -> Self {
-        GraphWrapper {
-            _graph: Graph::default(),
-        }
+        Self::default()
     }
 
     pub fn get_modules(&self) -> HashSet<String> {
-        self._graph.all_modules().visible().names().collect()
+        self.all_modules().visible().names().collect()
     }
 
     pub fn contains_module(&self, name: &str) -> bool {
@@ -226,7 +217,6 @@ impl GraphWrapper {
     #[pyo3(signature = (module, is_squashed = false))]
     pub fn add_module(&mut self, module: &str, is_squashed: bool) -> PyResult<()> {
         for ancestor_module in self
-            ._graph
             .module_name_to_self_and_ancestors(module)
             .into_iter()
             .skip(1)
@@ -247,21 +237,23 @@ impl GraphWrapper {
         }
 
         match is_squashed {
-            false => self._graph.get_or_add_module(module),
-            true => self._graph.get_or_add_squashed_module(module),
+            false => self.get_or_add_module(module),
+            true => self.get_or_add_squashed_module(module),
         };
         Ok(())
     }
 
-    pub fn remove_module(&mut self, module: &str) {
-        if let Some(module) = self._graph.get_module_by_name(module) {
-            self._graph.remove_module(module.token())
+    #[pyo3(name = "remove_module")]
+    pub fn remove_module_py(&mut self, module: &str) {
+        if let Some(module) = self.get_module_by_name(module) {
+            self.remove_module(module.token())
         }
     }
 
-    pub fn squash_module(&mut self, module: &str) -> PyResult<()> {
+    #[pyo3(name = "squash_module")]
+    pub fn squash_module_py(&mut self, module: &str) -> PyResult<()> {
         let module = self.get_visible_module_by_name(module)?.token();
-        self._graph.squash_module(module);
+        self.squash_module(module);
         Ok(())
     }
 
@@ -269,23 +261,22 @@ impl GraphWrapper {
         Ok(self.get_visible_module_by_name(module)?.is_squashed())
     }
 
-    #[pyo3(signature = (*, importer, imported, line_number=None, line_contents=None))]
-    pub fn add_import(
+    #[pyo3(name="add_import", signature = (*, importer, imported, line_number=None, line_contents=None))]
+    pub fn add_import_py(
         &mut self,
         importer: &str,
         imported: &str,
         line_number: Option<u32>,
         line_contents: Option<&str>,
     ) {
-        let importer = self._graph.get_or_add_module(importer).token();
-        let imported = self._graph.get_or_add_module(imported).token();
+        let importer = self.get_or_add_module(importer).token();
+        let imported = self.get_or_add_module(imported).token();
         match (line_number, line_contents) {
             (Some(line_number), Some(line_contents)) => {
-                self._graph
-                    .add_detailed_import(importer, imported, line_number, line_contents)
+                self.add_detailed_import(importer, imported, line_number, line_contents)
             }
             (None, None) => {
-                self._graph.add_import(importer, imported);
+                self.add_import(importer, imported);
             }
             _ => {
                 // TODO handle better.
@@ -294,25 +285,24 @@ impl GraphWrapper {
         }
     }
 
-    #[pyo3(signature = (*, importer, imported))]
-    pub fn remove_import(&mut self, importer: &str, imported: &str) -> PyResult<()> {
+    #[pyo3(name="remove_import", signature = (*, importer, imported))]
+    pub fn remove_import_py(&mut self, importer: &str, imported: &str) -> PyResult<()> {
         let importer = self.get_visible_module_by_name(importer)?.token();
         let imported = self.get_visible_module_by_name(imported)?.token();
-        self._graph.remove_import(importer, imported);
+        self.remove_import(importer, imported);
         Ok(())
     }
 
-    pub fn count_imports(&self) -> usize {
-        self._graph.count_imports()
+    #[pyo3(name = "count_imports")]
+    pub fn count_imports_py(&self) -> usize {
+        self.count_imports()
     }
 
     pub fn find_children(&self, module: &str) -> PyResult<HashSet<String>> {
         let module = self
-            ._graph
             .get_module_by_name(module)
             .ok_or(GrimpError::ModuleNotPresent(module.to_owned()))?;
         Ok(self
-            ._graph
             .get_module_children(module.token())
             .visible()
             .names()
@@ -321,29 +311,27 @@ impl GraphWrapper {
 
     pub fn find_descendants(&self, module: &str) -> PyResult<HashSet<String>> {
         let module = self
-            ._graph
             .get_module_by_name(module)
             .ok_or(GrimpError::ModuleNotPresent(module.to_owned()))?;
         Ok(self
-            ._graph
             .get_module_descendants(module.token())
             .visible()
             .names()
             .collect())
     }
 
-    pub fn find_matching_modules(&self, expression: &str) -> PyResult<HashSet<String>> {
+    #[pyo3(name = "find_matching_modules")]
+    pub fn find_matching_modules_py(&self, expression: &str) -> PyResult<HashSet<String>> {
         let expression: ModuleExpression = expression.parse()?;
         Ok(self
-            ._graph
             .find_matching_modules(&expression)
             .visible()
             .names()
             .collect())
     }
 
-    #[pyo3(signature = (*, importer, imported, as_packages = false))]
-    pub fn direct_import_exists(
+    #[pyo3(name="direct_import_exists", signature = (*, importer, imported, as_packages = false))]
+    pub fn direct_import_exists_py(
         &self,
         importer: &str,
         imported: &str,
@@ -351,18 +339,15 @@ impl GraphWrapper {
     ) -> PyResult<bool> {
         let importer = self.get_visible_module_by_name(importer)?.token();
         let imported = self.get_visible_module_by_name(imported)?.token();
-        Ok(self
-            ._graph
-            .direct_import_exists(importer, imported, as_packages)?)
+        Ok(self.direct_import_exists(importer, imported, as_packages)?)
     }
 
     pub fn find_modules_directly_imported_by(&self, module: &str) -> PyResult<HashSet<String>> {
         let module = self.get_visible_module_by_name(module)?.token();
         Ok(self
-            ._graph
             .modules_directly_imported_by(module)
             .iter()
-            .into_module_iterator(&self._graph)
+            .into_module_iterator(self)
             .visible()
             .names()
             .collect())
@@ -371,35 +356,33 @@ impl GraphWrapper {
     pub fn find_modules_that_directly_import(&self, module: &str) -> PyResult<HashSet<String>> {
         let module = self.get_visible_module_by_name(module)?.token();
         Ok(self
-            ._graph
             .modules_that_directly_import(module)
             .iter()
-            .into_module_iterator(&self._graph)
+            .into_module_iterator(self)
             .visible()
             .names()
             .collect())
     }
 
-    #[pyo3(signature = (*, importer, imported))]
-    pub fn get_import_details<'py>(
+    #[pyo3(name="get_import_details", signature = (*, importer, imported))]
+    pub fn get_import_details_py<'py>(
         &self,
         py: Python<'py>,
         importer: &str,
         imported: &str,
     ) -> PyResult<Bound<'py, PyList>> {
-        let importer = match self._graph.get_module_by_name(importer) {
+        let importer = match self.get_module_by_name(importer) {
             Some(module) => module,
             None => return Ok(PyList::empty(py)),
         };
-        let imported = match self._graph.get_module_by_name(imported) {
+        let imported = match self.get_module_by_name(imported) {
             Some(module) => module,
             None => return Ok(PyList::empty(py)),
         };
 
         PyList::new(
             py,
-            self._graph
-                .get_import_details(importer.token(), imported.token())
+            self.get_import_details(importer.token(), imported.token())
                 .iter()
                 .map(|import_details| {
                     PyImportDetails::new(
@@ -429,8 +412,8 @@ impl GraphWrapper {
         )
     }
 
-    #[pyo3(signature = (*, importer_expression, imported_expression))]
-    pub fn find_matching_direct_imports<'py>(
+    #[pyo3(name="find_matching_direct_imports", signature = (*, importer_expression, imported_expression))]
+    pub fn find_matching_direct_imports_py<'py>(
         &self,
         py: Python<'py>,
         importer_expression: &str,
@@ -439,17 +422,16 @@ impl GraphWrapper {
         let importer_expression: ModuleExpression = importer_expression.parse()?;
         let imported_expression: ModuleExpression = imported_expression.parse()?;
 
-        let matching_imports = self
-            ._graph
-            .find_matching_direct_imports(&importer_expression, &imported_expression);
+        let matching_imports =
+            self.find_matching_direct_imports(&importer_expression, &imported_expression);
 
         PyList::new(
             py,
             matching_imports
                 .into_iter()
                 .map(|(importer, imported)| {
-                    let importer = self._graph.get_module(importer).unwrap();
-                    let imported = self._graph.get_module(imported).unwrap();
+                    let importer = self.get_module(importer).unwrap();
+                    let imported = self.get_module(imported).unwrap();
                     Import::new(importer.name(), imported.name())
                 })
                 .sorted()
@@ -465,43 +447,41 @@ impl GraphWrapper {
     }
 
     #[allow(unused_variables)]
-    #[pyo3(signature = (module, as_package=false))]
-    pub fn find_downstream_modules(
+    #[pyo3(name="find_downstream_modules", signature = (module, as_package=false))]
+    pub fn find_downstream_modules_py(
         &self,
         module: &str,
         as_package: bool,
     ) -> PyResult<HashSet<String>> {
         let module = self.get_visible_module_by_name(module)?.token();
         Ok(self
-            ._graph
             .find_downstream_modules(module, as_package)
             .iter()
-            .into_module_iterator(&self._graph)
+            .into_module_iterator(self)
             .visible()
             .names()
             .collect())
     }
 
     #[allow(unused_variables)]
-    #[pyo3(signature = (module, as_package=false))]
-    pub fn find_upstream_modules(
+    #[pyo3(name="find_upstream_modules", signature = (module, as_package=false))]
+    pub fn find_upstream_modules_py(
         &self,
         module: &str,
         as_package: bool,
     ) -> PyResult<HashSet<String>> {
         let module = self.get_visible_module_by_name(module)?.token();
         Ok(self
-            ._graph
             .find_upstream_modules(module, as_package)
             .iter()
-            .into_module_iterator(&self._graph)
+            .into_module_iterator(self)
             .visible()
             .names()
             .collect())
     }
 
-    #[pyo3(signature = (importer, imported, as_packages=false))]
-    pub fn find_shortest_chain(
+    #[pyo3(name="find_shortest_chain", signature = (importer, imported, as_packages=false))]
+    pub fn find_shortest_chain_py(
         &self,
         importer: &str,
         imported: &str,
@@ -510,19 +490,12 @@ impl GraphWrapper {
         let importer = self.get_visible_module_by_name(importer)?.token();
         let imported = self.get_visible_module_by_name(imported)?.token();
         Ok(self
-            ._graph
             .find_shortest_chain(importer, imported, as_packages)?
-            .map(|chain| {
-                chain
-                    .iter()
-                    .into_module_iterator(&self._graph)
-                    .names()
-                    .collect()
-            }))
+            .map(|chain| chain.iter().into_module_iterator(self).names().collect()))
     }
 
-    #[pyo3(signature = (importer, imported, as_packages=false))]
-    pub fn chain_exists(
+    #[pyo3(name="chain_exists", signature = (importer, imported, as_packages=false))]
+    pub fn chain_exists_py(
         &self,
         importer: &str,
         imported: &str,
@@ -530,11 +503,11 @@ impl GraphWrapper {
     ) -> PyResult<bool> {
         let importer = self.get_visible_module_by_name(importer)?.token();
         let imported = self.get_visible_module_by_name(imported)?.token();
-        Ok(self._graph.chain_exists(importer, imported, as_packages)?)
+        Ok(self.chain_exists(importer, imported, as_packages)?)
     }
 
-    #[pyo3(signature = (importer, imported, as_packages=true))]
-    pub fn find_shortest_chains<'py>(
+    #[pyo3(name="find_shortest_chains", signature = (importer, imported, as_packages=true))]
+    pub fn find_shortest_chains_py<'py>(
         &self,
         py: Python<'py>,
         importer: &str,
@@ -544,7 +517,6 @@ impl GraphWrapper {
         let importer = self.get_visible_module_by_name(importer)?.token();
         let imported = self.get_visible_module_by_name(imported)?.token();
         let chains = self
-            ._graph
             .find_shortest_chains(importer, imported, as_packages)?
             .into_iter()
             .map(|chain| {
@@ -552,7 +524,7 @@ impl GraphWrapper {
                     py,
                     chain
                         .iter()
-                        .into_module_iterator(&self._graph)
+                        .into_module_iterator(self)
                         .names()
                         .collect::<Vec<_>>(),
                 )
@@ -561,8 +533,8 @@ impl GraphWrapper {
         PySet::new(py, chains)
     }
 
-    #[pyo3(signature = (layers, containers))]
-    pub fn find_illegal_dependencies_for_layers<'py>(
+    #[pyo3(name="find_illegal_dependencies_for_layers", signature = (layers, containers))]
+    pub fn find_illegal_dependencies_for_layers_py<'py>(
         &self,
         py: Python<'py>,
         layers: &Bound<'py, PyTuple>,
@@ -577,7 +549,7 @@ impl GraphWrapper {
             .try_fold(
                 Vec::new,
                 |mut v: Vec<PackageDependency>, levels| -> GrimpResult<_> {
-                    v.extend(self._graph.find_illegal_dependencies_for_layers(&levels)?);
+                    v.extend(self.find_illegal_dependencies_for_layers(&levels)?);
                     Ok(v)
                 },
             )
@@ -593,8 +565,8 @@ impl GraphWrapper {
             .into_iter()
             .map(|dep| {
                 PyPackageDependency::new(
-                    self._graph.get_module(*dep.importer()).unwrap().name(),
-                    self._graph.get_module(*dep.imported()).unwrap().name(),
+                    self.get_module(*dep.importer()).unwrap().name(),
+                    self.get_module(*dep.imported()).unwrap().name(),
                     dep.routes()
                         .iter()
                         .map(|route| {
@@ -602,17 +574,17 @@ impl GraphWrapper {
                                 route
                                     .heads()
                                     .iter()
-                                    .map(|m| self._graph.get_module(*m).unwrap().name())
+                                    .map(|m| self.get_module(*m).unwrap().name())
                                     .collect(),
                                 route
                                     .middle()
                                     .iter()
-                                    .map(|m| self._graph.get_module(*m).unwrap().name())
+                                    .map(|m| self.get_module(*m).unwrap().name())
                                     .collect(),
                                 route
                                     .tails()
                                     .iter()
-                                    .map(|m| self._graph.get_module(*m).unwrap().name())
+                                    .map(|m| self.get_module(*m).unwrap().name())
                                     .collect(),
                             )
                         })
@@ -626,7 +598,7 @@ impl GraphWrapper {
     }
 
     #[pyo3(name = "clone")]
-    pub fn clone_py(&self) -> GraphWrapper {
+    pub fn clone_py(&self) -> Graph {
         self.clone()
     }
 }

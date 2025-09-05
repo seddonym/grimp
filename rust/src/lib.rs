@@ -19,7 +19,7 @@ mod _rustgrimp {
     use crate::caching::read_cache_data_map_file;
 
     #[pymodule_export]
-    use crate::graph::GraphWrapper;
+    use crate::graph::Graph;
 
     #[pymodule_export]
     use crate::filesystem::{PyFakeBasicFileSystem, PyRealBasicFileSystem};
