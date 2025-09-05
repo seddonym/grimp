@@ -1,13 +1,13 @@
 use crate::errors::GrimpResult;
 use crate::filesystem::FileSystem;
-use crate::module_finding::{FoundPackage, Module};
+use crate::module_finding::{FoundPackage, Module, ModuleFile};
 use crate::{import_parsing, module_finding};
 use itertools::Itertools;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PySet};
+use pyo3::types::{PyDict, PyFrozenSet, PySet};
 /// Statically analyses some Python modules for import statements within their shared package.
 use rayon::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::io::{self, ErrorKind};
 
 #[derive(Debug, Hash, Eq, PartialEq)]
@@ -17,6 +17,23 @@ pub struct DirectImport {
     pub line_number: usize,
     pub line_contents: String,
 }
+
+impl<'py> FromPyObject<'py> for DirectImport {
+    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let importer: String = ob.getattr("importer")?.getattr("name")?.extract()?;
+        let imported: String = ob.getattr("imported")?.getattr("name")?.extract()?;
+        let line_number: usize = ob.getattr("line_number")?.extract()?;
+        let line_contents: String = ob.getattr("line_contents")?.extract()?;
+        
+        Ok(DirectImport {
+            importer,
+            imported,
+            line_number,
+            line_contents,
+        })
+    }
+}
+
 
 pub fn py_found_packages_to_rust(py_found_packages: &Bound<'_, PyAny>) -> HashSet<FoundPackage> {
     let py_set = py_found_packages

@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Dict, List, Optional, Set, Tuple, Type
 
-from grimp.application.ports.filesystem import AbstractFileSystem
+from grimp.application.ports.filesystem import BasicFileSystem
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.domain.valueobjects import DirectImport, Module
 
@@ -77,7 +77,7 @@ class Cache(AbstractCache):
     @classmethod
     def setup(
         cls,
-        file_system: AbstractFileSystem,
+        file_system: BasicFileSystem,
         found_packages: Set[FoundPackage],
         include_external_packages: bool,
         exclude_type_checking_imports: bool = False,
@@ -120,8 +120,24 @@ class Cache(AbstractCache):
         self,
         imports_by_module: Dict[Module, Set[DirectImport]],
     ) -> None:
-        self._write_marker_files_if_not_already_there()
+
         # Write data file.
+        data_cache_filename = self.file_system.join(
+            self.cache_dir,
+            self._namer.make_data_file_name(
+                found_packages=self.found_packages,
+                include_external_packages=self.include_external_packages,
+                exclude_type_checking_imports=self.exclude_type_checking_imports,
+            ),
+        )
+        # Rust version
+        rust.write_cache_data_map_file(
+            filename=data_cache_filename,
+            imports_by_module=imports_by_module,
+            file_system=self.file_system,
+        )
+        self._write_marker_files_if_not_already_there()
+        # Python version
         primitives_map: PrimitiveFormat = {}
         for found_package in self.found_packages:
             primitives_map_for_found_package: PrimitiveFormat = {
@@ -138,15 +154,8 @@ class Cache(AbstractCache):
             primitives_map.update(primitives_map_for_found_package)
 
         serialized = json.dumps(primitives_map)
-        data_cache_filename = self.file_system.join(
-            self.cache_dir,
-            self._namer.make_data_file_name(
-                found_packages=self.found_packages,
-                include_external_packages=self.include_external_packages,
-                exclude_type_checking_imports=self.exclude_type_checking_imports,
-            ),
-        )
-        self.file_system.write(data_cache_filename, serialized)
+        # self.file_system.write(data_cache_filename, serialized)
+
         logger.info(f"Wrote data cache file {data_cache_filename}.")
 
         # Write meta files.
@@ -202,7 +211,7 @@ class Cache(AbstractCache):
         )
         try:
             imports_by_module = rust.read_cache_data_map_file(
-                data_cache_filename, self.file_system.convert_to_basic()
+                data_cache_filename, self.file_system
             )
         except FileNotFoundError:
             logger.info(f"No cache file: {data_cache_filename}.")

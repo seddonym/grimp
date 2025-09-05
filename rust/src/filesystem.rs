@@ -1,4 +1,6 @@
+use std::io::prelude::*;
 use itertools::Itertools;
+use std::fs::File;
 use pyo3::exceptions::{PyFileNotFoundError, PyTypeError, PyUnicodeDecodeError};
 use pyo3::prelude::*;
 use regex::Regex;
@@ -22,6 +24,8 @@ pub trait FileSystem: Send + Sync {
     fn exists(&self, file_name: &str) -> bool;
 
     fn read(&self, file_name: &str) -> PyResult<String>;
+
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()>;
 }
 
 #[derive(Clone)]
@@ -129,6 +133,12 @@ impl FileSystem for RealBasicFileSystem {
             })
         }
     }
+    
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        let mut file = File::create(file_name)?;
+        file.write_all(contents.as_bytes())?;
+        Ok(())
+    }
 }
 
 #[pymethods]
@@ -160,6 +170,10 @@ impl PyRealBasicFileSystem {
 
     fn read(&self, file_name: &str) -> PyResult<String> {
         self.inner.read(file_name)
+    }
+
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        self.inner.write(file_name, contents)
     }
 }
 
@@ -236,12 +250,22 @@ impl FileSystem for FakeBasicFileSystem {
     }
 
     fn read(&self, file_name: &str) -> PyResult<String> {
+        eprintln!("{:?}", &self.contents.keys());
         match self.contents.get(file_name) {
             Some(file_name) => Ok(file_name.clone()),
             None => Err(PyFileNotFoundError::new_err(format!(
                 "No such file: {file_name}"
             ))),
         }
+    }
+    
+    #[allow(unused_variables)]
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        eprintln!("Writing into fake {}, {}", file_name, contents);
+        eprintln!("Contents currently {:?}", self.contents);
+        self.contents.insert(file_name.to_string(), contents.to_string());
+        eprintln!("Contents now {:?}", self.contents);
+        Ok(())
     }
 }
 
@@ -278,6 +302,10 @@ impl PyFakeBasicFileSystem {
         self.inner.read(file_name)
     }
 
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        self.inner.write(file_name, contents)
+    }
+    
     // Temporary workaround method for Python tests.
     fn convert_to_basic(&self) -> PyResult<Self> {
         Ok(PyFakeBasicFileSystem {
@@ -381,7 +409,7 @@ pub fn get_file_system_boxed<'py>(
     file_system: &Bound<'py, PyAny>,
 ) -> PyResult<Box<dyn FileSystem + Send + Sync>> {
     let file_system_boxed: Box<dyn FileSystem + Send + Sync>;
-
+    eprintln!("Cloning file system.");
     if let Ok(py_real) = file_system.extract::<PyRef<PyRealBasicFileSystem>>() {
         file_system_boxed = Box::new(py_real.inner.clone());
     } else if let Ok(py_fake) = file_system.extract::<PyRef<PyFakeBasicFileSystem>>() {
@@ -391,5 +419,6 @@ pub fn get_file_system_boxed<'py>(
             "file_system must be an instance of RealBasicFileSystem or FakeBasicFileSystem",
         ));
     }
+
     Ok(file_system_boxed)
 }
