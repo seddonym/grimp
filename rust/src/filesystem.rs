@@ -419,6 +419,6 @@ pub fn get_file_system_boxed<'py>(
             "file_system must be an instance of RealBasicFileSystem or FakeBasicFileSystem",
         ));
     }
-    
+
     Ok(file_system_boxed)
 }
