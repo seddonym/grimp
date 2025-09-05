@@ -13,10 +13,11 @@ use crate::filesystem::{PyFakeBasicFileSystem, PyRealBasicFileSystem};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
 use crate::import_scanning::{
-    get_file_system_boxed, py_found_packages_to_rust, scan_for_imports_no_py, to_py_direct_imports,
+    py_found_packages_to_rust, scan_for_imports_no_py, to_py_direct_imports,
 };
 use crate::module_expressions::ModuleExpression;
 use derive_new::new;
+use filesystem::get_file_system_boxed;
 use itertools::Itertools;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyValueError;

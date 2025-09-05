@@ -1,9 +1,8 @@
 use crate::errors::GrimpResult;
-use crate::filesystem::{FileSystem, PyFakeBasicFileSystem, PyRealBasicFileSystem};
+use crate::filesystem::FileSystem;
 use crate::import_parsing;
 use crate::module_finding::{FoundPackage, Module};
 use itertools::Itertools;
-use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PySet};
 /// Statically analyses some Python modules for import statements within their shared package.
@@ -53,24 +52,6 @@ fn count_leading_dots(s: &str) -> usize {
 
 fn module_is_descendant(module_name: &str, potential_ancestor: &str) -> bool {
     module_name.starts_with(&format!("{potential_ancestor}."))
-}
-
-#[allow(clippy::borrowed_box)]
-pub fn get_file_system_boxed<'py>(
-    file_system: &Bound<'py, PyAny>,
-) -> PyResult<Box<dyn FileSystem + Send + Sync>> {
-    let file_system_boxed: Box<dyn FileSystem + Send + Sync>;
-
-    if let Ok(py_real) = file_system.extract::<PyRef<PyRealBasicFileSystem>>() {
-        file_system_boxed = Box::new(py_real.inner.clone());
-    } else if let Ok(py_fake) = file_system.extract::<PyRef<PyFakeBasicFileSystem>>() {
-        file_system_boxed = Box::new(py_fake.inner.clone());
-    } else {
-        return Err(PyTypeError::new_err(
-            "file_system must be an instance of RealBasicFileSystem or FakeBasicFileSystem",
-        ));
-    }
-    Ok(file_system_boxed)
 }
 
 /// Statically analyses the given module and returns a set of Modules that
