@@ -6,13 +6,13 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use unindent::unindent;
-use lazy_static::lazy_static;
 
 
-lazy_static! {
-    static ref ENCODING_RE: Regex = Regex::new(r"^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)").unwrap();
-}
+static ENCODING_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)").unwrap()
+});
 
 pub trait FileSystem: Send + Sync {
     fn sep(&self) -> &str;
