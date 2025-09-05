@@ -11,7 +11,7 @@ dependencies = [
  "derive-new",
  "encoding_rs",
  "getset",
- "indexmap 2.9.0",
+ "indexmap 2.11.0",
  "itertools 0.14.0",
  "lazy_static",
  "parameterized",
@@ -224,9 +224,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.9.0"
+version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
+checksum = "f2481980430f9f78649238835720ddccc57e52df14ffce1c6f37391d61b563e9"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.3",
@@ -685,7 +685,7 @@ version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
 dependencies = [
- "indexmap 2.9.0",
+ "indexmap 2.11.0",
  "itoa",
  "ryu",
  "serde",
