@@ -8,12 +8,7 @@ mod import_scanning;
 pub mod module_expressions;
 mod module_finding;
 
-use crate::caching::read_cache_data_map_file;
 use crate::errors::{GrimpError, GrimpResult};
-use crate::exceptions::{
-    CorruptCache, InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError,
-};
-use crate::filesystem::{PyFakeBasicFileSystem, PyRealBasicFileSystem};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
 use crate::import_scanning::{py_found_packages_to_rust, scan_for_imports_no_py};
@@ -35,31 +30,18 @@ mod _rustgrimp {
     use super::scan_for_imports;
 
     #[pymodule_export]
-    use super::read_cache_data_map_file;
+    use crate::caching::read_cache_data_map_file;
 
     #[pymodule_export]
     use super::GraphWrapper;
 
     #[pymodule_export]
-    use super::PyRealBasicFileSystem;
+    use crate::filesystem::{PyFakeBasicFileSystem, PyRealBasicFileSystem};
 
     #[pymodule_export]
-    use super::PyFakeBasicFileSystem;
-
-    #[pymodule_export]
-    use super::ModuleNotPresent;
-
-    #[pymodule_export]
-    use super::NoSuchContainer;
-
-    #[pymodule_export]
-    use super::InvalidModuleExpression;
-
-    #[pymodule_export]
-    use super::ParseError;
-
-    #[pymodule_export]
-    use super::CorruptCache;
+    use crate::exceptions::{
+        CorruptCache, InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError,
+    };
 }
 
 /// Statically analyses the given module and returns a set of Modules that
