@@ -19,6 +19,9 @@ mod _rustgrimp {
     use crate::caching::read_cache_data_map_file;
 
     #[pymodule_export]
+    use crate::caching::write_cache_data_map_file;
+
+    #[pymodule_export]
     use crate::graph::GraphWrapper;
 
     #[pymodule_export]

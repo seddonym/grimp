@@ -120,8 +120,23 @@ class Cache(AbstractCache):
         self,
         imports_by_module: dict[Module, set[DirectImport]],
     ) -> None:
-        self._write_marker_files_if_not_already_there()
         # Write data file.
+        data_cache_filename = self.file_system.join(
+            self.cache_dir,
+            self._namer.make_data_file_name(
+                found_packages=self.found_packages,
+                include_external_packages=self.include_external_packages,
+                exclude_type_checking_imports=self.exclude_type_checking_imports,
+            ),
+        )
+        # Rust version
+        rust.write_cache_data_map_file(
+            filename=data_cache_filename,
+            imports_by_module=imports_by_module,
+            file_system=self.file_system,
+        )
+        self._write_marker_files_if_not_already_there()
+        # Python version
         primitives_map: PrimitiveFormat = {}
         for found_package in self.found_packages:
             primitives_map_for_found_package: PrimitiveFormat = {
@@ -138,15 +153,8 @@ class Cache(AbstractCache):
             primitives_map.update(primitives_map_for_found_package)
 
         serialized = json.dumps(primitives_map)
-        data_cache_filename = self.file_system.join(
-            self.cache_dir,
-            self._namer.make_data_file_name(
-                found_packages=self.found_packages,
-                include_external_packages=self.include_external_packages,
-                exclude_type_checking_imports=self.exclude_type_checking_imports,
-            ),
-        )
-        self.file_system.write(data_cache_filename, serialized)
+        # self.file_system.write(data_cache_filename, serialized)
+
         logger.info(f"Wrote data cache file {data_cache_filename}.")
 
         # Write meta files.
