@@ -6,9 +6,8 @@ use std::fmt::Display;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-static MODULE_EXPRESSION_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^(\w+|\*{1,2})(\.(\w+|\*{1,2}))*$").unwrap()
-});
+static MODULE_EXPRESSION_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(\w+|\*{1,2})(\.(\w+|\*{1,2}))*$").unwrap());
 
 /// A module expression is used to refer to sets of modules.
 ///
