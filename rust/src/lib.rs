@@ -66,8 +66,6 @@ fn scan_for_imports<'py>(
     exclude_type_checking_imports: bool,
     file_system: Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyDict>> {
-    let valueobjects_pymodule = PyModule::import(py, "grimp.domain.valueobjects").unwrap();
-    let py_module_class = valueobjects_pymodule.getattr("Module").unwrap();
     let file_system_boxed = get_file_system_boxed(&file_system)?;
     let found_packages_rust = py_found_packages_to_rust(&found_packages);
     let modules_rust: HashSet<module_finding::Module> = module_files
@@ -113,14 +111,7 @@ fn scan_for_imports<'py>(
     }
     let imports_by_module = imports_by_module_result.unwrap();
 
-    let imports_by_module_py = PyDict::new(py);
-    for (module, imports) in imports_by_module.iter() {
-        let py_module_instance = py_module_class.call1((module.name.clone(),)).unwrap();
-        let py_imports = to_py_direct_imports(py, imports);
-        imports_by_module_py
-            .set_item(py_module_instance, py_imports)
-            .unwrap();
-    }
+    let imports_by_module_py = import_scanning::imports_by_module_to_py(py, imports_by_module);
 
     Ok(imports_by_module_py)
 }

@@ -1,7 +1,7 @@
 use crate::errors::GrimpResult;
 use crate::filesystem::FileSystem;
-use crate::import_parsing;
 use crate::module_finding::{FoundPackage, Module};
+use crate::{import_parsing, module_finding};
 use itertools::Itertools;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PySet};
@@ -330,4 +330,23 @@ fn _distill_external_module(
     } else {
         Some(module_name.split('.').next().unwrap().to_string())
     }
+}
+
+/// Convert the rust data structure into a Python dict[Module, set[DirectImport]].
+pub fn imports_by_module_to_py(
+    py: Python,
+    imports_by_module: HashMap<module_finding::Module, HashSet<DirectImport>>,
+) -> Bound<PyDict> {
+    let valueobjects_pymodule = PyModule::import(py, "grimp.domain.valueobjects").unwrap();
+    let py_module_class = valueobjects_pymodule.getattr("Module").unwrap();
+
+    let imports_by_module_py = PyDict::new(py);
+    for (module, imports) in imports_by_module.iter() {
+        let py_module_instance = py_module_class.call1((module.name.clone(),)).unwrap();
+        let py_imports = to_py_direct_imports(py, imports);
+        imports_by_module_py
+            .set_item(py_module_instance, py_imports)
+            .unwrap();
+    }
+    imports_by_module_py
 }
