@@ -230,7 +230,7 @@ impl FileSystem for FakeBasicFileSystem {
     fn read(&self, file_name: &str) -> PyResult<String> {
         match self.contents.get(file_name) {
             Some(file_name) => Ok(file_name.clone()),
-            None => Err(PyFileNotFoundError::new_err("")),
+            None => Err(PyFileNotFoundError::new_err(format!("No such file: {file_name}"))),
         }
     }
 }
