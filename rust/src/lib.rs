@@ -30,21 +30,36 @@ use rustc_hash::FxHashSet;
 use std::collections::HashSet;
 
 #[pymodule]
-fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_wrapped(wrap_pyfunction!(scan_for_imports))?;
-    m.add_wrapped(wrap_pyfunction!(read_cache_data_map_file))?;
-    m.add_class::<GraphWrapper>()?;
-    m.add_class::<PyRealBasicFileSystem>()?;
-    m.add_class::<PyFakeBasicFileSystem>()?;
-    m.add("ModuleNotPresent", py.get_type::<ModuleNotPresent>())?;
-    m.add("NoSuchContainer", py.get_type::<NoSuchContainer>())?;
-    m.add(
-        "InvalidModuleExpression",
-        py.get_type::<InvalidModuleExpression>(),
-    )?;
-    m.add("ParseError", py.get_type::<ParseError>())?;
-    m.add("CorruptCache", py.get_type::<CorruptCache>())?;
-    Ok(())
+mod _rustgrimp {
+    #[pymodule_export]
+    use super::scan_for_imports;
+
+    #[pymodule_export]
+    use super::read_cache_data_map_file;
+
+    #[pymodule_export]
+    use super::GraphWrapper;
+
+    #[pymodule_export]
+    use super::PyRealBasicFileSystem;
+
+    #[pymodule_export]
+    use super::PyFakeBasicFileSystem;
+
+    #[pymodule_export]
+    use super::ModuleNotPresent;
+
+    #[pymodule_export]
+    use super::NoSuchContainer;
+
+    #[pymodule_export]
+    use super::InvalidModuleExpression;
+
+    #[pymodule_export]
+    use super::ParseError;
+
+    #[pymodule_export]
+    use super::CorruptCache;
 }
 
 /// Statically analyses the given module and returns a set of Modules that
