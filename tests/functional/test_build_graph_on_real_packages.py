@@ -2,7 +2,7 @@ import pytest  # type: ignore
 
 import grimp
 
-from syrupy.assertion import SnapshotAssertion
+from syrupy.assertion import SnapshotAssertion  # type: ignore
 
 
 @pytest.mark.parametrize(
