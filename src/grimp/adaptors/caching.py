@@ -1,4 +1,5 @@
 import hashlib
+
 import json
 import logging
 from typing import Dict, List, Optional, Set, Tuple, Type
@@ -9,6 +10,7 @@ from grimp.domain.valueobjects import DirectImport, Module
 
 from ..application.ports.caching import Cache as AbstractCache
 from ..application.ports.caching import CacheMiss
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
 PrimitiveFormat = Dict[str, List[Tuple[str, Optional[int], str]]]
@@ -199,73 +201,21 @@ class Cache(AbstractCache):
             ),
         )
         try:
-            serialized = self.file_system.read(data_cache_filename)
+            imports_by_module = rust.read_cache_data_map_file(
+                data_cache_filename, self.file_system.convert_to_basic()
+            )
         except FileNotFoundError:
             logger.info(f"No cache file: {data_cache_filename}.")
             return {}
-
-        # Deserialize to primitives.
-        try:
-            deserialized_json = json.loads(serialized)
-            logger.info(f"Used cache data file {data_cache_filename}.")
-        except json.JSONDecodeError:
+        except rust.CorruptCache:
             logger.warning(f"Could not use corrupt cache file {data_cache_filename}.")
             return {}
 
-        primitives_map: PrimitiveFormat = self._to_primitives_data_map(deserialized_json)
-
-        return {
-            Module(name=name): {
-                DirectImport(
-                    importer=Module(name),
-                    imported=Module(import_data[0]),
-                    line_number=int(import_data[1]),  # type: ignore
-                    line_contents=import_data[2],
-                )
-                for import_data in imports_data
-            }
-            for name, imports_data in primitives_map.items()
-        }
+        logger.info(f"Used cache data file {data_cache_filename}.")
+        return imports_by_module
 
     def _build_data_cache_filename(self, found_package: FoundPackage) -> str:
         return self.file_system.join(self.cache_dir, f"{found_package.name}.data.json")
-
-    def _to_primitives_data_map(self, deserialized_json: object) -> PrimitiveFormat:
-        """
-        Convert the deserialized json from a data file to a narrower schema.
-
-        Anything that doesn't fit the schema will be removed.
-        """
-        if not isinstance(deserialized_json, dict):
-            return {}
-
-        primitives_map: PrimitiveFormat = {}
-
-        for key, value in deserialized_json.items():
-            if not isinstance(key, str):
-                continue
-            if not isinstance(value, list):
-                continue
-            primitive_imports = []
-            for deserialized_import in value:
-                try:
-                    [imported, line_number, line_contents] = deserialized_import
-                except ValueError:
-                    continue
-                try:
-                    primitive_imports.append(
-                        (
-                            str(imported),
-                            int(line_number) if line_number else None,
-                            str(line_contents),
-                        )
-                    )
-                except TypeError:
-                    continue
-
-            primitives_map[key] = primitive_imports
-
-        return primitives_map
 
     def _write_marker_files_if_not_already_there(self) -> None:
         marker_files_info = (

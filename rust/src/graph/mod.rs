@@ -1,10 +1,9 @@
 use bimap::BiMap;
 use derive_new::new;
 use getset::{CopyGetters, Getters};
-use lazy_static::lazy_static;
 use rustc_hash::{FxHashMap, FxHashSet};
 use slotmap::{SecondaryMap, SlotMap, new_key_type};
-use std::sync::RwLock;
+use std::sync::{LazyLock, RwLock};
 use string_interner::backend::StringBackend;
 use string_interner::{DefaultSymbol, StringInterner};
 
@@ -17,15 +16,12 @@ pub mod import_chain_queries;
 
 pub(crate) mod pathfinding;
 
-lazy_static! {
-    static ref MODULE_NAMES: RwLock<StringInterner<StringBackend>> =
-        RwLock::new(StringInterner::default());
-    static ref IMPORT_LINE_CONTENTS: RwLock<StringInterner<StringBackend>> =
-        RwLock::new(StringInterner::default());
-    static ref EMPTY_MODULE_TOKENS: FxHashSet<ModuleToken> = FxHashSet::default();
-    static ref EMPTY_IMPORT_DETAILS: FxHashSet<ImportDetails> = FxHashSet::default();
-    static ref EMPTY_IMPORTS: FxHashSet<(ModuleToken, ModuleToken)> = FxHashSet::default();
-}
+static MODULE_NAMES: LazyLock<RwLock<StringInterner<StringBackend>>> =
+    LazyLock::new(|| RwLock::new(StringInterner::default()));
+static IMPORT_LINE_CONTENTS: LazyLock<RwLock<StringInterner<StringBackend>>> =
+    LazyLock::new(|| RwLock::new(StringInterner::default()));
+static EMPTY_MODULE_TOKENS: LazyLock<FxHashSet<ModuleToken>> = LazyLock::new(FxHashSet::default);
+static EMPTY_IMPORT_DETAILS: LazyLock<FxHashSet<ImportDetails>> = LazyLock::new(FxHashSet::default);
 
 new_key_type! { pub struct ModuleToken; }
 

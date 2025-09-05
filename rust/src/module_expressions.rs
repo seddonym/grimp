@@ -1,15 +1,13 @@
 use crate::errors::{GrimpError, GrimpResult};
 use const_format::formatcp;
 use itertools::Itertools;
-use lazy_static::lazy_static;
 use regex::Regex;
 use std::fmt::Display;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
-lazy_static! {
-    static ref MODULE_EXPRESSION_PATTERN: Regex =
-        Regex::new(r"^(\w+|\*{1,2})(\.(\w+|\*{1,2}))*$").unwrap();
-}
+static MODULE_EXPRESSION_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(\w+|\*{1,2})(\.(\w+|\*{1,2}))*$").unwrap());
 
 /// A module expression is used to refer to sets of modules.
 ///

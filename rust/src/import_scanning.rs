@@ -1,21 +1,21 @@
-/// Statically analyses some Python modules for import statements within their shared package.
 use crate::errors::GrimpResult;
-use crate::filesystem::{FileSystem, PyFakeBasicFileSystem, PyRealBasicFileSystem};
-use crate::import_parsing;
+use crate::filesystem::FileSystem;
 use crate::module_finding::{FoundPackage, Module};
+use crate::{import_parsing, module_finding};
 use itertools::Itertools;
-use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PySet};
+/// Statically analyses some Python modules for import statements within their shared package.
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::io::{self, ErrorKind};
 
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub struct DirectImport {
-    importer: String,
-    imported: String,
-    line_number: usize,
-    line_contents: String,
+    pub importer: String,
+    pub imported: String,
+    pub line_number: usize,
+    pub line_contents: String,
 }
 
 pub fn py_found_packages_to_rust(py_found_packages: &Bound<'_, PyAny>) -> HashSet<FoundPackage> {
@@ -54,24 +54,6 @@ fn module_is_descendant(module_name: &str, potential_ancestor: &str) -> bool {
     module_name.starts_with(&format!("{potential_ancestor}."))
 }
 
-#[allow(clippy::borrowed_box)]
-pub fn get_file_system_boxed<'py>(
-    file_system: &Bound<'py, PyAny>,
-) -> PyResult<Box<dyn FileSystem + Send + Sync>> {
-    let file_system_boxed: Box<dyn FileSystem + Send + Sync>;
-
-    if let Ok(py_real) = file_system.extract::<PyRef<PyRealBasicFileSystem>>() {
-        file_system_boxed = Box::new(py_real.inner.clone());
-    } else if let Ok(py_fake) = file_system.extract::<PyRef<PyFakeBasicFileSystem>>() {
-        file_system_boxed = Box::new(py_fake.inner.clone());
-    } else {
-        return Err(PyTypeError::new_err(
-            "file_system must be an instance of RealBasicFileSystem or FakeBasicFileSystem",
-        ));
-    }
-    Ok(file_system_boxed)
-}
-
 /// Statically analyses the given module and returns a set of Modules that
 /// it imports.
 #[allow(clippy::borrowed_box)]
@@ -82,33 +64,46 @@ pub fn scan_for_imports_no_py(
     modules: &HashSet<Module>,
     exclude_type_checking_imports: bool,
 ) -> GrimpResult<HashMap<Module, HashSet<DirectImport>>> {
-    let mut imports_by_module = HashMap::new();
+    let module_packages = get_modules_from_found_packages(found_packages);
 
-    for module in modules {
-        let imports_for_module = scan_for_imports_no_py_single_module(
-            module,
-            file_system,
-            found_packages,
-            &get_modules_from_found_packages(found_packages),
-            include_external_packages,
-            exclude_type_checking_imports,
-        )?;
-        imports_by_module.insert(module.clone(), imports_for_module);
+    // Assemble a lookup table so we only need to do this once.
+    let mut found_packages_by_module = HashMap::new();
+    for found_package in found_packages {
+        for module_file in &found_package.module_files {
+            found_packages_by_module.insert(&module_file.module, found_package);
+        }
     }
-    Ok(imports_by_module)
+    let results: GrimpResult<Vec<(Module, HashSet<DirectImport>)>> = modules
+        .par_iter()
+        .map(|module| {
+            let imports = scan_for_imports_no_py_single_module(
+                module,
+                file_system,
+                &found_packages_by_module,
+                found_packages,
+                &module_packages,
+                include_external_packages,
+                exclude_type_checking_imports,
+            )?;
+            Ok((module.clone(), imports))
+        })
+        .collect();
+
+    results.map(|vec| vec.into_iter().collect())
 }
 
 #[allow(clippy::borrowed_box)]
 fn scan_for_imports_no_py_single_module(
     module: &Module,
     file_system: &Box<dyn FileSystem + Send + Sync>,
+    found_packages_by_module: &HashMap<&Module, &FoundPackage>,
     found_packages: &HashSet<FoundPackage>,
     all_modules: &HashSet<Module>,
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
 ) -> GrimpResult<HashSet<DirectImport>> {
     let mut imports: HashSet<DirectImport> = HashSet::new();
-    let found_package_for_module = _lookup_found_package_for_module(module, found_packages);
+    let found_package_for_module = found_packages_by_module[module];
     let module_filename =
         _determine_module_filename(module, found_package_for_module, file_system).unwrap();
     let module_contents = file_system.read(&module_filename).unwrap();
@@ -185,21 +180,6 @@ pub fn to_py_direct_imports<'a>(
     }
 
     pyset
-}
-
-fn _lookup_found_package_for_module<'b>(
-    module: &Module,
-    found_packages: &'b HashSet<FoundPackage>,
-) -> &'b FoundPackage {
-    // TODO: it's probably inefficient to do this every time we look up a module.
-    for found_package in found_packages {
-        for module_file in &found_package.module_files {
-            if module_file.module == *module {
-                return found_package;
-            }
-        }
-    }
-    panic!("Could not lookup found package for module {module}");
 }
 
 #[allow(clippy::borrowed_box)]
@@ -350,4 +330,23 @@ fn _distill_external_module(
     } else {
         Some(module_name.split('.').next().unwrap().to_string())
     }
+}
+
+/// Convert the rust data structure into a Python dict[Module, set[DirectImport]].
+pub fn imports_by_module_to_py(
+    py: Python,
+    imports_by_module: HashMap<module_finding::Module, HashSet<DirectImport>>,
+) -> Bound<PyDict> {
+    let valueobjects_pymodule = PyModule::import(py, "grimp.domain.valueobjects").unwrap();
+    let py_module_class = valueobjects_pymodule.getattr("Module").unwrap();
+
+    let imports_by_module_py = PyDict::new(py);
+    for (module, imports) in imports_by_module.iter() {
+        let py_module_instance = py_module_class.call1((module.name.clone(),)).unwrap();
+        let py_imports = to_py_direct_imports(py, imports);
+        imports_by_module_py
+            .set_item(py_module_instance, py_imports)
+            .unwrap();
+    }
+    imports_by_module_py
 }

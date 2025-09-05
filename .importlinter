@@ -17,6 +17,7 @@ ignore_imports =
     ; Grimp doesn't understand extension modules: it thinks grimp._rustgrimp
     ; is an object within grimp, rather than a module in its own right,
     ; so we ignore these imports here.
+    grimp.adaptors.caching -> grimp
     grimp.adaptors.graph -> grimp
     grimp.adaptors.filesystem -> grimp
     grimp.application.scanning -> grimp

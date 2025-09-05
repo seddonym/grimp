@@ -1,3 +1,4 @@
+mod caching;
 pub mod errors;
 pub mod exceptions;
 mod filesystem;
@@ -7,16 +8,18 @@ mod import_scanning;
 pub mod module_expressions;
 mod module_finding;
 
+use crate::caching::read_cache_data_map_file;
 use crate::errors::{GrimpError, GrimpResult};
-use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError};
+use crate::exceptions::{
+    CorruptCache, InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError,
+};
 use crate::filesystem::{PyFakeBasicFileSystem, PyRealBasicFileSystem};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
-use crate::import_scanning::{
-    get_file_system_boxed, py_found_packages_to_rust, scan_for_imports_no_py, to_py_direct_imports,
-};
+use crate::import_scanning::{py_found_packages_to_rust, scan_for_imports_no_py};
 use crate::module_expressions::ModuleExpression;
 use derive_new::new;
+use filesystem::get_file_system_boxed;
 use itertools::Itertools;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyValueError;
@@ -29,6 +32,7 @@ use std::collections::HashSet;
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(scan_for_imports))?;
+    m.add_wrapped(wrap_pyfunction!(read_cache_data_map_file))?;
     m.add_class::<GraphWrapper>()?;
     m.add_class::<PyRealBasicFileSystem>()?;
     m.add_class::<PyFakeBasicFileSystem>()?;
@@ -39,6 +43,7 @@ fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         py.get_type::<InvalidModuleExpression>(),
     )?;
     m.add("ParseError", py.get_type::<ParseError>())?;
+    m.add("CorruptCache", py.get_type::<CorruptCache>())?;
     Ok(())
 }
 
@@ -65,8 +70,6 @@ fn scan_for_imports<'py>(
     exclude_type_checking_imports: bool,
     file_system: Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyDict>> {
-    let valueobjects_pymodule = PyModule::import(py, "grimp.domain.valueobjects").unwrap();
-    let py_module_class = valueobjects_pymodule.getattr("Module").unwrap();
     let file_system_boxed = get_file_system_boxed(&file_system)?;
     let found_packages_rust = py_found_packages_to_rust(&found_packages);
     let modules_rust: HashSet<module_finding::Module> = module_files
@@ -80,13 +83,15 @@ fn scan_for_imports<'py>(
         })
         .collect();
 
-    let imports_by_module_result = scan_for_imports_no_py(
-        &file_system_boxed,
-        &found_packages_rust,
-        include_external_packages,
-        &modules_rust,
-        exclude_type_checking_imports,
-    );
+    let imports_by_module_result = py.detach(|| {
+        scan_for_imports_no_py(
+            &file_system_boxed,
+            &found_packages_rust,
+            include_external_packages,
+            &modules_rust,
+            exclude_type_checking_imports,
+        )
+    });
 
     match imports_by_module_result {
         Err(GrimpError::ParseError {
@@ -110,14 +115,7 @@ fn scan_for_imports<'py>(
     }
     let imports_by_module = imports_by_module_result.unwrap();
 
-    let imports_by_module_py = PyDict::new(py);
-    for (module, imports) in imports_by_module.iter() {
-        let py_module_instance = py_module_class.call1((module.name.clone(),)).unwrap();
-        let py_imports = to_py_direct_imports(py, imports);
-        imports_by_module_py
-            .set_item(py_module_instance, py_imports)
-            .unwrap();
-    }
+    let imports_by_module_py = import_scanning::imports_by_module_to_py(py, imports_by_module);
 
     Ok(imports_by_module_py)
 }

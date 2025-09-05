@@ -2,8 +2,16 @@
 Changelog
 =========
 
-3.10 (2025-08-15)
+3.11 (2025-09-01)
 -----------------
+
+* Speed up graph building by switching from Python multiprocessing to Rust-based multithreading
+  for import scanning.
+
+(yanked) 3.10 (2025-08-15)
+--------------------------
+
+This release was yanked due to poor performance when building very large graphs.
 
 * Add closed layers to layer contract.
 * Rename default repository branch to 'main'.
