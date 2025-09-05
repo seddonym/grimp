@@ -8,7 +8,7 @@ mod import_scanning;
 pub mod module_expressions;
 mod module_finding;
 
-use crate::caching::read_cache_data_map_file;
+use crate::caching::{read_cache_data_map_file,write_cache_data_map_file};
 use crate::errors::{GrimpError, GrimpResult};
 use crate::exceptions::{
     CorruptCache, InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError,
@@ -32,6 +32,7 @@ use std::collections::HashSet;
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(scan_for_imports))?;
+    m.add_wrapped(wrap_pyfunction!(write_cache_data_map_file))?;
     m.add_wrapped(wrap_pyfunction!(read_cache_data_map_file))?;
     m.add_class::<GraphWrapper>()?;
     m.add_class::<PyRealBasicFileSystem>()?;

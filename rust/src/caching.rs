@@ -6,6 +6,30 @@ use pyo3::types::PyDict;
 use pyo3::{Bound, PyAny, PyResult, Python, pyfunction};
 use std::collections::{HashMap, HashSet};
 
+/// Writes the cache file containing all the imports for a given package.
+/// Args:
+/// - filename: str
+/// - imports_by_module: dict[Module, Set[DirectImport]]
+/// - file_system: The file system interface to use. (A BasicFileSystem.)
+#[pyfunction]
+pub fn write_cache_data_map_file<'py>(
+    py: Python<'py>,
+    filename: &str,
+    imports_by_module: Bound<'py, PyDict>,
+    file_system: Bound<'py, PyAny>,
+) -> PyResult<()> {
+    eprintln!("About to clone for write.");
+    let mut file_system_boxed = get_file_system_boxed(&file_system)?;
+    
+    let imports_by_module_rust = imports_by_module_to_rust(imports_by_module);
+    
+    let file_contents = serialize_imports_by_module(&imports_by_module_rust);
+
+    file_system_boxed.write(filename, &format!("{} HELLO", &file_contents))?;
+
+    Ok(())
+}
+
 /// Reads the cache file containing all the imports for a given package.
 /// Args:
 /// - filename: str
@@ -17,6 +41,7 @@ pub fn read_cache_data_map_file<'py>(
     filename: &str,
     file_system: Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyDict>> {
+    eprintln!("About to clone for read.");
     let file_system_boxed = get_file_system_boxed(&file_system)?;
 
     let file_contents = file_system_boxed.read(filename)?;
@@ -24,6 +49,20 @@ pub fn read_cache_data_map_file<'py>(
     let imports_by_module = parse_json_to_map(&file_contents, filename)?;
 
     Ok(imports_by_module_to_py(py, imports_by_module))
+}
+
+#[allow(unused_variables)]
+fn imports_by_module_to_rust(
+    imports_by_module: Bound<PyDict>,  
+) -> HashMap<Module, HashSet<DirectImport>> {
+    HashMap::new()
+}
+
+#[allow(unused_variables)]
+fn serialize_imports_by_module(
+    imports_by_module: &HashMap<Module, HashSet<DirectImport>>,
+) -> String {
+    "".to_string()
 }
 
 pub fn parse_json_to_map(
