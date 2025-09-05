@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use pyo3::exceptions::{PyFileNotFoundError, PyUnicodeDecodeError};
 use pyo3::prelude::*;
 use regex::Regex;
@@ -5,16 +6,16 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use unindent::unindent;
-use lazy_static::lazy_static;
 
 
-lazy_static! {
-    static ref ENCODING_RE: Regex = Regex::new(r"^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)").unwrap();
-}
+static ENCODING_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)").unwrap()
+});
 
 pub trait FileSystem: Send + Sync {
-    fn sep(&self) -> String;
+    fn sep(&self) -> &str;
 
     fn join(&self, components: Vec<String>) -> String;
 
@@ -37,8 +38,8 @@ pub struct PyRealBasicFileSystem {
 }
 
 impl FileSystem for RealBasicFileSystem {
-    fn sep(&self) -> String {
-        std::path::MAIN_SEPARATOR.to_string()
+    fn sep(&self) -> &str {
+        std::path::MAIN_SEPARATOR_STR
     }
 
     fn join(&self, components: Vec<String>) -> String {
@@ -46,7 +47,7 @@ impl FileSystem for RealBasicFileSystem {
         for component in components {
             path.push(component);
         }
-        path.to_str().unwrap().to_string()
+        path.to_str().expect("Path components should be valid unicode").to_string()
     }
 
     fn split(&self, file_name: &str) -> (String, String) {
@@ -65,8 +66,8 @@ impl FileSystem for RealBasicFileSystem {
         };
 
         (
-            head.to_str().unwrap().to_string(),
-            tail.to_str().unwrap().to_string(),
+            head.to_str().expect("Path components should be valid unicode").to_string(),
+            tail.to_str().expect("Path components should be valid unicode").to_string(),
         )
     }
 
@@ -136,7 +137,7 @@ impl PyRealBasicFileSystem {
     }
 
     #[getter]
-    fn sep(&self) -> String {
+    fn sep(&self) -> &str {
         self.inner.sep()
     }
 
@@ -191,17 +192,16 @@ impl FakeBasicFileSystem {
 }
 
 impl FileSystem for FakeBasicFileSystem {
-    fn sep(&self) -> String {
-        "/".to_string()
+    fn sep(&self) -> &str {
+        "/"
     }
 
     fn join(&self, components: Vec<String>) -> String {
         let sep = self.sep();
         components
             .into_iter()
-            .map(|c| c.trim_end_matches(&sep).to_string())
-            .collect::<Vec<String>>()
-            .join(&sep)
+            .map(|c| c.trim_end_matches(sep).to_string())
+            .join(sep)
     }
 
     fn split(&self, file_name: &str) -> (String, String) {
@@ -217,8 +217,8 @@ impl FileSystem for FakeBasicFileSystem {
             tail = path.file_name().unwrap_or(OsStr::new(""));
         }
         (
-            head.to_str().unwrap().to_string(),
-            tail.to_str().unwrap().to_string(),
+            head.to_str().expect("Path components should be valid unicode").to_string(),
+            tail.to_str().expect("Path components should be valid unicode").to_string(),
         )
     }
 
@@ -230,7 +230,7 @@ impl FileSystem for FakeBasicFileSystem {
     fn read(&self, file_name: &str) -> PyResult<String> {
         match self.contents.get(file_name) {
             Some(file_name) => Ok(file_name.clone()),
-            None => Err(PyFileNotFoundError::new_err("")),
+            None => Err(PyFileNotFoundError::new_err(format!("No such file: {file_name}"))),
         }
     }
 }
@@ -246,7 +246,7 @@ impl PyFakeBasicFileSystem {
     }
 
     #[getter]
-    fn sep(&self) -> String {
+    fn sep(&self) -> &str {
         self.inner.sep()
     }
 
@@ -288,7 +288,8 @@ pub fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<St
     let buffer = file_system_string.replace("\r\n", "\n");
     let lines: Vec<&str> = buffer.split('\n').collect();
 
-    for line_raw in lines.clone() {
+    let first_line_starts_with_slash = lines[0].trim().starts_with('/');
+    for line_raw in lines {
         let line = line_raw.trim_end(); // Remove trailing whitespace
         if line.is_empty() {
             continue; // Skip empty lines
@@ -331,7 +332,7 @@ pub fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<St
             let mut joined = path_stack.join("/");
             // If the original root started with a slash, ensure the final path does too.
             // But be careful not to double-slash if a component is e.g. "/root"
-            if lines[0].trim().starts_with('/') && !joined.starts_with('/') {
+            if first_line_starts_with_slash && !joined.starts_with('/') {
                 joined = format!("/{joined}");
             }
             joined
@@ -353,7 +354,7 @@ pub fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<St
     // Edge case: If the very first line was a file and it ended up on the stack, it needs to be processed.
     // This handles single-file inputs like "myfile.txt"
     if !path_stack.is_empty()
-        && !path_stack.last().unwrap().ends_with('/')
+        && !path_stack.last().expect("path_stack should be non-empty").ends_with('/')
         && !file_paths_map.contains_key(&path_stack.join("/"))
     {
         file_paths_map.insert(path_stack.join("/"), String::new());
