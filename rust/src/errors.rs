@@ -1,4 +1,6 @@
-use crate::exceptions::{InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError};
+use crate::exceptions::{
+    CorruptCache, InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError,
+};
 use pyo3::PyErr;
 use pyo3::exceptions::PyValueError;
 use ruff_python_parser::ParseError as RuffParseError;
@@ -26,6 +28,9 @@ pub enum GrimpError {
         #[source]
         parse_error: RuffParseError,
     },
+
+    #[error("Could not use corrupt cache file {0}.")]
+    CorruptCache(String),
 }
 
 pub type GrimpResult<T> = Result<T, GrimpError>;
@@ -43,6 +48,7 @@ impl From<GrimpError> for PyErr {
             GrimpError::ParseError {
                 line_number, text, ..
             } => PyErr::new::<ParseError, _>((line_number, text)),
+            GrimpError::CorruptCache(_) => CorruptCache::new_err(value.to_string()),
         }
     }
 }
