@@ -11,10 +11,8 @@ mod module_finding;
 use crate::errors::{GrimpError, GrimpResult};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
-use crate::import_scanning::{py_found_packages_to_rust, scan_for_imports_no_py};
 use crate::module_expressions::ModuleExpression;
 use derive_new::new;
-use filesystem::get_file_system_boxed;
 use itertools::Itertools;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyValueError;
@@ -27,7 +25,7 @@ use std::collections::HashSet;
 #[pymodule]
 mod _rustgrimp {
     #[pymodule_export]
-    use super::scan_for_imports;
+    use crate::import_scanning::scan_for_imports;
 
     #[pymodule_export]
     use crate::caching::read_cache_data_map_file;
@@ -42,79 +40,6 @@ mod _rustgrimp {
     use crate::exceptions::{
         CorruptCache, InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError,
     };
-}
-
-/// Statically analyses the given module and returns a set of Modules that
-/// it imports.
-/// Python args:
-///
-/// - module_files                   The modules to scan.
-/// - found_packages:                Set of FoundPackages containing all the modules
-///                                  for analysis.
-/// - include_external_packages:     Whether to include imports of external modules (i.e.
-///                                  modules not contained in modules_by_package_directory)
-///                                  in the results.
-/// - exclude_type_checking_imports: If True, don't include imports behind TYPE_CHECKING guards.
-/// - file_system:                   The file system interface to use. (A BasicFileSystem.)
-///
-/// Returns dict[Module, set[DirectImport]].
-#[pyfunction]
-fn scan_for_imports<'py>(
-    py: Python<'py>,
-    module_files: Vec<Bound<'py, PyAny>>,
-    found_packages: Bound<'py, PyAny>,
-    include_external_packages: bool,
-    exclude_type_checking_imports: bool,
-    file_system: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyDict>> {
-    let file_system_boxed = get_file_system_boxed(&file_system)?;
-    let found_packages_rust = py_found_packages_to_rust(&found_packages);
-    let modules_rust: HashSet<module_finding::Module> = module_files
-        .iter()
-        .map(|module_file| {
-            module_file
-                .getattr("module")
-                .unwrap()
-                .extract::<module_finding::Module>()
-                .unwrap()
-        })
-        .collect();
-
-    let imports_by_module_result = py.detach(|| {
-        scan_for_imports_no_py(
-            &file_system_boxed,
-            &found_packages_rust,
-            include_external_packages,
-            &modules_rust,
-            exclude_type_checking_imports,
-        )
-    });
-
-    match imports_by_module_result {
-        Err(GrimpError::ParseError {
-            module_filename,
-            line_number,
-            text,
-            ..
-        }) => {
-            // TODO: define SourceSyntaxError using pyo3.
-            let exceptions_pymodule = PyModule::import(py, "grimp.exceptions").unwrap();
-            let py_exception_class = exceptions_pymodule.getattr("SourceSyntaxError").unwrap();
-            let exception = py_exception_class
-                .call1((module_filename, line_number, text))
-                .unwrap();
-            return Err(PyErr::from_value(exception));
-        }
-        Err(e) => {
-            return Err(e.into());
-        }
-        _ => (),
-    }
-    let imports_by_module = imports_by_module_result.unwrap();
-
-    let imports_by_module_py = import_scanning::imports_by_module_to_py(py, imports_by_module);
-
-    Ok(imports_by_module_py)
 }
 
 #[pyclass(name = "Graph")]
