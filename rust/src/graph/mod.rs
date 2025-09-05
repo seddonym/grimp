@@ -16,6 +16,7 @@ use string_interner::{DefaultSymbol, StringInterner};
 
 use crate::errors::{GrimpError, GrimpResult};
 use crate::graph::higher_order_queries::Level;
+use crate::graph::higher_order_queries::PackageDependency as PyPackageDependency;
 use crate::module_expressions::ModuleExpression;
 
 pub mod direct_import_queries;
@@ -577,17 +578,14 @@ impl GraphWrapper {
             .par_bridge()
             .try_fold(
                 Vec::new,
-                |mut v: Vec<crate::graph::higher_order_queries::PackageDependency>,
-                 levels|
-                 -> GrimpResult<_> {
+                |mut v: Vec<PyPackageDependency>, levels| -> GrimpResult<_> {
                     v.extend(self._graph.find_illegal_dependencies_for_layers(&levels)?);
                     Ok(v)
                 },
             )
             .try_reduce(
                 Vec::new,
-                |mut v: Vec<crate::graph::higher_order_queries::PackageDependency>,
-                 package_dependencies| {
+                |mut v: Vec<PyPackageDependency>, package_dependencies| {
                     v.extend(package_dependencies);
                     Ok(v)
                 },
