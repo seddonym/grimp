@@ -55,6 +55,7 @@ pub fn find_shortest_path(
         successors,
         excluded_modules,
         excluded_imports,
+        false
     )
 }
 
@@ -81,7 +82,7 @@ pub fn find_shortest_cycle(
     let successors: FxIndexMap<ModuleToken, Option<ModuleToken>> = predecessors
         .clone();
 
-    _find_shortest_path(graph, predecessors, successors, excluded_modules, &excluded_imports)
+    _find_shortest_path(graph, predecessors, successors, excluded_modules, &excluded_imports, true)
 }
 
 fn _find_shortest_path(
@@ -90,6 +91,7 @@ fn _find_shortest_path(
     mut successors: FxIndexMap<ModuleToken, Option<ModuleToken>>,
     excluded_modules: &FxHashSet<ModuleToken>,
     excluded_imports: &FxHashMap<ModuleToken, FxHashSet<ModuleToken>>,
+    sorted: bool,
 ) -> GrimpResult<Option<Vec<ModuleToken>>> {
     
 
@@ -98,8 +100,14 @@ fn _find_shortest_path(
     let middle = 'l: loop {
         for _ in 0..(predecessors.len() - i_forwards) {
             let module = *predecessors.get_index(i_forwards).unwrap().0;
-            let mut next_modules: Vec<_> = graph.imports.get(module).unwrap().iter().cloned().collect();
-            next_modules.sort_by_key(|next_module| graph.get_module(*next_module).unwrap().name());
+            let mut next_modules: Vec<ModuleToken> = graph.imports.get(module).unwrap().iter().cloned().collect();
+
+            if sorted {
+                next_modules.sort_by_key(|next_module| {
+                    graph.get_module(*next_module).unwrap().name()
+                });
+            }
+
             for next_module in next_modules {
                 if import_is_excluded(&module, &next_module, excluded_modules, excluded_imports) {
                     continue;
@@ -116,8 +124,14 @@ fn _find_shortest_path(
 
         for _ in 0..(successors.len() - i_backwards) {
             let module = *successors.get_index(i_backwards).unwrap().0;
-            let mut next_modules: Vec<_> = graph.reverse_imports.get(module).unwrap().iter().cloned().collect();
-            next_modules.sort_by_key(|next_module| graph.get_module(*next_module).unwrap().name());
+            let mut next_modules: Vec<ModuleToken> = graph.reverse_imports.get(module).unwrap().iter().cloned().collect();
+
+            if sorted {
+                next_modules.sort_by_key(|next_module| {
+                    graph.get_module(*next_module).unwrap().name()
+                });
+            }
+
             for next_module in next_modules {
                 if import_is_excluded(&next_module, &module, excluded_modules, excluded_imports) {
                     continue;
