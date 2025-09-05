@@ -15,7 +15,7 @@ use string_interner::backend::StringBackend;
 use string_interner::{DefaultSymbol, StringInterner};
 
 use crate::errors::{GrimpError, GrimpResult};
-use crate::graph::higher_order_queries::Level;
+use crate::graph::higher_order_queries::{Level, PackageDependency};
 use crate::module_expressions::ModuleExpression;
 
 pub mod direct_import_queries;
@@ -160,7 +160,7 @@ impl GraphWrapper {
     fn convert_package_dependencies_to_python<'py>(
         &self,
         py: Python<'py>,
-        package_dependencies: Vec<PackageDependency>,
+        package_dependencies: Vec<PyPackageDependency>,
     ) -> PyResult<Bound<'py, PyTuple>> {
         let mut python_dependencies: Vec<Bound<'py, PyDict>> = vec![];
 
@@ -576,17 +576,14 @@ impl GraphWrapper {
             .par_bridge()
             .try_fold(
                 Vec::new,
-                |mut v: Vec<crate::graph::higher_order_queries::PackageDependency>,
-                 levels|
-                 -> GrimpResult<_> {
+                |mut v: Vec<PackageDependency>, levels| -> GrimpResult<_> {
                     v.extend(self._graph.find_illegal_dependencies_for_layers(&levels)?);
                     Ok(v)
                 },
             )
             .try_reduce(
                 Vec::new,
-                |mut v: Vec<crate::graph::higher_order_queries::PackageDependency>,
-                 package_dependencies| {
+                |mut v: Vec<PackageDependency>, package_dependencies| {
                     v.extend(package_dependencies);
                     Ok(v)
                 },
@@ -595,7 +592,7 @@ impl GraphWrapper {
         let illegal_dependencies = illegal_dependencies
             .into_iter()
             .map(|dep| {
-                PackageDependency::new(
+                PyPackageDependency::new(
                     self._graph.get_module(*dep.importer()).unwrap().name(),
                     self._graph.get_module(*dep.imported()).unwrap().name(),
                     dep.routes()
@@ -649,7 +646,7 @@ struct PyImportDetails {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, new)]
-struct PackageDependency {
+struct PyPackageDependency {
     importer: String,
     imported: String,
     routes: Vec<Route>,
