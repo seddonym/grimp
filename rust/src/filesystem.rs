@@ -5,6 +5,8 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
+use std::fs::File;
+use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use unindent::unindent;
@@ -22,6 +24,8 @@ pub trait FileSystem: Send + Sync {
     fn exists(&self, file_name: &str) -> bool;
 
     fn read(&self, file_name: &str) -> PyResult<String>;
+
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()>;
 }
 
 #[derive(Clone)]
@@ -129,6 +133,12 @@ impl FileSystem for RealBasicFileSystem {
             })
         }
     }
+
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        let mut file = File::create(file_name)?;
+        file.write_all(contents.as_bytes())?;
+        Ok(())
+    }
 }
 
 #[pymethods]
@@ -160,6 +170,10 @@ impl PyRealBasicFileSystem {
 
     fn read(&self, file_name: &str) -> PyResult<String> {
         self.inner.read(file_name)
+    }
+
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        self.inner.write(file_name, contents)
     }
 }
 
@@ -243,6 +257,13 @@ impl FileSystem for FakeBasicFileSystem {
             ))),
         }
     }
+
+    #[allow(unused_variables)]
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        self.contents
+            .insert(file_name.to_string(), contents.to_string());
+        Ok(())
+    }
 }
 
 #[pymethods]
@@ -276,6 +297,10 @@ impl PyFakeBasicFileSystem {
 
     fn read(&self, file_name: &str) -> PyResult<String> {
         self.inner.read(file_name)
+    }
+
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        self.inner.write(file_name, contents)
     }
 
     // Temporary workaround method for Python tests.

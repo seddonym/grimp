@@ -93,7 +93,7 @@ class AbstractFileSystem(abc.ABC):
 
 class BasicFileSystem(Protocol):
     """
-    A more limited file system, used by the Rust-based scan_for_imports function.
+    A more limited file system.
 
     Having two different file system APIs is an interim approach, allowing us to
     implement BasicFileSystem in Rust without needing to implement the full range
@@ -108,5 +108,7 @@ class BasicFileSystem(Protocol):
     def split(self, file_name: str) -> Tuple[str, str]: ...
 
     def read(self, file_name: str) -> str: ...
+
+    def write(self, file_name: str, contents: str) -> None: ...
 
     def exists(self, file_name: str) -> bool: ...
