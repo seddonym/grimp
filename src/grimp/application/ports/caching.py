@@ -1,7 +1,7 @@
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.domain.valueobjects import DirectImport, Module
 
-from .filesystem import AbstractFileSystem
+from .filesystem import BasicFileSystem
 
 
 class CacheMiss(Exception):
@@ -11,7 +11,7 @@ class CacheMiss(Exception):
 class Cache:
     def __init__(
         self,
-        file_system: AbstractFileSystem,
+        file_system: BasicFileSystem,
         include_external_packages: bool,
         exclude_type_checking_imports: bool,
         found_packages: set[FoundPackage],
@@ -29,7 +29,7 @@ class Cache:
     @classmethod
     def setup(
         cls,
-        file_system: AbstractFileSystem,
+        file_system: BasicFileSystem,
         found_packages: set[FoundPackage],
         *,
         include_external_packages: bool,

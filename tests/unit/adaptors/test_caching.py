@@ -202,7 +202,7 @@ class TestCache:
                 ]
             }""",
         },
-    )
+    ).convert_to_basic()
     MODULE_FILE_UNMODIFIED = ModuleFile(
         module=Module("mypackage.foo.unmodified"), mtime=SOME_MTIME
     )
@@ -249,7 +249,7 @@ class TestCache:
         caplog.set_level(logging.INFO, logger=Cache.__module__)
 
         Cache.setup(
-            file_system=FakeFileSystem(),  # No cache files.
+            file_system=FakeFileSystem().convert_to_basic(),  # No cache files.
             found_packages=self.FOUND_PACKAGES,
             namer=SimplisticFileNamer,
             include_external_packages=False,
@@ -277,7 +277,7 @@ class TestCache:
                 }}""",
                 ".grimp_cache/mypackage.data.json": "{}",
             },
-        )
+        ).convert_to_basic()
         Cache.setup(
             file_system=file_system,
             found_packages=self.FOUND_PACKAGES,
@@ -305,7 +305,7 @@ class TestCache:
                 }}""",
                 ".grimp_cache/mypackage.data.json": "INVALID JSON",
             },
-        )
+        ).convert_to_basic()
 
         Cache.setup(
             file_system=file_system,
@@ -407,7 +407,7 @@ class TestCache:
                 }}""",
                 ".grimp_cache/mypackage.data.json": """{}""",
             },
-        )
+        ).convert_to_basic()
         module_file = ModuleFile(module=Module("mypackage.somemodule"), mtime=self.SOME_MTIME)
         cache = Cache.setup(
             file_system=file_system,
@@ -450,7 +450,7 @@ class TestCache:
                     ]
                 }""",
             },
-        )
+        ).convert_to_basic()
         cache = Cache.setup(
             file_system=file_system,
             found_packages=self.FOUND_PACKAGES,
@@ -486,7 +486,7 @@ class TestCache:
                     ]
                 }}""",
             },
-        )
+        ).convert_to_basic()
         cache = Cache.setup(
             file_system=file_system,
             found_packages=self.FOUND_PACKAGES,
@@ -565,7 +565,7 @@ class TestCache:
         self, include_external_packages, expected_data_file_name, cache_dir, caplog
     ):
         caplog.set_level(logging.INFO, logger=Cache.__module__)
-        file_system = FakeFileSystem()
+        file_system = FakeFileSystem().convert_to_basic()
         blue_one = Module(name="blue.one")
         blue_two = Module(name="blue.two")
         green_one = Module(name="green.one")
@@ -672,7 +672,7 @@ class TestCache:
 
     def test_write_to_cache_adds_marker_files(self):
         some_cache_dir = "/tmp/some-cache-dir"
-        file_system = FakeFileSystem()
+        file_system = FakeFileSystem().convert_to_basic()
         cache = Cache.setup(
             file_system=file_system,
             cache_dir=some_cache_dir,

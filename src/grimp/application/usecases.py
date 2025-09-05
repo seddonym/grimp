@@ -110,7 +110,7 @@ def _scan_packages(
     if cache_dir is not None:
         cache_dir_if_supplied = cache_dir if cache_dir != NotSupplied else None
         cache: caching.Cache = settings.CACHE_CLASS.setup(
-            file_system=file_system,
+            file_system=file_system.convert_to_basic(),
             found_packages=found_packages,
             include_external_packages=include_external_packages,
             exclude_type_checking_imports=exclude_type_checking_imports,
