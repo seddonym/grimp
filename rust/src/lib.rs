@@ -13,8 +13,7 @@ use crate::filesystem::{PyFakeBasicFileSystem, PyRealBasicFileSystem};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
 use crate::import_scanning::{
-    get_file_system_boxed, py_found_packages_to_rust, scan_for_imports_no_py,
-    to_py_direct_imports,
+    get_file_system_boxed, py_found_packages_to_rust, scan_for_imports_no_py, to_py_direct_imports,
 };
 use crate::module_expressions::ModuleExpression;
 use derive_new::new;
@@ -91,8 +90,11 @@ fn scan_for_imports<'py>(
 
     match imports_by_module_result {
         Err(GrimpError::ParseError {
-                module_filename, line_number, text, ..
-            }) => {
+            module_filename,
+            line_number,
+            text,
+            ..
+        }) => {
             // TODO: define SourceSyntaxError using pyo3.
             let exceptions_pymodule = PyModule::import(py, "grimp.exceptions").unwrap();
             let py_exception_class = exceptions_pymodule.getattr("SourceSyntaxError").unwrap();
@@ -112,12 +114,13 @@ fn scan_for_imports<'py>(
     for (module, imports) in imports_by_module.iter() {
         let py_module_instance = py_module_class.call1((module.name.clone(),)).unwrap();
         let py_imports = to_py_direct_imports(py, imports);
-        imports_by_module_py.set_item(py_module_instance, py_imports).unwrap();
+        imports_by_module_py
+            .set_item(py_module_instance, py_imports)
+            .unwrap();
     }
 
     Ok(imports_by_module_py)
 }
-
 
 #[pyclass(name = "Graph")]
 struct GraphWrapper {

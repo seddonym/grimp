@@ -55,7 +55,7 @@ pub fn find_shortest_path(
         successors,
         excluded_modules,
         excluded_imports,
-        false
+        false,
     )
 }
 
@@ -73,16 +73,19 @@ pub fn find_shortest_cycle(
         excluded_imports.entry(*m2).or_default().insert(*m1);
     }
 
-    let predecessors: FxIndexMap<ModuleToken, Option<ModuleToken>> = modules
-        .iter()
-        .cloned()
-        .map(|m| (m, None))
-        .collect();
+    let predecessors: FxIndexMap<ModuleToken, Option<ModuleToken>> =
+        modules.iter().cloned().map(|m| (m, None)).collect();
 
-    let successors: FxIndexMap<ModuleToken, Option<ModuleToken>> = predecessors
-        .clone();
+    let successors: FxIndexMap<ModuleToken, Option<ModuleToken>> = predecessors.clone();
 
-    _find_shortest_path(graph, predecessors, successors, excluded_modules, &excluded_imports, true)
+    _find_shortest_path(
+        graph,
+        predecessors,
+        successors,
+        excluded_modules,
+        &excluded_imports,
+        true,
+    )
 }
 
 fn _find_shortest_path(
@@ -93,19 +96,17 @@ fn _find_shortest_path(
     excluded_imports: &FxHashMap<ModuleToken, FxHashSet<ModuleToken>>,
     sorted: bool,
 ) -> GrimpResult<Option<Vec<ModuleToken>>> {
-    
-
     let mut i_forwards = 0;
     let mut i_backwards = 0;
     let middle = 'l: loop {
         for _ in 0..(predecessors.len() - i_forwards) {
             let module = *predecessors.get_index(i_forwards).unwrap().0;
-            let mut next_modules: Vec<ModuleToken> = graph.imports.get(module).unwrap().iter().cloned().collect();
+            let mut next_modules: Vec<ModuleToken> =
+                graph.imports.get(module).unwrap().iter().cloned().collect();
 
             if sorted {
-                next_modules.sort_by_key(|next_module| {
-                    graph.get_module(*next_module).unwrap().name()
-                });
+                next_modules
+                    .sort_by_key(|next_module| graph.get_module(*next_module).unwrap().name());
             }
 
             for next_module in next_modules {
@@ -124,12 +125,17 @@ fn _find_shortest_path(
 
         for _ in 0..(successors.len() - i_backwards) {
             let module = *successors.get_index(i_backwards).unwrap().0;
-            let mut next_modules: Vec<ModuleToken> = graph.reverse_imports.get(module).unwrap().iter().cloned().collect();
+            let mut next_modules: Vec<ModuleToken> = graph
+                .reverse_imports
+                .get(module)
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect();
 
             if sorted {
-                next_modules.sort_by_key(|next_module| {
-                    graph.get_module(*next_module).unwrap().name()
-                });
+                next_modules
+                    .sort_by_key(|next_module| graph.get_module(*next_module).unwrap().name());
             }
 
             for next_module in next_modules {
@@ -209,22 +215,14 @@ mod test_find_shortest_cycle {
         graph.add_import(y, z);
         graph.add_import(z, foo);
 
-        let path = find_shortest_cycle(
-            &graph,
-            &[foo],
-            &FxHashSet::default(),
-            &FxHashMap::default(),
-        )?;
+        let path =
+            find_shortest_cycle(&graph, &[foo], &FxHashSet::default(), &FxHashMap::default())?;
         assert_eq!(path, Some(vec![foo, bar, baz, foo]));
 
         graph.remove_import(baz, foo);
 
-        let path = find_shortest_cycle(
-            &graph,
-            &[foo],
-            &FxHashSet::default(),
-            &FxHashMap::default(),
-        )?;
+        let path =
+            find_shortest_cycle(&graph, &[foo], &FxHashSet::default(), &FxHashMap::default())?;
         assert_eq!(path, Some(vec![foo, x, y, z, foo]));
 
         Ok(())
@@ -239,12 +237,8 @@ mod test_find_shortest_cycle {
         graph.add_import(foo, bar);
         graph.add_import(bar, baz);
 
-        let path = find_shortest_cycle(
-            &graph,
-            &[foo],
-            &FxHashSet::default(),
-            &FxHashMap::default(),
-        )?;
+        let path =
+            find_shortest_cycle(&graph, &[foo], &FxHashSet::default(), &FxHashMap::default())?;
 
         assert_eq!(path, None);
 

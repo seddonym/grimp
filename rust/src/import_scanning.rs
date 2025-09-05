@@ -143,14 +143,14 @@ fn scan_for_imports_no_py_single_module(
                 if include_external_packages
                     && let Some(imported_module) =
                         _distill_external_module(&imported_object_name, found_packages)
-                    {
-                        imports.insert(DirectImport {
-                            importer: module.name.to_string(),
-                            imported: imported_module,
-                            line_number: imported_object.line_number,
-                            line_contents: imported_object.line_contents,
-                        });
-                    }
+                {
+                    imports.insert(DirectImport {
+                        importer: module.name.to_string(),
+                        imported: imported_module,
+                        line_number: imported_object.line_number,
+                        line_contents: imported_object.line_contents,
+                    });
+                }
             }
         }
     }
