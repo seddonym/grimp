@@ -83,7 +83,7 @@ fn scan_for_imports<'py>(
         })
         .collect();
 
-    let imports_by_module_result = py.allow_threads(|| {
+    let imports_by_module_result = py.detach(|| {
         scan_for_imports_no_py(
             &file_system_boxed,
             &found_packages_rust,
