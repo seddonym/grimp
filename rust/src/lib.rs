@@ -118,6 +118,7 @@ fn scan_for_imports<'py>(
 }
 
 #[pyclass(name = "Graph")]
+#[derive(Clone)]
 struct GraphWrapper {
     _graph: Graph,
 }
@@ -673,10 +674,9 @@ impl GraphWrapper {
         self.convert_package_dependencies_to_python(py, illegal_dependencies)
     }
 
-    pub fn clone(&self) -> GraphWrapper {
-        GraphWrapper {
-            _graph: self._graph.clone(),
-        }
+    #[pyo3(name = "clone")]
+    pub fn clone_py(&self) -> GraphWrapper {
+        self.clone()
     }
 }
 
