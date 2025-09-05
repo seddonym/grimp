@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use pyo3::exceptions::{PyFileNotFoundError, PyUnicodeDecodeError};
 use pyo3::prelude::*;
 use regex::Regex;
@@ -200,7 +201,6 @@ impl FileSystem for FakeBasicFileSystem {
         components
             .into_iter()
             .map(|c| c.trim_end_matches(&sep).to_string())
-            .collect::<Vec<String>>()
             .join(&sep)
     }
 
