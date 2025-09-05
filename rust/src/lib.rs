@@ -1,3 +1,4 @@
+mod caching;
 pub mod errors;
 pub mod exceptions;
 mod filesystem;
@@ -7,6 +8,7 @@ mod import_scanning;
 pub mod module_expressions;
 mod module_finding;
 
+use crate::caching::read_cache_data_map_file;
 use crate::errors::{GrimpError, GrimpResult};
 use crate::exceptions::{
     CorruptCache, InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError,
@@ -14,9 +16,7 @@ use crate::exceptions::{
 use crate::filesystem::{PyFakeBasicFileSystem, PyRealBasicFileSystem};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
-use crate::import_scanning::{
-    py_found_packages_to_rust, scan_for_imports_no_py, to_py_direct_imports,
-};
+use crate::import_scanning::{py_found_packages_to_rust, scan_for_imports_no_py};
 use crate::module_expressions::ModuleExpression;
 use derive_new::new;
 use filesystem::get_file_system_boxed;
@@ -32,6 +32,7 @@ use std::collections::HashSet;
 #[pymodule]
 fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(scan_for_imports))?;
+    m.add_wrapped(wrap_pyfunction!(read_cache_data_map_file))?;
     m.add_class::<GraphWrapper>()?;
     m.add_class::<PyRealBasicFileSystem>()?;
     m.add_class::<PyFakeBasicFileSystem>()?;
