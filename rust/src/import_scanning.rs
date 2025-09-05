@@ -1,9 +1,8 @@
 use crate::errors::GrimpResult;
-use crate::filesystem::{FileSystem, PyFakeBasicFileSystem, PyRealBasicFileSystem};
-use crate::import_parsing;
+use crate::filesystem::FileSystem;
 use crate::module_finding::{FoundPackage, Module};
+use crate::{import_parsing, module_finding};
 use itertools::Itertools;
-use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PySet};
 /// Statically analyses some Python modules for import statements within their shared package.
@@ -13,10 +12,10 @@ use std::io::{self, ErrorKind};
 
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub struct DirectImport {
-    importer: String,
-    imported: String,
-    line_number: usize,
-    line_contents: String,
+    pub importer: String,
+    pub imported: String,
+    pub line_number: usize,
+    pub line_contents: String,
 }
 
 pub fn py_found_packages_to_rust(py_found_packages: &Bound<'_, PyAny>) -> HashSet<FoundPackage> {
@@ -53,24 +52,6 @@ fn count_leading_dots(s: &str) -> usize {
 
 fn module_is_descendant(module_name: &str, potential_ancestor: &str) -> bool {
     module_name.starts_with(&format!("{potential_ancestor}."))
-}
-
-#[allow(clippy::borrowed_box)]
-pub fn get_file_system_boxed<'py>(
-    file_system: &Bound<'py, PyAny>,
-) -> PyResult<Box<dyn FileSystem + Send + Sync>> {
-    let file_system_boxed: Box<dyn FileSystem + Send + Sync>;
-
-    if let Ok(py_real) = file_system.extract::<PyRef<PyRealBasicFileSystem>>() {
-        file_system_boxed = Box::new(py_real.inner.clone());
-    } else if let Ok(py_fake) = file_system.extract::<PyRef<PyFakeBasicFileSystem>>() {
-        file_system_boxed = Box::new(py_fake.inner.clone());
-    } else {
-        return Err(PyTypeError::new_err(
-            "file_system must be an instance of RealBasicFileSystem or FakeBasicFileSystem",
-        ));
-    }
-    Ok(file_system_boxed)
 }
 
 /// Statically analyses the given module and returns a set of Modules that
@@ -349,4 +330,23 @@ fn _distill_external_module(
     } else {
         Some(module_name.split('.').next().unwrap().to_string())
     }
+}
+
+/// Convert the rust data structure into a Python dict[Module, set[DirectImport]].
+pub fn imports_by_module_to_py(
+    py: Python,
+    imports_by_module: HashMap<module_finding::Module, HashSet<DirectImport>>,
+) -> Bound<PyDict> {
+    let valueobjects_pymodule = PyModule::import(py, "grimp.domain.valueobjects").unwrap();
+    let py_module_class = valueobjects_pymodule.getattr("Module").unwrap();
+
+    let imports_by_module_py = PyDict::new(py);
+    for (module, imports) in imports_by_module.iter() {
+        let py_module_instance = py_module_class.call1((module.name.clone(),)).unwrap();
+        let py_imports = to_py_direct_imports(py, imports);
+        imports_by_module_py
+            .set_item(py_module_instance, py_imports)
+            .unwrap();
+    }
+    imports_by_module_py
 }

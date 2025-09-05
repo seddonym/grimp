@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use pyo3::exceptions::{PyFileNotFoundError, PyUnicodeDecodeError};
+use pyo3::exceptions::{PyFileNotFoundError, PyTypeError, PyUnicodeDecodeError};
 use pyo3::prelude::*;
 use regex::Regex;
 use std::collections::HashMap;
@@ -374,4 +374,22 @@ pub fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<St
     }
 
     file_paths_map
+}
+
+#[allow(clippy::borrowed_box)]
+pub fn get_file_system_boxed<'py>(
+    file_system: &Bound<'py, PyAny>,
+) -> PyResult<Box<dyn FileSystem + Send + Sync>> {
+    let file_system_boxed: Box<dyn FileSystem + Send + Sync>;
+
+    if let Ok(py_real) = file_system.extract::<PyRef<PyRealBasicFileSystem>>() {
+        file_system_boxed = Box::new(py_real.inner.clone());
+    } else if let Ok(py_fake) = file_system.extract::<PyRef<PyFakeBasicFileSystem>>() {
+        file_system_boxed = Box::new(py_fake.inner.clone());
+    } else {
+        return Err(PyTypeError::new_err(
+            "file_system must be an instance of RealBasicFileSystem or FakeBasicFileSystem",
+        ));
+    }
+    Ok(file_system_boxed)
 }
