@@ -15,18 +15,14 @@ pub mod import_chain_queries;
 
 pub(crate) mod pathfinding;
 
-static MODULE_NAMES: LazyLock<RwLock<StringInterner<StringBackend>>> = LazyLock::new(|| {
-    RwLock::new(StringInterner::default())
-});
-static IMPORT_LINE_CONTENTS: LazyLock<RwLock<StringInterner<StringBackend>>> = LazyLock::new(|| {
-    RwLock::new(StringInterner::default())
-});
-static EMPTY_MODULE_TOKENS: LazyLock<FxHashSet<ModuleToken>> = LazyLock::new(|| {
-    FxHashSet::default()
-});
-static EMPTY_IMPORT_DETAILS: LazyLock<FxHashSet<ImportDetails>> = LazyLock::new(|| {
-    FxHashSet::default()
-});
+static MODULE_NAMES: LazyLock<RwLock<StringInterner<StringBackend>>> =
+    LazyLock::new(|| RwLock::new(StringInterner::default()));
+static IMPORT_LINE_CONTENTS: LazyLock<RwLock<StringInterner<StringBackend>>> =
+    LazyLock::new(|| RwLock::new(StringInterner::default()));
+static EMPTY_MODULE_TOKENS: LazyLock<FxHashSet<ModuleToken>> =
+    LazyLock::new(|| FxHashSet::default());
+static EMPTY_IMPORT_DETAILS: LazyLock<FxHashSet<ImportDetails>> =
+    LazyLock::new(|| FxHashSet::default());
 
 new_key_type! { pub struct ModuleToken; }
 
