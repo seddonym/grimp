@@ -288,7 +288,8 @@ pub fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<St
     let buffer = file_system_string.replace("\r\n", "\n");
     let lines: Vec<&str> = buffer.split('\n').collect();
 
-    for line_raw in lines.clone() {
+    let first_line_starts_with_slash = lines[0].trim().starts_with('/');
+    for line_raw in lines {
         let line = line_raw.trim_end(); // Remove trailing whitespace
         if line.is_empty() {
             continue; // Skip empty lines
@@ -331,7 +332,7 @@ pub fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<St
             let mut joined = path_stack.join("/");
             // If the original root started with a slash, ensure the final path does too.
             // But be careful not to double-slash if a component is e.g. "/root"
-            if lines[0].trim().starts_with('/') && !joined.starts_with('/') {
+            if first_line_starts_with_slash && !joined.starts_with('/') {
                 joined = format!("/{joined}");
             }
             joined
