@@ -1,16 +1,21 @@
-use crate::exceptions::{
-    CorruptCache, InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError,
-};
+use crate::exceptions;
 use pyo3::PyErr;
 use pyo3::exceptions::PyValueError;
 use ruff_python_parser::ParseError as RuffParseError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum GrimpError {
-    #[error("Module {0} is not present in the graph.")]
-    ModuleNotPresent(String),
+#[error("Module {0} is not present in the graph.")]
+pub struct ModuleNotPresent(pub String);
 
+impl From<ModuleNotPresent> for PyErr {
+    fn from(value: ModuleNotPresent) -> Self {
+        exceptions::ModuleNotPresent::new_err(value.to_string())
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum GrimpError {
     #[error("Container {0} does not exist.")]
     NoSuchContainer(String),
 
@@ -39,16 +44,17 @@ impl From<GrimpError> for PyErr {
     fn from(value: GrimpError) -> Self {
         // A default mapping from `GrimpError`s to python exceptions.
         match value {
-            GrimpError::ModuleNotPresent(_) => ModuleNotPresent::new_err(value.to_string()),
-            GrimpError::NoSuchContainer(_) => NoSuchContainer::new_err(value.to_string()),
+            GrimpError::NoSuchContainer(_) => {
+                exceptions::NoSuchContainer::new_err(value.to_string())
+            }
             GrimpError::SharedDescendants => PyValueError::new_err(value.to_string()),
             GrimpError::InvalidModuleExpression(_) => {
-                InvalidModuleExpression::new_err(value.to_string())
+                exceptions::InvalidModuleExpression::new_err(value.to_string())
             }
             GrimpError::ParseError {
                 line_number, text, ..
-            } => PyErr::new::<ParseError, _>((line_number, text)),
-            GrimpError::CorruptCache(_) => CorruptCache::new_err(value.to_string()),
+            } => PyErr::new::<exceptions::ParseError, _>((line_number, text)),
+            GrimpError::CorruptCache(_) => exceptions::CorruptCache::new_err(value.to_string()),
         }
     }
 }

@@ -14,7 +14,7 @@ use std::sync::{LazyLock, RwLock};
 use string_interner::backend::StringBackend;
 use string_interner::{DefaultSymbol, StringInterner};
 
-use crate::errors::{GrimpError, GrimpResult};
+use crate::errors::{GrimpError, GrimpResult, ModuleNotPresent};
 use crate::graph::higher_order_queries::{Level, PackageDependency};
 use crate::module_expressions::ModuleExpression;
 
@@ -73,10 +73,10 @@ pub struct Graph {
 }
 
 impl Graph {
-    fn get_visible_module_by_name(&self, name: &str) -> Result<&Module, GrimpError> {
+    fn get_visible_module_by_name(&self, name: &str) -> Result<&Module, ModuleNotPresent> {
         self.get_module_by_name(name)
             .filter(|m| !m.is_invisible())
-            .ok_or(GrimpError::ModuleNotPresent(name.to_owned()))
+            .ok_or(ModuleNotPresent(name.to_owned()))
     }
 
     fn parse_containers(
@@ -87,10 +87,7 @@ impl Graph {
             .iter()
             .map(|name| match self.get_visible_module_by_name(name) {
                 Ok(module) => Ok(module),
-                Err(GrimpError::ModuleNotPresent(_)) => {
-                    Err(GrimpError::NoSuchContainer(name.into()))?
-                }
-                _ => panic!("unexpected error parsing containers"),
+                Err(ModuleNotPresent(_)) => Err(GrimpError::NoSuchContainer(name.into()))?,
             })
             .collect::<Result<HashSet<_>, GrimpError>>()
     }
@@ -124,8 +121,7 @@ impl Graph {
                     .filter_map(|name| match self.get_visible_module_by_name(&name) {
                         Ok(module) => Some(module.token()),
                         // TODO(peter) Error here? Or silently continue (backwards compatibility?)
-                        Err(GrimpError::ModuleNotPresent(_)) => None,
-                        _ => panic!("unexpected error parsing levels"),
+                        Err(ModuleNotPresent(_)) => None,
                     })
                     .collect::<FxHashSet<_>>();
 
@@ -207,11 +203,7 @@ impl Graph {
     }
 
     pub fn contains_module(&self, name: &str) -> bool {
-        match self.get_visible_module_by_name(name) {
-            Ok(_) => true,
-            Err(GrimpError::ModuleNotPresent(_)) => false,
-            _ => panic!("unexpected error checking for module existence"),
-        }
+        self.get_visible_module_by_name(name).is_ok()
     }
 
     #[pyo3(signature = (module, is_squashed = false))]
@@ -301,7 +293,7 @@ impl Graph {
     pub fn find_children(&self, module: &str) -> PyResult<HashSet<String>> {
         let module = self
             .get_module_by_name(module)
-            .ok_or(GrimpError::ModuleNotPresent(module.to_owned()))?;
+            .ok_or(ModuleNotPresent(module.to_owned()))?;
         Ok(self
             .get_module_children(module.token())
             .visible()
@@ -312,7 +304,7 @@ impl Graph {
     pub fn find_descendants(&self, module: &str) -> PyResult<HashSet<String>> {
         let module = self
             .get_module_by_name(module)
-            .ok_or(GrimpError::ModuleNotPresent(module.to_owned()))?;
+            .ok_or(ModuleNotPresent(module.to_owned()))?;
         Ok(self
             .get_module_descendants(module.token())
             .visible()
