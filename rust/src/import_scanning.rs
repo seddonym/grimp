@@ -12,10 +12,10 @@ use std::io::{self, ErrorKind};
 
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub struct DirectImport {
-    importer: String,
-    imported: String,
-    line_number: usize,
-    line_contents: String,
+    pub importer: String,
+    pub imported: String,
+    pub line_number: usize,
+    pub line_contents: String,
 }
 
 pub fn py_found_packages_to_rust(py_found_packages: &Bound<'_, PyAny>) -> HashSet<FoundPackage> {
