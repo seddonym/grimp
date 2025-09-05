@@ -494,6 +494,25 @@ impl GraphWrapper {
         PySet::new(py, chains)
     }
 
+    #[pyo3(signature = (module, as_package=false))]
+    pub fn find_shortest_cycle(
+        &self,
+        module: &str,
+        as_package: bool,
+    ) -> PyResult<Option<Vec<String>>> {
+        let module = self.get_visible_module_by_name(module)?.token();
+        Ok(self
+            ._graph
+            .find_shortest_cycle(module, as_package)?
+            .map(|chain| {
+                chain
+                    .iter()
+                    .into_module_iterator(&self._graph)
+                    .names()
+                    .collect()
+            }))
+    }
+
     #[pyo3(signature = (layers, containers))]
     pub fn find_illegal_dependencies_for_layers<'py>(
         &self,

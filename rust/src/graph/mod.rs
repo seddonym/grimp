@@ -7,6 +7,7 @@ use std::sync::{LazyLock, RwLock};
 use string_interner::backend::StringBackend;
 use string_interner::{DefaultSymbol, StringInterner};
 
+pub mod cycles;
 pub mod direct_import_queries;
 pub mod graph_manipulation;
 pub mod hierarchy_queries;

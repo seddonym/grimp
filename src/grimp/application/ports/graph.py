@@ -349,6 +349,22 @@ class ImportGraph(abc.ABC):
         """
         raise NotImplementedError
 
+    # Cycles
+    # ------
+
+    @abc.abstractmethod
+    def find_shortest_cycle(
+        self, module: str, as_package: bool = False
+    ) -> Optional[Tuple[str, ...]]:
+        """
+        Returns the shortest import cycle from `module` to itself, or `None` if no cycle exist.
+
+        Optional args:
+            as_package:    Whether or not to treat the supplied module as an individual module,
+                           or as an entire subpackage (including any descendants).
+        """
+        raise NotImplementedError
+
     # High level analysis
     # -------------------
 
