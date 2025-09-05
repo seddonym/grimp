@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Dict, List, Optional, Set, Tuple, Type
 
-from grimp.application.ports.filesystem import AbstractFileSystem
+from grimp.application.ports.filesystem import BasicFileSystem
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.domain.valueobjects import DirectImport, Module
 
@@ -77,7 +77,7 @@ class Cache(AbstractCache):
     @classmethod
     def setup(
         cls,
-        file_system: AbstractFileSystem,
+        file_system: BasicFileSystem,
         found_packages: Set[FoundPackage],
         include_external_packages: bool,
         exclude_type_checking_imports: bool = False,
@@ -202,7 +202,7 @@ class Cache(AbstractCache):
         )
         try:
             imports_by_module = rust.read_cache_data_map_file(
-                data_cache_filename, self.file_system.convert_to_basic()
+                data_cache_filename, self.file_system
             )
         except FileNotFoundError:
             logger.info(f"No cache file: {data_cache_filename}.")
