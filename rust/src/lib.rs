@@ -8,18 +8,11 @@ mod import_scanning;
 pub mod module_expressions;
 mod module_finding;
 
-use crate::caching::read_cache_data_map_file;
 use crate::errors::{GrimpError, GrimpResult};
-use crate::exceptions::{
-    CorruptCache, InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError,
-};
-use crate::filesystem::{PyFakeBasicFileSystem, PyRealBasicFileSystem};
 use crate::graph::higher_order_queries::Level;
 use crate::graph::{Graph, Module, ModuleIterator, ModuleTokenIterator};
-use crate::import_scanning::{py_found_packages_to_rust, scan_for_imports_no_py};
 use crate::module_expressions::ModuleExpression;
 use derive_new::new;
-use filesystem::get_file_system_boxed;
 use itertools::Itertools;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyValueError;
@@ -30,97 +23,27 @@ use rustc_hash::FxHashSet;
 use std::collections::HashSet;
 
 #[pymodule]
-fn _rustgrimp(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_wrapped(wrap_pyfunction!(scan_for_imports))?;
-    m.add_wrapped(wrap_pyfunction!(read_cache_data_map_file))?;
-    m.add_class::<GraphWrapper>()?;
-    m.add_class::<PyRealBasicFileSystem>()?;
-    m.add_class::<PyFakeBasicFileSystem>()?;
-    m.add("ModuleNotPresent", py.get_type::<ModuleNotPresent>())?;
-    m.add("NoSuchContainer", py.get_type::<NoSuchContainer>())?;
-    m.add(
-        "InvalidModuleExpression",
-        py.get_type::<InvalidModuleExpression>(),
-    )?;
-    m.add("ParseError", py.get_type::<ParseError>())?;
-    m.add("CorruptCache", py.get_type::<CorruptCache>())?;
-    Ok(())
-}
+mod _rustgrimp {
+    #[pymodule_export]
+    use crate::import_scanning::scan_for_imports;
 
-/// Statically analyses the given module and returns a set of Modules that
-/// it imports.
-/// Python args:
-///
-/// - module_files                   The modules to scan.
-/// - found_packages:                Set of FoundPackages containing all the modules
-///                                  for analysis.
-/// - include_external_packages:     Whether to include imports of external modules (i.e.
-///                                  modules not contained in modules_by_package_directory)
-///                                  in the results.
-/// - exclude_type_checking_imports: If True, don't include imports behind TYPE_CHECKING guards.
-/// - file_system:                   The file system interface to use. (A BasicFileSystem.)
-///
-/// Returns dict[Module, set[DirectImport]].
-#[pyfunction]
-fn scan_for_imports<'py>(
-    py: Python<'py>,
-    module_files: Vec<Bound<'py, PyAny>>,
-    found_packages: Bound<'py, PyAny>,
-    include_external_packages: bool,
-    exclude_type_checking_imports: bool,
-    file_system: Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyDict>> {
-    let file_system_boxed = get_file_system_boxed(&file_system)?;
-    let found_packages_rust = py_found_packages_to_rust(&found_packages);
-    let modules_rust: HashSet<module_finding::Module> = module_files
-        .iter()
-        .map(|module_file| {
-            module_file
-                .getattr("module")
-                .unwrap()
-                .extract::<module_finding::Module>()
-                .unwrap()
-        })
-        .collect();
+    #[pymodule_export]
+    use crate::caching::read_cache_data_map_file;
 
-    let imports_by_module_result = py.detach(|| {
-        scan_for_imports_no_py(
-            &file_system_boxed,
-            &found_packages_rust,
-            include_external_packages,
-            &modules_rust,
-            exclude_type_checking_imports,
-        )
-    });
+    #[pymodule_export]
+    use super::GraphWrapper;
 
-    match imports_by_module_result {
-        Err(GrimpError::ParseError {
-            module_filename,
-            line_number,
-            text,
-            ..
-        }) => {
-            // TODO: define SourceSyntaxError using pyo3.
-            let exceptions_pymodule = PyModule::import(py, "grimp.exceptions").unwrap();
-            let py_exception_class = exceptions_pymodule.getattr("SourceSyntaxError").unwrap();
-            let exception = py_exception_class
-                .call1((module_filename, line_number, text))
-                .unwrap();
-            return Err(PyErr::from_value(exception));
-        }
-        Err(e) => {
-            return Err(e.into());
-        }
-        _ => (),
-    }
-    let imports_by_module = imports_by_module_result.unwrap();
+    #[pymodule_export]
+    use crate::filesystem::{PyFakeBasicFileSystem, PyRealBasicFileSystem};
 
-    let imports_by_module_py = import_scanning::imports_by_module_to_py(py, imports_by_module);
-
-    Ok(imports_by_module_py)
+    #[pymodule_export]
+    use crate::exceptions::{
+        CorruptCache, InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError,
+    };
 }
 
 #[pyclass(name = "Graph")]
+#[derive(Clone)]
 struct GraphWrapper {
     _graph: Graph,
 }
@@ -131,6 +54,121 @@ impl GraphWrapper {
             .get_module_by_name(name)
             .filter(|m| !m.is_invisible())
             .ok_or(GrimpError::ModuleNotPresent(name.to_owned()))
+    }
+
+    fn parse_containers(
+        &self,
+        containers: &HashSet<String>,
+    ) -> Result<HashSet<&Module>, GrimpError> {
+        containers
+            .iter()
+            .map(|name| match self.get_visible_module_by_name(name) {
+                Ok(module) => Ok(module),
+                Err(GrimpError::ModuleNotPresent(_)) => {
+                    Err(GrimpError::NoSuchContainer(name.into()))?
+                }
+                _ => panic!("unexpected error parsing containers"),
+            })
+            .collect::<Result<HashSet<_>, GrimpError>>()
+    }
+
+    fn parse_levels_by_container(
+        &self,
+        pylevels: &Bound<'_, PyTuple>,
+        containers: &HashSet<&Module>,
+    ) -> Vec<Vec<Level>> {
+        let containers = match containers.is_empty() {
+            true => vec![None],
+            false => containers.iter().map(|c| Some(c.name())).collect(),
+        };
+
+        let mut levels_by_container: Vec<Vec<Level>> = vec![];
+        for container in containers {
+            let mut levels: Vec<Level> = vec![];
+            for pylevel in pylevels.into_iter() {
+                let level_dict = pylevel.downcast::<PyDict>().unwrap();
+                let layers = level_dict
+                    .get_item("layers")
+                    .unwrap()
+                    .unwrap()
+                    .extract::<HashSet<String>>()
+                    .unwrap()
+                    .into_iter()
+                    .map(|name| match container.clone() {
+                        Some(container) => format!("{container}.{name}"),
+                        None => name,
+                    })
+                    .filter_map(|name| match self.get_visible_module_by_name(&name) {
+                        Ok(module) => Some(module.token()),
+                        // TODO(peter) Error here? Or silently continue (backwards compatibility?)
+                        Err(GrimpError::ModuleNotPresent(_)) => None,
+                        _ => panic!("unexpected error parsing levels"),
+                    })
+                    .collect::<FxHashSet<_>>();
+
+                let independent = level_dict
+                    .get_item("independent")
+                    .unwrap()
+                    .unwrap()
+                    .extract::<bool>()
+                    .unwrap();
+
+                let closed = level_dict
+                    .get_item("closed")
+                    .unwrap()
+                    .unwrap()
+                    .extract::<bool>()
+                    .unwrap();
+
+                levels.push(Level::new(layers, independent, closed));
+            }
+            levels_by_container.push(levels);
+        }
+
+        levels_by_container
+    }
+
+    fn convert_package_dependencies_to_python<'py>(
+        &self,
+        py: Python<'py>,
+        package_dependencies: Vec<PackageDependency>,
+    ) -> PyResult<Bound<'py, PyTuple>> {
+        let mut python_dependencies: Vec<Bound<'py, PyDict>> = vec![];
+
+        for rust_dependency in package_dependencies {
+            let python_dependency = PyDict::new(py);
+            python_dependency.set_item("imported", &rust_dependency.imported)?;
+            python_dependency.set_item("importer", &rust_dependency.importer)?;
+            let mut python_routes: Vec<Bound<'py, PyDict>> = vec![];
+            for rust_route in &rust_dependency.routes {
+                let route = PyDict::new(py);
+                let heads: Vec<Bound<'py, PyString>> = rust_route
+                    .heads
+                    .iter()
+                    .map(|module| PyString::new(py, module))
+                    .collect();
+                route.set_item("heads", PyFrozenSet::new(py, &heads)?)?;
+                let middle: Vec<Bound<'py, PyString>> = rust_route
+                    .middle
+                    .iter()
+                    .map(|module| PyString::new(py, module))
+                    .collect();
+                route.set_item("middle", PyTuple::new(py, &middle)?)?;
+                let tails: Vec<Bound<'py, PyString>> = rust_route
+                    .tails
+                    .iter()
+                    .map(|module| PyString::new(py, module))
+                    .collect();
+                route.set_item("tails", PyFrozenSet::new(py, &tails)?)?;
+
+                python_routes.push(route);
+            }
+
+            python_dependency.set_item("routes", PyTuple::new(py, python_routes)?)?;
+            python_dependencies.push(python_dependency)
+        }
+
+        PyTuple::new(py, python_dependencies)
     }
 }
 
@@ -561,127 +599,9 @@ impl GraphWrapper {
         self.convert_package_dependencies_to_python(py, illegal_dependencies)
     }
 
-    pub fn clone(&self) -> GraphWrapper {
-        GraphWrapper {
-            _graph: self._graph.clone(),
-        }
-    }
-}
-
-impl GraphWrapper {
-    fn parse_containers(
-        &self,
-        containers: &HashSet<String>,
-    ) -> Result<HashSet<&Module>, GrimpError> {
-        containers
-            .iter()
-            .map(|name| match self.get_visible_module_by_name(name) {
-                Ok(module) => Ok(module),
-                Err(GrimpError::ModuleNotPresent(_)) => {
-                    Err(GrimpError::NoSuchContainer(name.into()))?
-                }
-                _ => panic!("unexpected error parsing containers"),
-            })
-            .collect::<Result<HashSet<_>, GrimpError>>()
-    }
-
-    fn parse_levels_by_container(
-        &self,
-        pylevels: &Bound<'_, PyTuple>,
-        containers: &HashSet<&Module>,
-    ) -> Vec<Vec<Level>> {
-        let containers = match containers.is_empty() {
-            true => vec![None],
-            false => containers.iter().map(|c| Some(c.name())).collect(),
-        };
-
-        let mut levels_by_container: Vec<Vec<Level>> = vec![];
-        for container in containers {
-            let mut levels: Vec<Level> = vec![];
-            for pylevel in pylevels.into_iter() {
-                let level_dict = pylevel.downcast::<PyDict>().unwrap();
-                let layers = level_dict
-                    .get_item("layers")
-                    .unwrap()
-                    .unwrap()
-                    .extract::<HashSet<String>>()
-                    .unwrap()
-                    .into_iter()
-                    .map(|name| match container.clone() {
-                        Some(container) => format!("{container}.{name}"),
-                        None => name,
-                    })
-                    .filter_map(|name| match self.get_visible_module_by_name(&name) {
-                        Ok(module) => Some(module.token()),
-                        // TODO(peter) Error here? Or silently continue (backwards compatibility?)
-                        Err(GrimpError::ModuleNotPresent(_)) => None,
-                        _ => panic!("unexpected error parsing levels"),
-                    })
-                    .collect::<FxHashSet<_>>();
-
-                let independent = level_dict
-                    .get_item("independent")
-                    .unwrap()
-                    .unwrap()
-                    .extract::<bool>()
-                    .unwrap();
-
-                let closed = level_dict
-                    .get_item("closed")
-                    .unwrap()
-                    .unwrap()
-                    .extract::<bool>()
-                    .unwrap();
-
-                levels.push(Level::new(layers, independent, closed));
-            }
-            levels_by_container.push(levels);
-        }
-
-        levels_by_container
-    }
-
-    fn convert_package_dependencies_to_python<'py>(
-        &self,
-        py: Python<'py>,
-        package_dependencies: Vec<PackageDependency>,
-    ) -> PyResult<Bound<'py, PyTuple>> {
-        let mut python_dependencies: Vec<Bound<'py, PyDict>> = vec![];
-
-        for rust_dependency in package_dependencies {
-            let python_dependency = PyDict::new(py);
-            python_dependency.set_item("imported", &rust_dependency.imported)?;
-            python_dependency.set_item("importer", &rust_dependency.importer)?;
-            let mut python_routes: Vec<Bound<'py, PyDict>> = vec![];
-            for rust_route in &rust_dependency.routes {
-                let route = PyDict::new(py);
-                let heads: Vec<Bound<'py, PyString>> = rust_route
-                    .heads
-                    .iter()
-                    .map(|module| PyString::new(py, module))
-                    .collect();
-                route.set_item("heads", PyFrozenSet::new(py, &heads)?)?;
-                let middle: Vec<Bound<'py, PyString>> = rust_route
-                    .middle
-                    .iter()
-                    .map(|module| PyString::new(py, module))
-                    .collect();
-                route.set_item("middle", PyTuple::new(py, &middle)?)?;
-                let tails: Vec<Bound<'py, PyString>> = rust_route
-                    .tails
-                    .iter()
-                    .map(|module| PyString::new(py, module))
-                    .collect();
-                route.set_item("tails", PyFrozenSet::new(py, &tails)?)?;
-
-                python_routes.push(route);
-            }
-
-            python_dependency.set_item("routes", PyTuple::new(py, python_routes)?)?;
-            python_dependencies.push(python_dependency)
-        }
-
-        PyTuple::new(py, python_dependencies)
+    #[pyo3(name = "clone")]
+    pub fn clone_py(&self) -> GraphWrapper {
+        self.clone()
     }
 }
 
