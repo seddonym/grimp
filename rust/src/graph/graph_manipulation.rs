@@ -1,5 +1,5 @@
 use crate::graph::{
-    Graph, IMPORT_LINE_CONTENTS, ImportDetails, MODULE_NAMES, Module, ModuleIterator, ModuleToken,
+    Graph, IMPORT_LINE_CONTENTS, MODULE_NAMES, Module, ModuleIterator, ModuleToken, PyImportDetails,
 };
 use rustc_hash::FxHashSet;
 use slotmap::secondary::Entry;
@@ -137,7 +137,7 @@ impl Graph {
             self.import_details
                 .entry((importer, imported))
                 .or_default()
-                .insert(ImportDetails::new(line_number, line_contents));
+                .insert(PyImportDetails::new(line_number, line_contents));
         }
     }
 

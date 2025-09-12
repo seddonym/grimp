@@ -1,7 +1,7 @@
 use crate::errors::{GrimpError, GrimpResult};
 use crate::graph::{
-    EMPTY_IMPORT_DETAILS, EMPTY_MODULE_TOKENS, ExtendWithDescendants, Graph, ImportDetails,
-    MODULE_NAMES, ModuleToken,
+    EMPTY_IMPORT_DETAILS, EMPTY_MODULE_TOKENS, ExtendWithDescendants, Graph, MODULE_NAMES,
+    ModuleToken, PyImportDetails,
 };
 use crate::module_expressions::ModuleExpression;
 use rustc_hash::FxHashSet;
@@ -49,7 +49,7 @@ impl Graph {
         &self,
         importer: ModuleToken,
         imported: ModuleToken,
-    ) -> &FxHashSet<ImportDetails> {
+    ) -> &FxHashSet<PyImportDetails> {
         match self.import_details.get(&(importer, imported)) {
             Some(import_details) => import_details,
             None => &EMPTY_IMPORT_DETAILS,
