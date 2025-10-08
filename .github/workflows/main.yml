@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         python-version: [
-          "3.9", "3.10", "3.11", "3.12", "3.13-dev"
+          "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"
         ]
         os: [ubuntu-latest, macos-latest, windows-latest]
 
@@ -25,7 +25,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -40,7 +40,7 @@ jobs:
 
   check_rust:
     name: Check Rust
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
@@ -59,15 +59,15 @@ jobs:
         working-directory: ./rust
 
   benchmarks:
-      runs-on: ubuntu-22.04
+      runs-on: ubuntu-24.04
       steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v5
 
         - name: Install uv
-          uses: astral-sh/setup-uv@v5
+          uses: astral-sh/setup-uv@v7
 
         - name: Setup python
-          uses: actions/setup-python@v5
+          uses: actions/setup-python@v6
           with:
             python-version: "3.13"
             allow-prereleases: true
@@ -82,8 +82,9 @@ jobs:
             uv pip install pytest==7.4.4 pyyaml==6.0.1 pytest-codspeed==3.2.0 Django==5.1.1 /home/runner/work/grimp/grimp         
 
         - name: Run benchmarks
-          uses: CodSpeedHQ/action@v3
+          uses: CodSpeedHQ/action@v4
           with:
             token: ${{ secrets.CODSPEED_TOKEN }}
+            mode: instrumentation
             run: |
               uv run pytest tests/benchmarking/ --codspeed
