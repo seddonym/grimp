@@ -42,6 +42,34 @@ readme = "README.rst"
 Documentation = "https://grimp.readthedocs.io/"
 Source-code = "https://github.com/seddonym/grimp/"
 
+[dependency-groups]
+dev = [
+    "import-linter>=2.5",
+    "mypy>=1.18.2",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.2",
+    "pytest-benchmark>=5.1.0",
+    "pytest-stub>=1.1.0",
+    "pyyaml>=6.0.3",
+    "ruff>=0.14.0",
+    "syrupy>=4.9.1",
+    "types-pyyaml>=6.0.12.20250915",
+    # External packages to attempt to build the graph from.
+    # If the versions change, the snapshot tests will fail, and the benchmarks will change.
+    "Django==4.2.17", # N.B. Django 5 doesn't support Python 3.9.
+    "flask==3.0.3",
+    "requests==2.32.3",
+    "sqlalchemy==2.0.35",
+    "google-cloud-audit-log==0.3.0",
+]
+docs = [
+    "sphinx>=7.4.7",
+    "sphinx-rtd-theme>=3.0.2",
+]
+benchmark_ci = [
+    "pytest-codspeed>=3.2.0",
+]
+
 [tool.setuptools]
 include-package-data = true
 zip-safe = false
@@ -53,6 +81,6 @@ grimp = ["py.typed"]
 where = ["src"]
 namespaces = false
 
-[tool.black]
+[tool.ruff]
 line-length = 99
-exclude = 'tests/assets/syntaxerrorpackage'
+exclude = ['tests/assets'] # These are sample packages for tests to run under - we don't want ruff to mess with them.
