@@ -687,7 +687,7 @@ class TestCache:
         )
 
         assert file_system.read(f"{some_cache_dir}/.gitignore") == (
-            "# Automatically created by Grimp.\n" "*"
+            "# Automatically created by Grimp.\n*"
         )
         assert file_system.read(f"{some_cache_dir}/CACHEDIR.TAG") == (
             "Signature: 8a477f597d28d172789f06886806bc55\n"

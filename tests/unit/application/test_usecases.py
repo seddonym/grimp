@@ -28,7 +28,7 @@ class TestBuildGraph:
             """,
             content_map={
                 "/path/to/mypackage/foo/one.py": (
-                    "import mypackage.foo.two.green\n" "from .. import Something"
+                    "import mypackage.foo.two.green\nfrom .. import Something"
                 ),
                 "/path/to/mypackage/foo/two/green.py": "import mypackage.foo.two.blue\n"
                 "from external.subpackage import foobar\n"

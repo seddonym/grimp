@@ -82,7 +82,10 @@ def test_absolute_imports(include_external_packages, expected_result):
 def test_non_ascii():
     blue_module = Module("mypackage.blue")
     blue_module_file = _module_to_module_file(blue_module)
-    non_ascii_modules = {Module("mypackage.ñon_ascii_变"), Module("mypackage.ñon_ascii_变.ラーメン")}
+    non_ascii_modules = {
+        Module("mypackage.ñon_ascii_变"),
+        Module("mypackage.ñon_ascii_变.ラーメン"),
+    }
     file_system = rust.FakeBasicFileSystem(
         content_map={
             "/path/to/mypackage/blue.py": """

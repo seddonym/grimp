@@ -239,7 +239,7 @@ class TestGetImportDetails:
         graph = ImportGraph()
 
         importer, imported = "foo", "bar"
-        graph.add_import(importer=importer, imported=imported),
+        (graph.add_import(importer=importer, imported=imported),)
 
         assert [] == graph.get_import_details(importer=importer, imported=imported)
 

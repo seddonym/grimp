@@ -34,7 +34,6 @@ class TestRepr:
 
         re_part = "(" + "|".join(modules) + ")"
         assert re.match(
-            f"<ImportGraph: '{re_part}', '{re_part}', '{re_part}', "
-            f"'{re_part}', '{re_part}', ...>",
+            f"<ImportGraph: '{re_part}', '{re_part}', '{re_part}', '{re_part}', '{re_part}', ...>",
             repr(graph),
         )
