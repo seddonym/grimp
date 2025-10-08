@@ -1,0 +1,55 @@
+# This file contains configuration for the pre-commit (https://pre-commit.com/) tool.
+fail_fast: true
+repos:
+  - repo: local
+    hooks:
+      - id: format-python
+        name: Format Python
+        entry: just format-python
+        language: system
+        require_serial: true
+        pass_filenames: false
+        files: "^pyproject\\.toml|^src/.*|^tests/.*|^docs/conf.py$"
+
+      - id: format-rust
+        name: Format Rust
+        entry: just format-rust
+        language: system
+        require_serial: true
+        pass_filenames: false
+        files: "^rust/.*$"
+
+      - id: lint-python
+        name: Lint Python
+        entry: just lint-python
+        language: system
+        pass_filenames: false
+        files: "^pyproject\\.toml|^src/.*|^tests/.*|^docs/conf.py$"
+
+      - id: lint-rust
+        name: Lint Rust
+        entry: just lint-rust
+        language: system
+        pass_filenames: false
+        files: "^rust/.*$"
+
+      - id: run-python-tests
+        name: "Run Python tests"
+        entry: just test-python
+        language: system
+        pass_filenames: false
+        files: "^src/.*|^tests/.*|^rust/.*"
+
+      - id: run-rust-tests
+        name: "Run Rust tests"
+        entry: just test-rust
+        language: system
+        pass_filenames: false
+        files: "^rust/.*"
+
+      - id: build-docs
+        name: "Build docs"
+        entry: just build-docs
+        language: system
+        pass_filenames: false
+        files: "\\.rst$|^docs/.*"
