@@ -99,7 +99,7 @@ Typical workflow (changes that involve Rust):
 1. Make a change to Rust code.
 2. Run ``just compile-and-test``. This will compile the Rust code, then run Rust and Python tests in the default version.
 
-There are also version-specific test commands (e.g. ``just test-3-13``) - run ``just help`` to see which ones.
+There are also version-specific test commands (e.g. ``just test-3-14``) - run ``just help`` to see which ones.
 
 Working with documentation
 --------------------------
