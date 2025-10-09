@@ -2,8 +2,8 @@
 Changelog
 =========
 
-latest
-------
+3.12 (2025-10-09)
+-----------------
 
 * Officially support Python 3.14.
 * Improve contribution / CI tooling using Just and UV.
