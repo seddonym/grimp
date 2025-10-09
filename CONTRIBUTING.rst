@@ -2,8 +2,7 @@
 Contributing
 ============
 
-Contributions are welcome, and they are greatly appreciated! Every
-little bit helps, and credit will always be given.
+We welcome contributions to Grimp.
 
 Bug reports
 ===========
@@ -14,13 +13,6 @@ When `reporting a bug <https://github.com/seddonym/grimp/issues>`_ please includ
     * Any details about your local setup that might be helpful in troubleshooting.
     * Detailed steps to reproduce the bug.
 
-Documentation improvements
-==========================
-
-Grimp could always use more documentation, whether as part of the
-official docs, in docstrings, or even on the web in blog posts,
-articles, and such.
-
 Feature requests and feedback
 =============================
 
@@ -29,13 +21,48 @@ The best way to send feedback is to file an issue at https://github.com/seddonym
 If you are proposing a feature:
 
 * Explain in detail how it would work.
-* Keep the scope as narrow as possible, to make it easier to implement.
-* Remember that this is a volunteer-driven project, and that code contributions are welcome :)
+* Keep the scope as narrow as possible.
+* Remember that this is a volunteer-driven project.
+
+Submitting pull requests
+========================
+
+Before spending time working on a pull request, we highly recommend filing a Github issue and engaging with the project maintainer (David Seddon) to align on the direction you’re planning to take. This can save a lot of your precious time!
+
+This doesn’t apply to trivial pull requests such as spelling corrections.
+
+We recommend installing precommit, which will perform basic linting and testing whenever you commit a file.
+To set this up, run ``just install-precommit``.
+
+Before requesting a review
+--------------------------
+
+- Ensure you have included tests that cover the change. In general, aim for full test coverage at the Python level.
+  Rust tests are optional.
+- Update documentation when there's a new API, functionality etc.
+- Add a note to ``CHANGELOG.rst`` about the changes.
+- Add yourself to ``AUTHORS.rst``.
+- Run ``just full-check`` locally. (If you're a new contributor, CI checks are not run automatically.)
 
 Development
 ===========
 
-To set up `grimp` for local development:
+System prerequisites
+--------------------
+
+Make sure these are installed first.
+
+- `git <https://github.com/git-guides/install-git>`_
+- `uv <https://docs.astral.sh/uv/#installation>`_
+- `just <https://just.systems/man/en/packages.html>`_
+- Cargo (via `rustup <https://rust-lang.org/tools/install/>`_)
+
+Setup
+-----
+
+You don't need to activate or manage a virtual environment - this is taken care in the background of by ``uv``.
+
+To set up Grimp for local development:
 
 1. Fork `grimp <https://github.com/seddonym/grimp>`_
    (look for the "Fork" button).
@@ -43,62 +70,51 @@ To set up `grimp` for local development:
 
     git clone git@github.com:your_name_here/grimp.git
 
-3. Create a branch for local development::
+3. Change into the directory you just cloned::
 
-    git checkout -b name-of-your-bugfix-or-feature
+    cd grimp
 
-   Now you can make your changes locally.
+4. Set up pre-commit. (Optional, but recommended.)::
 
-4. When you're done making changes, run all the checks, doc builder and spell checker with `tox <https://tox.wiki/en/stable/installation.html>`_ one command::
+    just install-precommit
 
-    tox
+You will now be able to run commands prefixed with ``just``, providing you're in the ``grimp`` directory.
+To see available commands, run ``just help``.
 
-5. Commit your changes and push your branch to GitHub::
+Working with tests
+------------------
 
-    git add .
-    git commit -m "Your detailed description of your changes."
-    git push origin name-of-your-bugfix-or-feature
+Grimp is a mixture of Python and Rust. The majority of the tests are in Python.
 
-6. Submit a pull request through the GitHub website.
+If you change the Rust code, you will need to recompile it before running the Python tests.
 
-Rust code
----------
+Typical workflow (Python changes only):
 
-When working with the rust code (in the ``rust/`` directory):
+1. Make a change.
+2. Run ``just test-python``. This will run the Python tests using the default Python version (e.g. whatever is specified
+   in a local ``.python-version`` file).
 
-* Run tests with ``cargo test --no-default-features``.
-  The ``--no-default-features`` flag is needed to due to `this PYO3 issue <https://pyo3.rs/main/faq#i-cant-run-cargo-test-or-i-cant-build-in-a-cargo-workspace-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror>`_.
-* Run `clippy <https://doc.rust-lang.org/clippy/index.html>`_ (a linter for rust) with ``cargo clippy --all-targets --all-features -- -D warnings``.
-  It's often possible to apply automatic fixes to clippy issues with the ``--fix`` flag e.g. ``cargo clippy --all-targets --all-features --fix --allow-staged``.
+Typical workflow (changes that involve Rust):
 
-Pull Request Guidelines
------------------------
+1. Make a change to Rust code.
+2. Run ``just compile-and-test``. This will compile the Rust code, then run Rust and Python tests in the default version.
 
-If you need some code review or feedback while you're developing the code just make the pull request.
+There are also version-specific test commands (e.g. ``just test-3-13``) - run ``just help`` to see which ones.
 
-For merging, you should:
+Working with documentation
+--------------------------
 
-1. Include passing tests (run ``tox``) [1]_.
-2. Update documentation when there's new API, functionality etc.
-3. Add a note to ``CHANGELOG.rst`` about the changes.
-4. Add yourself to ``AUTHORS.rst``.
+You can preview any documentation changes locally by running::
 
-.. [1] If you don't have all the necessary python versions available locally you can rely on Github Actions, which will
-       run the tests for each change you add in the pull request.
+    just build-and-open-docs
 
-       It will be slower though ...
+It's helpful to include a screenshot of the new docs in the pull request description.
 
-Tips
-----
+Before you push
+---------------
 
-To run a subset of tests::
-
-    tox -e envname -- pytest -k test_myfeature
-
-To run all the test environments in *parallel* (you need to ``pip install detox``)::
-
-    detox
-
+It's a good idea to run ``just full-check`` before getting a review.
+This will run linters, docs build and tests under every supported Python version.
 
 Benchmarking
 ============
@@ -117,12 +133,8 @@ Local benchmarking
 It's also possible to run local benchmarks, which can be helpful if you want to quickly compare performance
 across different versions of the code.
 
-To benchmark a particular version of the code, run ``tox -ebenchmark``. This command creates a report that will be
+To benchmark a particular version of the code, run ``just benchmark-local``. This command creates a report that will be
 stored in a local file (ignored by Git).
-
-You can then see how your latest benchmark compares with earlier ones, by running:
-
-``pytest-benchmark compare --group-by=func --sort=name --columns=mean``
 
 This will display a list of all the benchmarks you've run locally, ordered from earlier to later.
 
@@ -151,6 +163,8 @@ This will create a file called ``flamegraph.svg``, which you can open to view th
 
 Releasing to Pypi
 =================
+
+This is only possible if you're a maintainer.
 
 1. Choose a new version number (based on `semver <https://semver.org/>`_).
 2. ``git pull origin main``

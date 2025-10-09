@@ -33,8 +33,8 @@ jobs:
           - runner: ubuntu-latest
             target: ppc64le
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: |
             3.9
@@ -42,6 +42,7 @@ jobs:
             3.11
             3.12
             3.13
+            3.14
           allow-prereleases: true
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -70,8 +71,8 @@ jobs:
           - runner: ubuntu-latest
             target: armv7
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: |
             3.9
@@ -79,6 +80,7 @@ jobs:
             3.11
             3.12
             3.13
+            3.14
           allow-prereleases: true
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -103,8 +105,8 @@ jobs:
           - runner: windows-latest
             target: x86
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: |
             3.9
@@ -112,6 +114,7 @@ jobs:
             3.11
             3.12
             3.13
+            3.14
           allow-prereleases: true
           architecture: ${{ matrix.platform.target }}
       - name: Build wheels
@@ -136,8 +139,8 @@ jobs:
           - runner: macos-14
             target: aarch64
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: |
             3.9
@@ -145,6 +148,7 @@ jobs:
             3.11
             3.12
             3.13
+            3.14
           allow-prereleases: true
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -161,7 +165,7 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:

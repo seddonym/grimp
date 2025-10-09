@@ -9,81 +9,72 @@ on:
   workflow_dispatch:
 
 jobs:
-  check_python:
-    name: Check Python ${{ matrix.python-version }}, ${{ matrix.os }}
+  check:
+    runs-on: ubuntu-24.04
+    name: Lint and check docs build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v3
+
+      - name: Install uv and set the latest supported Python version
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: 3.14
+
+      - name: Lint Python
+        run: just lint-python
+
+      - name: Lint Rust
+        run: just lint-rust
+
+      - name: Check docs build
+        run: just build-docs
+
+  test:
+    name: Run tests for Python ${{ matrix.python-version }}, ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
         python-version: [
-          "3.9", "3.10", "3.11", "3.12", "3.13-dev"
+          "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"
         ]
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - uses: actions/setup-python@v5
+
+      - name: Install just
+        uses: extractions/setup-just@v3
+
+      - name: Install uv and set the Python version
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: |
-          python -VV
-          python -m site
-          python -m pip install --upgrade pip setuptools wheel
-          python -m pip install --upgrade coverage[toml] tox tox-gh-actions
 
-      - name: Run tox targets for ${{ matrix.python-version }}
-        run: python -m tox
+      - name: Test Python
+        run: just test-python
 
-  check_rust:
-    name: Check Rust
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - name: Print versions
-        run: cargo version --verbose && cargo clippy --version
-      - name: Check formatting
-        run: cargo fmt --check
-        working-directory: ./rust
-      - name: Run tests
-        run: cargo test --no-default-features
-        working-directory: ./rust
-      - name: Run linter (clippy)
-        run: cargo clippy --all-targets --all-features -- -D warnings
-        working-directory: ./rust
+      - name: Test Rust
+        run: just test-rust
 
   benchmarks:
-      runs-on: ubuntu-22.04
+      runs-on: ubuntu-24.04
       steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v5
+
+        - name: Install just
+          uses: extractions/setup-just@v3
 
         - name: Install uv
-          uses: astral-sh/setup-uv@v5
-
-        - name: Setup python
-          uses: actions/setup-python@v5
-          with:
-            python-version: "3.13"
-            allow-prereleases: true
-
-        # Temporarily install hardcoded dependencies here.
-        # Codspeed doesn't work well with tox, as it runs the tox installation process as part of the benchmarking
-        # process, which is very slow.
-        - name: Install dependencies
-          run: |
-            python -VV
-            uv venv
-            uv pip install pytest==7.4.4 pyyaml==6.0.1 pytest-codspeed==3.2.0 Django==5.1.1 /home/runner/work/grimp/grimp         
+          uses: astral-sh/setup-uv@v7
 
         - name: Run benchmarks
-          uses: CodSpeedHQ/action@v3
+          uses: CodSpeedHQ/action@v4
           with:
             token: ${{ secrets.CODSPEED_TOKEN }}
+            mode: instrumentation
             run: |
-              uv run pytest tests/benchmarking/ --codspeed
+              just benchmark-ci

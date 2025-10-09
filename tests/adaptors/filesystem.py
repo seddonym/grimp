@@ -148,8 +148,7 @@ class FakeFileSystem(AbstractFileSystem):
         """
         first_line = lines[0]
         first_line_indent = len(first_line) - len(first_line.lstrip())
-        dedented = lambda line: line[first_line_indent:]
-        return list(map(dedented, lines))
+        return [line[first_line_indent:] for line in lines]
 
     def read(self, file_name: str) -> str:
         if not self.exists(file_name):

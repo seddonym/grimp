@@ -212,7 +212,7 @@ def _parse_layers(layers: Sequence[Layer | str | set[str]]) -> tuple[Layer, ...]
 
 
 def _dependencies_from_tuple(
-    rust_package_dependency_tuple: tuple[_RustPackageDependency, ...]
+    rust_package_dependency_tuple: tuple[_RustPackageDependency, ...],
 ) -> set[PackageDependency]:
     return {
         PackageDependency(
