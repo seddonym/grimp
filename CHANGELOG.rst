@@ -6,6 +6,7 @@ latest
 ------
 
 * Officially support Python 3.14.
+* Improve contribution / CI tooling using Just and UV.
 
 3.11 (2025-09-01)
 -----------------
