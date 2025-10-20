@@ -1,8 +1,9 @@
 from __future__ import annotations
+import itertools
 from typing import List, Optional, Sequence, Set, Tuple, TypedDict
 from grimp.domain.analysis import PackageDependency, Route
 from grimp.domain.valueobjects import Layer
-
+import igraph as ig  # type: ignore
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 from grimp.exceptions import (
     ModuleNotPresent,
@@ -15,6 +16,11 @@ from grimp.exceptions import (
 class Import(TypedDict):
     importer: str
     imported: str
+
+
+# Corresponds to importer, imported.
+# Prefer this form to Import, as it's both more lightweight, and hashable.
+ImportTuple = Tuple[str, str]
 
 
 class DetailedImport(Import):
@@ -439,6 +445,57 @@ class ImportGraph:
             raise NoSuchContainer(str(e))
 
         return _dependencies_from_tuple(result)
+
+    def nominate_cycle_breakers(self, package: str) -> set[ImportTuple]:
+        """
+        Identify a set of imports that, if removed, would make the package locally acyclic.
+        """
+        children = self.find_children(package)
+        if len(children) < 2:
+            return set()
+        igraph = ig.Graph(directed=True)
+        igraph.add_vertices([package, *children])
+        edges: list[tuple[str, str]] = []
+        weights: list[int] = []
+        for downstream, upstream in itertools.permutations(children, r=2):
+            total_imports = 0
+            for expression in (
+                f"{downstream} -> {upstream}",
+                f"{downstream}.** -> {upstream}",
+                f"{downstream} -> {upstream}.**",
+                f"{downstream}.** -> {upstream}.**",
+            ):
+                total_imports += len(self.find_matching_direct_imports(expression))
+            if total_imports:
+                edges.append((downstream, upstream))
+                weights.append(total_imports)
+
+        igraph.add_edges(edges)
+        igraph.es["weight"] = weights
+
+        arc_set = igraph.feedback_arc_set(weights="weight")
+
+        squashed_imports: list[Import] = []
+        for edge_id in arc_set:
+            edge = igraph.es[edge_id]
+            squashed_imports.append(
+                {
+                    "importer": edge.source_vertex["name"],
+                    "imported": edge.target_vertex["name"],
+                }
+            )
+
+        unsquashed_imports: list[Import] = []
+        for squashed_import in squashed_imports:
+            for pattern in (
+                f"{squashed_import['importer']} -> {squashed_import['imported']}",
+                f"{squashed_import['importer']}.** -> {squashed_import['imported']}",
+                f"{squashed_import['importer']} -> {squashed_import['imported']}.**",
+                f"{squashed_import['importer']}.** -> {squashed_import['imported']}.**",
+            ):
+                unsquashed_imports.extend(self.find_matching_direct_imports(pattern))
+
+        return {(i["importer"], i["imported"]) for i in unsquashed_imports}
 
     # Dunder methods
     # --------------
