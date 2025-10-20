@@ -2,6 +2,11 @@
 Changelog
 =========
 
+latest
+------
+
+* Add `nominate_cycle_breakers` method.
+
 3.12 (2025-10-09)
 -----------------
 
