@@ -1,12 +1,15 @@
 from __future__ import annotations
-
-import abc
-from typing import Iterator, List, Optional, Sequence, Set, Tuple
-
-from typing_extensions import TypedDict
-
-from grimp.domain.analysis import PackageDependency
+from typing import List, Optional, Sequence, Set, Tuple, TypedDict
+from grimp.domain.analysis import PackageDependency, Route
 from grimp.domain.valueobjects import Layer
+
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
+from grimp.exceptions import (
+    ModuleNotPresent,
+    NoSuchContainer,
+    InvalidModuleExpression,
+    InvalidImportExpression,
+)
 
 
 class Import(TypedDict):
@@ -19,23 +22,28 @@ class DetailedImport(Import):
     line_contents: str
 
 
-class ImportGraph(abc.ABC):
+class ImportGraph:
     """
     A Directed Graph of imports between Python modules.
     """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._cached_modules: Set[str] | None = None
+        self._rustgraph = rust.Graph()
 
     # Mechanics
     # ---------
 
     @property
-    @abc.abstractmethod
     def modules(self) -> Set[str]:
         """
         The names of all the modules in the graph.
         """
-        raise NotImplementedError
+        if self._cached_modules is None:
+            self._cached_modules = self._rustgraph.get_modules()
+        return self._cached_modules
 
-    @abc.abstractmethod
     def find_matching_modules(self, expression: str) -> Set[str]:
         """
         Find all modules matching the passed expression.
@@ -67,9 +75,11 @@ class ImportGraph(abc.ABC):
         - ``mypackage.foo*``: is not a valid expression. (The wildcard must replace a whole module
           name.)
         """
-        raise NotImplementedError
+        try:
+            return self._rustgraph.find_matching_modules(expression)
+        except rust.InvalidModuleExpression as e:
+            raise InvalidModuleExpression(str(e)) from e
 
-    @abc.abstractmethod
     def add_module(self, module: str, is_squashed: bool = False) -> None:
         """
         Add a module to the graph.
@@ -80,18 +90,18 @@ class ImportGraph(abc.ABC):
         want to include an external package in the graph but don't care about all the dependencies
         within that package.
         """
-        raise NotImplementedError
+        self._cached_modules = None
+        self._rustgraph.add_module(module, is_squashed)
 
-    @abc.abstractmethod
     def remove_module(self, module: str) -> None:
         """
         Remove a module from the graph, if it exists.
 
         If the module is not present in the graph, no exception will be raised.
         """
-        raise NotImplementedError
+        self._cached_modules = None
+        self._rustgraph.remove_module(module)
 
-    @abc.abstractmethod
     def squash_module(self, module: str) -> None:
         """
         'Squash' a module in the graph.
@@ -101,18 +111,21 @@ class ImportGraph(abc.ABC):
         A squashed module represents both itself and all its descendants. This allow parts of the
         graph to be simplified.
         """
-        raise NotImplementedError
+        self._cached_modules = None
+        if not self._rustgraph.contains_module(module):
+            raise ModuleNotPresent(f'"{module}" not present in the graph.')
+        self._rustgraph.squash_module(module)
 
-    @abc.abstractmethod
     def is_module_squashed(self, module: str) -> bool:
         """
         Return whether a module is squashed.
 
         If the module is not present in the graph, grimp.exceptions.ModuleNotPresent will be raised.
         """
-        raise NotImplementedError
+        if not self._rustgraph.contains_module(module):
+            raise ModuleNotPresent(f'"{module}" not present in the graph.')
+        return self._rustgraph.is_module_squashed(module)
 
-    @abc.abstractmethod
     def add_import(
         self,
         *,
@@ -125,26 +138,30 @@ class ImportGraph(abc.ABC):
         Add a direct import between two modules to the graph. If the modules are not already
         present, they will be added to the graph.
         """
-        raise NotImplementedError
+        self._cached_modules = None
+        self._rustgraph.add_import(
+            importer=importer,
+            imported=imported,
+            line_number=line_number,
+            line_contents=line_contents,
+        )
 
-    @abc.abstractmethod
     def remove_import(self, *, importer: str, imported: str) -> None:
         """
         Remove a direct import between two modules. Does not remove the modules themselves.
         """
-        raise NotImplementedError
+        self._cached_modules = None
+        return self._rustgraph.remove_import(importer=importer, imported=imported)
 
-    @abc.abstractmethod
     def count_imports(self) -> int:
         """
         Return the number of imports in the graph.
         """
-        raise NotImplementedError
+        return self._rustgraph.count_imports()
 
     # Descendants
     # -----------
 
-    @abc.abstractmethod
     def find_children(self, module: str) -> Set[str]:
         """
         Find all modules one level below the module. For example, the children of
@@ -153,9 +170,12 @@ class ImportGraph(abc.ABC):
         Raises:
             ValueError if attempted on a squashed module.
         """
-        raise NotImplementedError
+        # It doesn't make sense to find the children of a squashed module, as we don't store
+        # the children in the graph.
+        if self.is_module_squashed(module):
+            raise ValueError("Cannot find children of a squashed module.")
+        return self._rustgraph.find_children(module)
 
-    @abc.abstractmethod
     def find_descendants(self, module: str) -> Set[str]:
         """
         Find all modules below the module. For example, the descendants of
@@ -164,12 +184,15 @@ class ImportGraph(abc.ABC):
         Raises:
             ValueError if attempted on a squashed module.
         """
-        raise NotImplementedError
+        # It doesn't make sense to find the descendants of a squashed module, as we don't store
+        # the descendants in the graph.
+        if self.is_module_squashed(module):
+            raise ValueError("Cannot find descendants of a squashed module.")
+        return self._rustgraph.find_descendants(module)
 
     # Direct imports
     # --------------
 
-    @abc.abstractmethod
     def direct_import_exists(
         self, *, importer: str, imported: str, as_packages: bool = False
     ) -> bool:
@@ -182,17 +205,19 @@ class ImportGraph(abc.ABC):
             as_packages:  Whether or not to treat the supplied modules as individual modules,
                           or as entire packages (including any descendants).
         """
-        raise NotImplementedError
+        return self._rustgraph.direct_import_exists(
+            importer=importer, imported=imported, as_packages=as_packages
+        )
 
-    @abc.abstractmethod
     def find_modules_directly_imported_by(self, module: str) -> Set[str]:
-        raise NotImplementedError
+        return self._rustgraph.find_modules_directly_imported_by(module)
 
-    @abc.abstractmethod
     def find_modules_that_directly_import(self, module: str) -> Set[str]:
-        raise NotImplementedError
+        if self._rustgraph.contains_module(module):
+            # TODO panics if module isn't in modules.
+            return self._rustgraph.find_modules_that_directly_import(module)
+        return set()
 
-    @abc.abstractmethod
     def get_import_details(self, *, importer: str, imported: str) -> List[DetailedImport]:
         """
         Return available metadata relating to the direct imports between two modules, in the form:
@@ -212,10 +237,12 @@ class ImportGraph(abc.ABC):
         For example, if an import has been added by the `add_import` method without line_number and
         line_contents specified.
         """
-        raise NotImplementedError
+        return self._rustgraph.get_import_details(
+            importer=importer,
+            imported=imported,
+        )
 
-    @abc.abstractmethod
-    def find_matching_direct_imports(self, *, import_expression: str) -> List[Import]:
+    def find_matching_direct_imports(self, import_expression: str) -> List[Import]:
         """
         Find all direct imports matching the passed expressions.
 
@@ -242,12 +269,23 @@ class ImportGraph(abc.ABC):
 
         See `ImportGraph.find_matching_modules` for a description of module expressions.
         """
-        raise NotImplementedError
+        try:
+            importer_expression, imported_expression = import_expression.split(" -> ")
+        except ValueError:
+            raise InvalidImportExpression(f"{import_expression} is not a valid import expression.")
+
+        try:
+            return self._rustgraph.find_matching_direct_imports(
+                importer_expression=importer_expression, imported_expression=imported_expression
+            )
+        except rust.InvalidModuleExpression as e:
+            raise InvalidImportExpression(
+                f"{import_expression} is not a valid import expression."
+            ) from e
 
     # Indirect imports
     # ----------------
 
-    @abc.abstractmethod
     def find_downstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
         """
         Return a set of the names of all the modules that import (even indirectly) the
@@ -268,9 +306,8 @@ class ImportGraph(abc.ABC):
             # mypackage.foo.two.
             import_graph.find_downstream_modules('mypackage.foo', as_package=True)
         """
-        raise NotImplementedError
+        return self._rustgraph.find_downstream_modules(module, as_package)
 
-    @abc.abstractmethod
     def find_upstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
         """
         Return a set of the names of all the modules that are imported (even indirectly) by the
@@ -284,9 +321,8 @@ class ImportGraph(abc.ABC):
                            modules *external* to the subpackage, and won't include modules within
                            the subpackage.
         """
-        raise NotImplementedError
+        return self._rustgraph.find_upstream_modules(module, as_package)
 
-    @abc.abstractmethod
     def find_shortest_chain(
         self, importer: str, imported: str, as_packages: bool = False
     ) -> tuple[str, ...] | None:
@@ -303,9 +339,13 @@ class ImportGraph(abc.ABC):
         Returns:
             Tuple of module names, from importer to imported, or None if no chain exists.
         """
-        raise NotImplementedError
+        for module in (importer, imported):
+            if not self._rustgraph.contains_module(module):
+                raise ValueError(f"Module {module} is not present in the graph.")
 
-    @abc.abstractmethod
+        chain = self._rustgraph.find_shortest_chain(importer, imported, as_packages)
+        return tuple(chain) if chain else None
+
     def find_shortest_chains(
         self, importer: str, imported: str, as_packages: bool = True
     ) -> Set[Tuple[str, ...]]:
@@ -318,24 +358,11 @@ class ImportGraph(abc.ABC):
         The default behavior is to treat the import and imported as packages, however, if
         as_packages is False, both the importer and imported will be treated as modules instead.
 
-
-
         Returns:
             A set of tuples of strings. Each tuple is ordered from importer to imported modules.
         """
-        raise NotImplementedError
+        return self._rustgraph.find_shortest_chains(importer, imported, as_packages)
 
-    def find_all_simple_chains(self, importer: str, imported: str) -> Iterator[Tuple[str, ...]]:
-        """
-        Generate all simple chains between the importer and the imported modules.
-
-        Note: this method is no longer documented and will be removed.
-        """
-        raise AttributeError(
-            "This method has been removed. Consider using find_shortest_chains instead?"
-        )
-
-    @abc.abstractmethod
     def chain_exists(self, importer: str, imported: str, as_packages: bool = False) -> bool:
         """
         Return whether any chain of imports exists between the two modules, in the direction
@@ -347,7 +374,7 @@ class ImportGraph(abc.ABC):
                          treating them as subpackages, all descendants of the supplied modules
                          will be checked too.
         """
-        raise NotImplementedError
+        return self._rustgraph.chain_exists(importer, imported, as_packages)
 
     # High level analysis
     # -------------------
@@ -395,7 +422,26 @@ class ImportGraph(abc.ABC):
 
         Raises NoSuchContainer if the container is not a module in the graph.
         """
-        raise NotImplementedError
+        layers = _parse_layers(layers)
+        try:
+            result = self._rustgraph.find_illegal_dependencies_for_layers(
+                layers=tuple(
+                    {
+                        "layers": layer.module_tails,
+                        "independent": layer.independent,
+                        "closed": layer.closed,
+                    }
+                    for layer in layers
+                ),
+                containers=set(containers) if containers else set(),
+            )
+        except rust.NoSuchContainer as e:
+            raise NoSuchContainer(str(e))
+
+        return _dependencies_from_tuple(result)
+
+    # Dunder methods
+    # --------------
 
     def __repr__(self) -> str:
         """
@@ -415,3 +461,57 @@ class ImportGraph(abc.ABC):
         else:
             stringified_modules = "empty"
         return f"<{self.__class__.__name__}: {stringified_modules}>"
+
+    def __deepcopy__(self, memodict: dict) -> "ImportGraph":
+        new_graph = ImportGraph()
+        new_graph._rustgraph = self._rustgraph.clone()
+        return new_graph
+
+
+class _RustRoute(TypedDict):
+    heads: frozenset[str]
+    middle: tuple[str, ...]
+    tails: frozenset[str]
+
+
+class _RustPackageDependency(TypedDict):
+    importer: str
+    imported: str
+    routes: tuple[_RustRoute, ...]
+
+
+def _parse_layers(layers: Sequence[Layer | str | set[str]]) -> tuple[Layer, ...]:
+    """
+    Convert the passed raw `layers` into `Layer`s.
+    """
+    out_layers = []
+    for layer in layers:
+        if isinstance(layer, Layer):
+            out_layers.append(layer)
+        elif isinstance(layer, str):
+            out_layers.append(Layer(layer))
+        else:
+            out_layers.append(Layer(*tuple(layer)))
+    return tuple(out_layers)
+
+
+def _dependencies_from_tuple(
+    rust_package_dependency_tuple: tuple[_RustPackageDependency, ...],
+) -> set[PackageDependency]:
+    return {
+        PackageDependency(
+            imported=dep_dict["imported"],
+            importer=dep_dict["importer"],
+            routes=frozenset(
+                {
+                    Route(
+                        heads=route_dict["heads"],
+                        middle=route_dict["middle"],
+                        tails=route_dict["tails"],
+                    )
+                    for route_dict in dep_dict["routes"]
+                }
+            ),
+        )
+        for dep_dict in rust_package_dependency_tuple
+    }

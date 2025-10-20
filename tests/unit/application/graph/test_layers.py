@@ -8,7 +8,7 @@ from collections.abc import Iterable
 import pytest  # type: ignore
 
 from grimp import PackageDependency, Route
-from grimp.adaptors.graph import ImportGraph
+from grimp.application.graph import ImportGraph
 from grimp.exceptions import NoSuchContainer
 from grimp.domain.valueobjects import Layer
 

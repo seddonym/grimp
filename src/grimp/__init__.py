@@ -1,6 +1,6 @@
 __version__ = "3.12"
 
-from .application.ports.graph import DetailedImport, ImportGraph, Import
+from .application.graph import DetailedImport, ImportGraph, Import
 from .domain.analysis import PackageDependency, Route
 from .domain.valueobjects import DirectImport, Module, Layer
 from .main import build_graph

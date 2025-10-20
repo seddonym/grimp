@@ -7,7 +7,7 @@ from typing import Dict, Sequence, Set, Type, Union, cast, Iterable
 from .scanning import scan_imports
 from ..application.ports import caching
 from ..application.ports.filesystem import AbstractFileSystem
-from ..application.ports.graph import ImportGraph
+from ..application.graph import ImportGraph
 from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage, ModuleFile
 from ..application.ports.packagefinder import AbstractPackageFinder
 from ..domain.valueobjects import DirectImport, Module
