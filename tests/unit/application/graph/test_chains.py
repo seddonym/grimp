@@ -2,7 +2,7 @@ from typing import Set, Tuple
 
 import pytest  # type: ignore
 
-from grimp.adaptors.graph import ImportGraph
+from grimp.application.graph import ImportGraph
 
 
 @pytest.mark.parametrize(

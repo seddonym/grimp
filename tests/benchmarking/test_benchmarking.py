@@ -4,7 +4,7 @@ import importlib
 from pathlib import Path
 
 from tests.config import override_settings
-from grimp.adaptors.graph import ImportGraph
+from grimp.application.graph import ImportGraph
 from grimp import PackageDependency, Route
 import grimp
 from copy import deepcopy
