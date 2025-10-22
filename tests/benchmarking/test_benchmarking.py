@@ -11,10 +11,6 @@ from copy import deepcopy
 from .adaptors import PrefixMissingCache
 
 
-def _run_benchmark(benchmark, fn, *args, **kwargs):
-    return benchmark(fn, *args, **kwargs)
-
-
 @pytest.fixture(scope="module")
 def large_graph():
     raw_json = (Path(__file__).parent / "large_graph.json").read_text()
@@ -300,7 +296,7 @@ def test_build_django_uncached(benchmark):
 
     In this benchmark, the cache is turned off.
     """
-    _run_benchmark(benchmark, grimp.build_graph, "django", cache_dir=None)
+    benchmark(grimp.build_graph, "django", cache_dir=None)
 
 
 def test_build_django_from_cache_no_misses(benchmark):
@@ -312,7 +308,7 @@ def test_build_django_from_cache_no_misses(benchmark):
     # Populate the cache first, before beginning the benchmark.
     grimp.build_graph("django")
 
-    _run_benchmark(benchmark, grimp.build_graph, "django")
+    benchmark(grimp.build_graph, "django")
 
 
 @pytest.mark.parametrize(
@@ -349,7 +345,7 @@ def test_build_django_from_cache_a_few_misses(benchmark, number_of_misses):
         # Populate the cache.
         grimp.build_graph("django")
 
-        _run_benchmark(benchmark, grimp.build_graph, "django")
+        benchmark(grimp.build_graph, "django")
 
     # Clean up.
     [module.unlink() for module in extra_modules]
@@ -371,8 +367,7 @@ class TestFindIllegalDependenciesForLayers:
         return graph
 
     def test_top_level_large_graph_violated(self, large_graph, benchmark):
-        result = _run_benchmark(
-            benchmark,
+        result = benchmark(
             large_graph.find_illegal_dependencies_for_layers,
             layers=TOP_LEVEL_LAYERS,
             containers=("mypackage",),
@@ -383,8 +378,7 @@ class TestFindIllegalDependenciesForLayers:
         large_graph = self._remove_package_dependencies(
             large_graph, TOP_LEVEL_PACKAGE_DEPENDENCIES
         )
-        result = _run_benchmark(
-            benchmark,
+        result = benchmark(
             large_graph.find_illegal_dependencies_for_layers,
             layers=TOP_LEVEL_LAYERS,
             containers=("mypackage",),
@@ -392,50 +386,39 @@ class TestFindIllegalDependenciesForLayers:
         assert result == set()
 
     def test_deep_layers_large_graph_violated(self, large_graph, benchmark):
-        result = _run_benchmark(
-            benchmark, large_graph.find_illegal_dependencies_for_layers, layers=DEEP_LAYERS
-        )
+        result = benchmark(large_graph.find_illegal_dependencies_for_layers, layers=DEEP_LAYERS)
         assert result == DEEP_LAYER_PACKAGE_DEPENDENCIES
 
     def test_deep_layers_large_graph_kept(self, large_graph, benchmark):
         large_graph = self._remove_package_dependencies(
             large_graph, DEEP_LAYER_PACKAGE_DEPENDENCIES
         )
-        result = _run_benchmark(
-            benchmark, large_graph.find_illegal_dependencies_for_layers, layers=DEEP_LAYERS
-        )
+        result = benchmark(large_graph.find_illegal_dependencies_for_layers, layers=DEEP_LAYERS)
         assert result == set()
 
 
 def test_find_descendants(large_graph, benchmark):
-    result = _run_benchmark(benchmark, large_graph.find_descendants, "mypackage")
+    result = benchmark(large_graph.find_descendants, "mypackage")
     assert len(result) == 28222
 
 
 def test_find_downstream_modules(large_graph, benchmark):
-    result = _run_benchmark(
-        benchmark, large_graph.find_downstream_modules, DEEP_LAYERS[0], as_package=True
-    )
+    result = benchmark(large_graph.find_downstream_modules, DEEP_LAYERS[0], as_package=True)
     assert len(result) == 80
 
 
 def test_find_upstream_modules(large_graph, benchmark):
-    result = _run_benchmark(
-        benchmark, large_graph.find_upstream_modules, DEEP_LAYERS[0], as_package=True
-    )
+    result = benchmark(large_graph.find_upstream_modules, DEEP_LAYERS[0], as_package=True)
     assert len(result) == 2159
 
 
 class TestFindShortestChain:
     def test_chain_found(self, large_graph, benchmark):
-        result = _run_benchmark(
-            benchmark, large_graph.find_shortest_chain, DEEP_LAYERS[0], DEEP_LAYERS[1]
-        )
+        result = benchmark(large_graph.find_shortest_chain, DEEP_LAYERS[0], DEEP_LAYERS[1])
         assert result is not None
 
     def test_no_chain(self, large_graph, benchmark):
-        result = _run_benchmark(
-            benchmark,
+        result = benchmark(
             large_graph.find_shortest_chain,
             DEEP_LAYERS[0],
             "mypackage.data.vendors.4053192739.6373932949",
@@ -445,8 +428,7 @@ class TestFindShortestChain:
 
 class TestFindShortestChains:
     def test_chains_found(self, large_graph, benchmark):
-        result = _run_benchmark(
-            benchmark,
+        result = benchmark(
             large_graph.find_shortest_chains,
             DEEP_LAYERS[0],
             DEEP_LAYERS[1],
@@ -455,8 +437,7 @@ class TestFindShortestChains:
         assert len(result) > 0
 
     def test_no_chains(self, large_graph, benchmark):
-        result = _run_benchmark(
-            benchmark,
+        result = benchmark(
             large_graph.find_shortest_chains,
             DEEP_LAYERS[0],
             "mypackage.data.vendors.4053192739.6373932949",
@@ -489,8 +470,7 @@ class TestFindShortestChains:
                 graph.add_import(importer=f"a.m{i}", imported=f"b.m{i}")
                 graph.add_import(importer=f"b.m{i}", imported=f"c.m{i}")
 
-        result = _run_benchmark(
-            benchmark,
+        result = benchmark(
             graph.find_shortest_chains,
             "a",
             "c",
@@ -500,7 +480,7 @@ class TestFindShortestChains:
 
 
 def test_copy_graph(large_graph, benchmark):
-    _run_benchmark(benchmark, lambda: deepcopy(large_graph))
+    benchmark(lambda: deepcopy(large_graph))
 
 
 def test_modules_property_first_access(large_graph, benchmark):
@@ -512,7 +492,7 @@ def test_modules_property_first_access(large_graph, benchmark):
         # Accessing the modules property is what we're benchmarking.
         _ = large_graph.modules
 
-    _run_benchmark(benchmark, f)
+    benchmark(f)
 
 
 def test_modules_property_many_accesses(large_graph, benchmark):
@@ -525,7 +505,7 @@ def test_modules_property_many_accesses(large_graph, benchmark):
         for i in range(1000):
             _ = large_graph.modules
 
-    _run_benchmark(benchmark, f)
+    benchmark(f)
 
 
 def test_get_import_details(benchmark):
@@ -540,19 +520,16 @@ def test_get_import_details(benchmark):
         for i in range(iterations):
             graph.get_import_details(importer=f"blue_{i}", imported=f"green_{i}")
 
-    _run_benchmark(benchmark, f)
+    benchmark(f)
 
 
 def test_find_matching_modules(benchmark, large_graph):
-    matching_modules = _run_benchmark(
-        benchmark, lambda: large_graph.find_matching_modules("mypackage.domain.**")
-    )
+    matching_modules = benchmark(lambda: large_graph.find_matching_modules("mypackage.domain.**"))
     assert len(matching_modules) == 2519
 
 
 def test_find_matching_direct_imports(benchmark, large_graph):
-    matching_imports = _run_benchmark(
-        benchmark,
+    matching_imports = benchmark(
         lambda: large_graph.find_matching_direct_imports(
             "mypackage.domain.** -> mypackage.data.**"
         ),
