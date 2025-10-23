@@ -44,7 +44,9 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
                 for d in list(dirs):
                     dirs.remove(d)
                 continue
-
+            a = 0
+            for i in range(10000):
+                a += i
             # Don't include hidden directories.
             dirs_to_remove = [d for d in dirs if self._should_ignore_dir(d)]
             for d in dirs_to_remove:
