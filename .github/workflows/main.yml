@@ -61,20 +61,25 @@ jobs:
         run: just test-rust
 
   benchmarks:
-      runs-on: ubuntu-24.04
+      runs-on: codspeed-macro
       steps:
         - uses: actions/checkout@v5
 
         - name: Install just
           uses: extractions/setup-just@v3
 
-        - name: Install uv
+        - name: Install uv and set the latest supported Python version
           uses: astral-sh/setup-uv@v7
+          with:
+            python-version: 3.14
 
+        - name: Update to a Cargo version that supports 2024 edition
+          run: rustup install 1.90.0 && rustup default 1.90.0
+          
         - name: Run benchmarks
           uses: CodSpeedHQ/action@v4
           with:
             token: ${{ secrets.CODSPEED_TOKEN }}
-            mode: instrumentation
+            mode: walltime
             run: |
               just benchmark-ci
