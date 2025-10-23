@@ -1,14 +1,14 @@
+import uuid
+import random
 import pytest
 import json
 import importlib
 from pathlib import Path
 
-from tests.config import override_settings
 from grimp.application.graph import ImportGraph
 from grimp import PackageDependency, Route
 import grimp
 from copy import deepcopy
-from .adaptors import PrefixMissingCache
 
 
 @pytest.fixture(scope="module")
@@ -55,14 +55,16 @@ TOP_LEVEL_PACKAGE_DEPENDENCIES = {
                     middle=(),
                     tails=frozenset(
                         {
-                            "mypackage.application.7537183614.6928774480.5676105139.3275676604"  # noqa:E501
+                            "mypackage.application.7537183614.6928774480.5676105139.3275676604"
+                            # noqa:E501
                         }
                     ),
                 ),
                 Route(
                     heads=frozenset(
                         {
-                            "mypackage.domain.6928774480.5676105139.1330171288.7588443317.4661445087"  # noqa:E501
+                            "mypackage.domain.6928774480.5676105139.1330171288.7588443317.4661445087"
+                            # noqa:E501
                         }
                     ),
                     middle=(),
@@ -83,7 +85,8 @@ TOP_LEVEL_PACKAGE_DEPENDENCIES = {
                 Route(
                     heads=frozenset(
                         {
-                            "mypackage.domain.6928774480.1028759677.7960519247.2888779155.7486857426"  # noqa:E501
+                            "mypackage.domain.6928774480.1028759677.7960519247.2888779155.7486857426"
+                            # noqa:E501
                         }
                     ),
                     middle=(),
@@ -135,15 +138,19 @@ TOP_LEVEL_PACKAGE_DEPENDENCIES = {
                 Route(
                     heads=frozenset(
                         {
-                            "mypackage.application.7537183614.2538372545.1153384736.6297289996",  # noqa:E501
-                            "mypackage.application.7537183614.2538372545.1153384736.6404547812.6297289996",  # noqa:E501
+                            "mypackage.application.7537183614.2538372545.1153384736.6297289996",
+                            # noqa:E501
+                            "mypackage.application.7537183614.2538372545.1153384736.6404547812.6297289996",
+                            # noqa:E501
                         }
                     ),
                     middle=("mypackage.6398020133.9075581450.6529869526.6297289996",),
                     tails=frozenset(
                         {
-                            "mypackage.plugins.5634303718.6180716911.7582995238.1039461003.2943193489",  # noqa:E501
-                            "mypackage.plugins.5634303718.6180716911.7582995238.1039461003.6322703811",  # noqa:E501
+                            "mypackage.plugins.5634303718.6180716911.7582995238.1039461003.2943193489",
+                            # noqa:E501
+                            "mypackage.plugins.5634303718.6180716911.7582995238.1039461003.6322703811",
+                            # noqa:E501
                         }
                     ),
                 )
@@ -319,36 +326,65 @@ def test_build_django_from_cache_no_misses(benchmark):
         350,  # Around half the Django codebase.
     ),
 )
-def test_build_django_from_cache_a_few_misses(benchmark, number_of_misses):
+def test_build_django_from_cache_a_few_misses(benchmark, number_of_misses: int):
     """
     Benchmarks building a graph of real package - in this case Django.
 
     This benchmark utilizes the cache except for a few modules, which we add.
     """
-    # We must use a special cache class, otherwise the cache will be populated
-    # by the first iteration. It would be better to do this using a setup function,
-    # which is supported by pytest-benchmark's pedantic mode, but not codspeed.
-    # This won't give us a truly accurate picture, but it's better than nothing.
+    # We need to take care in benchmarking partially populated caches, because
+    # the benchmark may run multiple times, depending on the context in which it's run.
+    # If we're not careful, the cache will be populated the first time and not reset
+    # in subsequent runs.
+    #
+    # The benchmark fixture available here is either from pytest-benchmark (used locally)
+    # or pytest-codspeed (used in CI). Here's how they both behave:
+    #
+    # - pytest-benchmark: By default, dynamically decides how many times to run the benchmark.
+    #                     It does this to improve benchmarking of very fast single runs: it will run
+    #                     the code many times and average the total time. That's not so important
+    #                     for code that takes orders of magnitude longer than the timer resolution.
+    #
+    #                     We can override this by using benchmark.pedantic, where we specify the
+    #                     number of rounds and iterations. Each iteration contains multiple rounds.
+    #
+    #                     It's also possible to provide a setup function that runs
+    #                     between each iteration. A teardown function will be in the next release
+    #                     but isn't in pytest-benchmark<=5.1.0.
+    #
+    # - pytest-codspeed:  This can run in two modes, CPU instrumentation and wall time. Currently
+    #                     we use CPU instrumentation as wall time is only available to
+    #                     Github organizations. CPU mode will always run the benchmark once,
+    #                     regardless of what rounds and iterations are specified in pedantic mode.
+    #                     This mode measures the speed of the benchmark by simulating the CPU,
+    #                     rather than timing how long it actually takes, so there is no point in
+    #                     running it multiple times and taking an average.
+    #
+    # So - in this case, because we are benchmarking a relatively slow piece of code, we explicitly
+    # turn off multiple runs, which could potentially be misleading when running locally.
 
-    # Add some specially-named modules which will be treated as not in the cache.
-    django_path = Path(importlib.util.find_spec("django").origin).parent
-    extra_modules = [
-        django_path / f"{PrefixMissingCache.MISSING_PREFIX}{i}.py" for i in range(number_of_misses)
-    ]
-    # Use some real python, which will take time to parse.
+    # Populate the cache first, before beginning the benchmark.
+    grimp.build_graph("django")
+    # Add some modules which won't be in the cache.
+    # (Use some real python, which will take time to parse.)
+    django_path = Path(importlib.util.find_spec("django").origin).parent  # type: ignore
     module_to_copy = django_path / "forms" / "forms.py"
     module_contents = module_to_copy.read_text()
-    for extra_module in extra_modules:
-        extra_module.write_text(module_contents)
+    extra_modules = [
+        django_path / f"module_{i}_{random.randint(100000, 999999)}.py"
+        for i in range(number_of_misses)
+    ]
+    for new_module in extra_modules:
+        # Make sure the module contents aren't identical. Depending on how the cache is implemented,
+        # perhaps this could make a difference.
+        hash_buster = f"\n# Hash busting comment: {uuid.uuid4()}"
+        new_module.write_text(module_contents + hash_buster)
 
-    with override_settings(CACHE_CLASS=PrefixMissingCache):
-        # Populate the cache.
-        grimp.build_graph("django")
+    benchmark.pedantic(grimp.build_graph, ["django"], rounds=1, iterations=1)
 
-        benchmark(grimp.build_graph, "django")
-
-    # Clean up.
-    [module.unlink() for module in extra_modules]
+    # Delete the modules we just created.
+    for module in extra_modules:
+        module.unlink()
 
 
 class TestFindIllegalDependenciesForLayers:
