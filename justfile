@@ -138,7 +138,7 @@ benchmark-local:
 # Show recent local benchmark results.
 [group('benchmarking')]
 show-benchmark-results:
-    @uv run --group=benchmark-local pytest-benchmark compare --group-by=fullname --sort=name --columns=mean
+    @uv run pytest-benchmark compare --group-by=fullname --sort=name --columns=mean
 
 # Run benchmarks using Codspeed. This only works in CI.
 [group('benchmarking')]
