@@ -450,6 +450,10 @@ class ImportGraph:
         """
         Identify a set of imports that, if removed, would make the package locally acyclic.
         """
+        # Check plumbing - not implemented yet.
+        rust_result = self._rustgraph.nominate_cycle_breakers(package)
+        assert rust_result == set()
+
         children = self.find_children(package)
         if len(children) < 2:
             return set()

@@ -25,6 +25,7 @@ pub mod hierarchy_queries;
 pub mod higher_order_queries;
 pub mod import_chain_queries;
 
+pub mod cycle_breakers;
 pub(crate) mod pathfinding;
 
 static MODULE_NAMES: LazyLock<RwLock<StringInterner<StringBackend>>> =
@@ -617,6 +618,33 @@ impl GraphWrapper {
             .collect::<Vec<_>>();
 
         self.convert_package_dependencies_to_python(py, illegal_dependencies)
+    }
+
+    pub fn nominate_cycle_breakers<'py>(
+        &self,
+        py: Python<'py>,
+        package: &str,
+    ) -> PyResult<Bound<'py, PySet>> {
+        let package = self.get_visible_module_by_name(package)?.token();
+        let cycle_breakers = self._graph.nominate_cycle_breakers(package)?;
+        PySet::new(
+            py,
+            cycle_breakers
+                .into_iter()
+                .map(|(importer, imported)| {
+                    let importer = self._graph.get_module(importer).unwrap();
+                    let imported = self._graph.get_module(imported).unwrap();
+                    Import::new(importer.name(), imported.name())
+                })
+                .map(|import| {
+                    [
+                        ("importer", import.importer.into_py_any(py).unwrap()),
+                        ("imported", import.imported.into_py_any(py).unwrap()),
+                    ]
+                    .into_py_dict(py)
+                    .unwrap()
+                }),
+        )
     }
 
     #[pyo3(name = "clone")]
