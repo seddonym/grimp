@@ -9,8 +9,8 @@ Grimp
     :alt: Python versions
     :target: https://pypi.org/project/grimp/
 
-.. image:: https://github.com/seddonym/grimp/workflows/CI/badge.svg?branch=main
-     :target: https://github.com/seddonym/grimp/actions?workflow=CI
+.. image:: https://github.com/python-grimp/grimp/actions/workflows/main.yml/badge.svg
+     :target: https://github.com/python-grimp/grimp/actions?workflow=CI
      :alt: CI Status
 
 Builds a queryable graph of the imports within one or more Python packages.

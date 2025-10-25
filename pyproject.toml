@@ -40,7 +40,7 @@ readme = "README.rst"
 
 [project.urls]
 Documentation = "https://grimp.readthedocs.io/"
-Source-code = "https://github.com/seddonym/grimp/"
+Source-code = "https://github.com/python-grimp/grimp/"
 
 [dependency-groups]
 dev = [

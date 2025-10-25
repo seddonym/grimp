@@ -37,7 +37,7 @@ This release was yanked due to poor performance when building very large graphs.
 3.8.1 (2025-04-23)
 ------------------
 
-* Use joblib instead of multiprocessing for CPU parallelism. Fixes https://github.com/seddonym/grimp/issues/208.
+* Use joblib instead of multiprocessing for CPU parallelism. Fixes https://github.com/python-grimp/grimp/issues/208.
 
 3.8 (2025-04-11)
 ----------------
@@ -47,7 +47,7 @@ This release was yanked due to poor performance when building very large graphs.
 3.7.1 (2025-03-12)
 ------------------
 
-* Fixed handling of within-descendant-imports when squashing modules (see `Issue 195 <https://github.com/seddonym/grimp/issues/195>`_).
+* Fixed handling of within-descendant-imports when squashing modules (see `Issue 195 <https://github.com/python-grimp/grimp/issues/195>`_).
 
 3.7 (2025-03-07)
 ----------------

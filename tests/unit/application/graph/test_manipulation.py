@@ -458,7 +458,7 @@ class TestSquashModule:
         # We want to check that this import within the descendants of `animals` does
         # not cause problems. If this import is not properly removed then the imports map can
         # become corrupted, since it will contain an import to modules that no longer exist.
-        # See https://github.com/seddonym/grimp/issues/195 for more details.
+        # See https://github.com/python-grimp/grimp/issues/195 for more details.
         graph.add_import(importer="animals.dog", imported="animals.base")
 
         graph.squash_module("animals")

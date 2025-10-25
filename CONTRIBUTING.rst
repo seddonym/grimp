@@ -7,7 +7,7 @@ We welcome contributions to Grimp.
 Bug reports
 ===========
 
-When `reporting a bug <https://github.com/seddonym/grimp/issues>`_ please include:
+When `reporting a bug <https://github.com/python-grimp/grimp/issues>`_ please include:
 
     * Your operating system name and version.
     * Any details about your local setup that might be helpful in troubleshooting.
@@ -16,7 +16,7 @@ When `reporting a bug <https://github.com/seddonym/grimp/issues>`_ please includ
 Feature requests and feedback
 =============================
 
-The best way to send feedback is to file an issue at https://github.com/seddonym/grimp/issues.
+The best way to send feedback is to file an issue at https://github.com/python-grimp/grimp/issues.
 
 If you are proposing a feature:
 
@@ -64,7 +64,7 @@ You don't need to activate or manage a virtual environment - this is taken care 
 
 To set up Grimp for local development:
 
-1. Fork `grimp <https://github.com/seddonym/grimp>`_
+1. Fork `grimp <https://github.com/python-grimp/grimp>`_
    (look for the "Fork" button).
 2. Clone your fork locally::
 
