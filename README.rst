@@ -13,6 +13,10 @@ Grimp
      :target: https://github.com/python-grimp/grimp/actions?workflow=CI
      :alt: CI Status
 
+.. image:: https://img.shields.io/endpoint?url=https://codspeed.io/badge.json
+     :target: https://codspeed.io/python-grimp/grimp?utm_source=badge
+     :alt: Codspeed
+
 Builds a queryable graph of the imports within one or more Python packages.
 
 * Free software: BSD license
