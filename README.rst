@@ -17,9 +17,11 @@ Grimp
      :target: https://codspeed.io/python-grimp/grimp?utm_source=badge
      :alt: Codspeed
 
-Builds a queryable graph of the imports within one or more Python packages.
+.. image:: https://img.shields.io/badge/License-BSD_2--Clause-orange.svg
+     :target: https://opensource.org/licenses/BSD-2-Clause
+     :alt: BSD license
 
-* Free software: BSD license
+Builds a queryable graph of the imports within one or more Python packages.
 
 Quick start
 -----------
