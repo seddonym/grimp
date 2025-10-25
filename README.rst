@@ -9,13 +9,19 @@ Grimp
     :alt: Python versions
     :target: https://pypi.org/project/grimp/
 
-.. image:: https://github.com/seddonym/grimp/workflows/CI/badge.svg?branch=main
-     :target: https://github.com/seddonym/grimp/actions?workflow=CI
+.. image:: https://github.com/python-grimp/grimp/actions/workflows/main.yml/badge.svg
+     :target: https://github.com/python-grimp/grimp/actions?workflow=CI
      :alt: CI Status
 
-Builds a queryable graph of the imports within one or more Python packages.
+.. image:: https://img.shields.io/endpoint?url=https://codspeed.io/badge.json
+     :target: https://codspeed.io/python-grimp/grimp?utm_source=badge
+     :alt: Codspeed
 
-* Free software: BSD license
+.. image:: https://img.shields.io/badge/License-BSD_2--Clause-orange.svg
+     :target: https://opensource.org/licenses/BSD-2-Clause
+     :alt: BSD license
+
+Builds a queryable graph of the imports within one or more Python packages.
 
 Quick start
 -----------
