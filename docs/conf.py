@@ -13,6 +13,7 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
+
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
@@ -26,8 +27,7 @@ author = "David Seddon"
 # The short X.Y version
 version = ""
 # The full version, including alpha/beta/rc tags
-release = "3.12"
-
+release = "3.13"
 
 # -- General configuration ---------------------------------------------------
 
@@ -67,7 +67,6 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
 
-
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -105,7 +104,6 @@ html_static_path = ["_static"]
 # Output file base name for HTML help builder.
 htmlhelp_basename = "Grimpdoc"
 
-
 # -- Options for LaTeX output ------------------------------------------------
 
 latex_elements = {
@@ -130,13 +128,11 @@ latex_documents = [
     (master_doc, "Grimp.tex", "Grimp Documentation", "David Seddon", "manual"),
 ]
 
-
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [(master_doc, "grimp", "Grimp Documentation", [author], 1)]
-
 
 # -- Options for Texinfo output ----------------------------------------------
 
