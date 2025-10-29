@@ -17,22 +17,22 @@ impl Graph {
         imported: ModuleToken,
         as_packages: bool,
     ) -> GrimpResult<bool> {
-        let mut importer: FxHashSet<_> = importer.into();
-        let mut imported: FxHashSet<_> = imported.into();
+        let mut importers: FxHashSet<_> = importer.into();
+        let mut importeds: FxHashSet<_> = imported.into();
         if as_packages {
-            importer.extend_with_descendants(self);
-            imported.extend_with_descendants(self);
-            if !(&importer & &imported).is_empty() {
+            importers.extend_with_descendants(self);
+            importeds.extend_with_descendants(self);
+            if !(&importers & &importeds).is_empty() {
                 return Err(GrimpError::SharedDescendants);
             }
         }
 
-        let direct_imports = importer
+        let direct_imports = importers
             .iter()
-            .flat_map(|module| self.imports.get(*module).unwrap().iter().cloned())
+            .flat_map(|importer_module| self.imports.get(*importer_module).unwrap().iter().cloned())
             .collect::<FxHashSet<ModuleToken>>();
 
-        Ok(!(&direct_imports & &imported).is_empty())
+        Ok(!(&direct_imports & &importeds).is_empty())
     }
 
     pub fn modules_directly_imported_by(&self, importer: ModuleToken) -> &FxHashSet<ModuleToken> {
