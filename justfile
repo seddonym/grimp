@@ -64,6 +64,12 @@ test-python-3-13:
 test-python-3-14:
     UV_PYTHON=3.14 just test-python
 
+# Populate missing Syrupy snapshots.
+[group('testing')]
+update-snapshots:
+    @uv run pytest --snapshot-update --benchmark-skip
+
+
 # Format the Rust code.
 [group('formatting')]
 [working-directory: 'rust']

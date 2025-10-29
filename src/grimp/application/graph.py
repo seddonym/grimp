@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import List, Optional, Sequence, Set, Tuple, TypedDict
 from grimp.domain.analysis import PackageDependency, Route
 from grimp.domain.valueobjects import Layer
-
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 from grimp.exceptions import (
     ModuleNotPresent,
@@ -15,6 +14,11 @@ from grimp.exceptions import (
 class Import(TypedDict):
     importer: str
     imported: str
+
+
+# Corresponds to importer, imported.
+# Prefer this form to Import, as it's both more lightweight, and hashable.
+ImportTuple = Tuple[str, str]
 
 
 class DetailedImport(Import):
@@ -439,6 +443,14 @@ class ImportGraph:
             raise NoSuchContainer(str(e))
 
         return _dependencies_from_tuple(result)
+
+    def nominate_cycle_breakers(self, package: str) -> set[ImportTuple]:
+        """
+        Identify a set of imports that, if removed, would make the package locally acyclic.
+        """
+        if not self._rustgraph.contains_module(package):
+            raise ModuleNotPresent(f'"{package}" not present in the graph.')
+        return self._rustgraph.nominate_cycle_breakers(package)
 
     # Dunder methods
     # --------------

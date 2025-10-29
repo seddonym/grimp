@@ -198,7 +198,7 @@ Methods for analysing direct imports
 
     Find all direct imports matching the passed import expression.
 
-    The imports are returned are in the following form::
+    The imports returned are in the following form::
 
         [
             {
@@ -504,6 +504,40 @@ Higher level analysis
     .. attribute:: tails
 
         ``frozenset[str]``:  Imported modules at the end of the chain.
+
+.. py:function:: ImportGraph.nominate_cycle_breakers(package)
+
+    Choose an approximately minimal set of dependencies that, if removed, would make the package locally acyclic.
+
+    - 'Acyclic' means that there are no direct dependency cycles between the package's children. Indirect
+      dependencies (i.e. ones involving modules outside the supplied package) are disregarded,
+      as are imports between the package and its children.
+    - 'Dependency cycles' mean cycles between the *squashed* children (see `Terminology`_ above).
+
+    Multiple sets of cycle breakers can exist for a given package. To arrive at this particular set, the following
+    approach is used:
+
+    1. Create a graph whose nodes are each child of the package.
+    2. For each pair of children, add directed edges corresponding to whether there are imports between those two
+       children (as packages, rather than individual modules). The edges are weighted according to the number of
+       *dependencies* they represent: this is usually the same as the number of imports, but if a module imports
+       another module in multiple places, it will be treated as a single dependency.
+    3. Calculate the approximate
+       `minimum weighted feedback arc set <https://en.wikipedia.org/wiki/Feedback_arc_set>`_.
+       This attempts to find a set of edges with the smallest total weight that can be removed from the graph in order
+       to make it acyclic. It uses the greedy cycle-breaking heuristic of Eades, Lin and Smyth: not guaranteed
+       to find the optimal solution, but it is relatively fast.
+    4. These edges are then used to look up all the concrete imports in the fully unsquashed graph, which are returned.
+       For example, an edge discovered in step 3. of ``mypackage.foo -> mypackage.bar``, with a weight 3, might correspond
+       to these three imports: ``mypackage.foo.blue -> mypackage.bar.green``,
+       ``mypackage.foo.blue.one -> mypackage.bar.green.two``, and ``mypackage.foo.blue -> mypackage.bar.green.three``.
+
+    :param str package: The package in the graph to check for cycles. If a module with no children is passed,
+      an empty set is returned.
+    :return: A set of imports that, if removed, would make the imports between the the children of the supplied
+      package acyclic.
+    :rtype: ``set[tuple[str, str]]``. In each import tuple, the first element is the importer module and the second
+      is the imported.
 
 Methods for manipulating the graph
 ----------------------------------

@@ -17,22 +17,54 @@ impl Graph {
         imported: ModuleToken,
         as_packages: bool,
     ) -> GrimpResult<bool> {
-        let mut importer: FxHashSet<_> = importer.into();
-        let mut imported: FxHashSet<_> = imported.into();
+        let mut importers: FxHashSet<_> = importer.into();
+        let mut importeds: FxHashSet<_> = imported.into();
         if as_packages {
-            importer.extend_with_descendants(self);
-            imported.extend_with_descendants(self);
-            if !(&importer & &imported).is_empty() {
+            importers.extend_with_descendants(self);
+            importeds.extend_with_descendants(self);
+            if !(&importers & &importeds).is_empty() {
                 return Err(GrimpError::SharedDescendants);
             }
         }
 
-        let direct_imports = importer
+        let direct_imports = importers
             .iter()
-            .flat_map(|module| self.imports.get(*module).unwrap().iter().cloned())
+            .flat_map(|importer_module| self.imports.get(*importer_module).unwrap().iter().cloned())
             .collect::<FxHashSet<ModuleToken>>();
 
-        Ok(!(&direct_imports & &imported).is_empty())
+        Ok(!(&direct_imports & &importeds).is_empty())
+    }
+
+    pub fn find_direct_imports_between(
+        &self,
+        importer: ModuleToken,
+        imported: ModuleToken,
+        as_packages: bool,
+    ) -> GrimpResult<FxHashSet<(ModuleToken, ModuleToken)>> {
+        let mut all_imports: FxHashSet<(ModuleToken, ModuleToken)> = FxHashSet::default();
+
+        let mut importers: FxHashSet<_> = importer.into();
+        let mut importeds: FxHashSet<_> = imported.into();
+        if as_packages {
+            importers.extend_with_descendants(self);
+            importeds.extend_with_descendants(self);
+            if !(&importers & &importeds).is_empty() {
+                return Err(GrimpError::SharedDescendants);
+            }
+        }
+
+        for importer_module in importers.iter() {
+            if let Some(all_imports_imported_by_this_one) = self.imports.get(*importer_module) {
+                let imports_of_supplied_package: FxHashSet<_> = all_imports_imported_by_this_one
+                    .iter()
+                    .filter(|candidate| importeds.contains(*candidate))
+                    .map(|imported_module| (*importer_module, *imported_module))
+                    .collect();
+                all_imports.extend(imports_of_supplied_package);
+            }
+        }
+
+        Ok(all_imports)
     }
 
     pub fn modules_directly_imported_by(&self, importer: ModuleToken) -> &FxHashSet<ModuleToken> {
