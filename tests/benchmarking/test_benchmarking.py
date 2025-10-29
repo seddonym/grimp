@@ -571,3 +571,17 @@ def test_find_matching_direct_imports(benchmark, large_graph):
         ),
     )
     assert len(matching_imports) == 4051
+
+
+def test_nominate_cycle_breakers_django(benchmark):
+    graph = grimp.build_graph("django")
+
+    benchmark(graph.nominate_cycle_breakers, "django")
+
+
+def test_nominate_cycle_breakers_large_graph_root(benchmark, large_graph):
+    benchmark(large_graph.nominate_cycle_breakers, "mypackage")
+
+
+def test_nominate_cycle_breakers_large_graph_subpackage(benchmark, large_graph):
+    benchmark(large_graph.nominate_cycle_breakers, "mypackage.domain")
