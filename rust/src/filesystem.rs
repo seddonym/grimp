@@ -8,7 +8,7 @@ use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock, Mutex};
 use unindent::unindent;
 
 static ENCODING_RE: LazyLock<Regex> =
@@ -181,7 +181,7 @@ type FileSystemContents = HashMap<String, String>;
 
 #[derive(Clone)]
 pub struct FakeBasicFileSystem {
-    contents: Box<FileSystemContents>,
+    contents: Arc<Mutex<FileSystemContents>>,
 }
 
 // Implements BasicFileSystem (defined in grimp.application.ports.filesystem.BasicFileSystem).
@@ -204,7 +204,7 @@ impl FakeBasicFileSystem {
             parsed_contents.extend(unindented_map);
         };
         Ok(FakeBasicFileSystem {
-            contents: Box::new(parsed_contents),
+            contents: Arc::new(Mutex::new(parsed_contents)),
         })
     }
 }
@@ -246,13 +246,14 @@ impl FileSystem for FakeBasicFileSystem {
 
     /// Checks if a file or directory exists within the file system.
     fn exists(&self, file_name: &str) -> bool {
-        self.contents.contains_key(file_name)
+        self.contents.lock().unwrap().contains_key(file_name)
     }
 
     fn read(&self, file_name: &str) -> PyResult<String> {
-        eprintln!("{:?}", &self.contents.keys());
-        match self.contents.get(file_name) {
-            Some(file_name) => Ok(file_name.clone()),
+        let contents = self.contents.lock().unwrap();
+        eprintln!("{:?}", contents.keys().collect::<Vec<_>>());
+        match contents.get(file_name) {
+            Some(file_contents) => Ok(file_contents.clone()),
             None => Err(PyFileNotFoundError::new_err(format!(
                 "No such file: {file_name}"
             ))),
@@ -262,10 +263,10 @@ impl FileSystem for FakeBasicFileSystem {
     #[allow(unused_variables)]
     fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
         eprintln!("Writing into fake {}, {}", file_name, contents);
-        eprintln!("Contents currently {:?}", self.contents);
-        self.contents
-            .insert(file_name.to_string(), contents.to_string());
-        eprintln!("Contents now {:?}", self.contents);
+        let mut contents_mut = self.contents.lock().unwrap();
+        eprintln!("Contents currently {:?}", *contents_mut);
+        contents_mut.insert(file_name.to_string(), contents.to_string());
+        eprintln!("Contents now {:?}", *contents_mut);
         Ok(())
     }
 }
