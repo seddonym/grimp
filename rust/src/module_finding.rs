@@ -20,7 +20,6 @@ impl fmt::Display for Module {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// Set of modules found under a single package, together with metadata.
 pub struct FoundPackage {

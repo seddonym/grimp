@@ -7,7 +7,6 @@ use pyo3::types::{PyDict, PySet};
 use pyo3::types::{PyDictMethods, PySetMethods};
 use pyo3::{Bound, PyAny, PyResult, Python, pyfunction};
 use std::collections::{HashMap, HashSet};
-use serde_json;
 
 /// Writes the cache file containing all the imports for a given package.
 /// Args:
@@ -16,7 +15,7 @@ use serde_json;
 /// - file_system: The file system interface to use. (A BasicFileSystem.)
 #[pyfunction]
 pub fn write_cache_data_map_file<'py>(
-    py: Python<'py>,
+    _py: Python<'py>,
     filename: &str,
     imports_by_module: Bound<'py, PyDict>,
     file_system: Bound<'py, PyAny>,
