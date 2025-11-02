@@ -557,15 +557,15 @@ class TestCache:
         "cache_dir",
         (
             "/tmp/some-cache-dir",
-            # "/tmp/some-cache-dir/",
-            # None,
+            "/tmp/some-cache-dir/",
+            None,
         ),
     )
     @pytest.mark.parametrize(
         "include_external_packages, expected_data_file_name",
         (
             (False, "blue,green.data.json"),
-            # (True, "blue,green:external.data.json"),
+            (True, "blue,green:external.data.json"),
         ),
     )
     def test_write_to_cache(
