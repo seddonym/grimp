@@ -24,9 +24,10 @@ pub fn write_cache_data_map_file<'py>(
 
     let imports_by_module_rust = imports_by_module_to_rust(imports_by_module);
 
-    let file_contents = serialize_imports_by_module(&imports_by_module_rust);
+    let file_contents = serialize_imports_by_module(&imports_by_module_rust)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
 
-    file_system_boxed.write(filename, &file_contents)?;
+    file_system_boxed.write_bytes(filename, &file_contents)?;
 
     Ok(())
 }
@@ -44,9 +45,9 @@ pub fn read_cache_data_map_file<'py>(
 ) -> PyResult<Bound<'py, PyDict>> {
     let file_system_boxed = get_file_system_boxed(&file_system)?;
 
-    let file_contents = file_system_boxed.read(filename)?;
+    let file_contents = file_system_boxed.read_bytes(filename)?;
 
-    let imports_by_module = parse_json_to_map(&file_contents, filename)?;
+    let imports_by_module = parse_bincode_to_map(&file_contents, filename)?;
 
     Ok(imports_by_module_to_py(py, imports_by_module))
 }
@@ -78,7 +79,7 @@ fn imports_by_module_to_rust(
 #[allow(unused_variables)]
 fn serialize_imports_by_module(
     imports_by_module: &HashMap<Module, HashSet<DirectImport>>,
-) -> String {
+) -> Result<Vec<u8>, bincode::error::EncodeError> {
     let raw_map: HashMap<&str, Vec<(&str, usize, &str)>> = imports_by_module
         .iter()
         .map(|(module, imports)| {
@@ -96,15 +97,18 @@ fn serialize_imports_by_module(
         })
         .collect();
 
-    serde_json::to_string(&raw_map).expect("Failed to serialize to JSON")
+    let config = bincode::config::standard();
+    bincode::encode_to_vec(&raw_map, config)
 }
 
-pub fn parse_json_to_map(
-    json_str: &str,
+pub fn parse_bincode_to_map(
+    bytes: &[u8],
     filename: &str,
 ) -> GrimpResult<HashMap<Module, HashSet<DirectImport>>> {
-    let raw_map: HashMap<String, Vec<(String, usize, String)>> = serde_json::from_str(json_str)
-        .map_err(|_| GrimpError::CorruptCache(filename.to_string()))?;
+    let config = bincode::config::standard();
+    let (raw_map, _): (HashMap<String, Vec<(String, usize, String)>>, usize) =
+        bincode::decode_from_slice(bytes, config)
+            .map_err(|_| GrimpError::CorruptCache(filename.to_string()))?;
 
     let mut parsed_map: HashMap<Module, HashSet<DirectImport>> = HashMap::new();
 

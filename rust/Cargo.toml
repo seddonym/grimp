@@ -27,6 +27,7 @@ ruff_source_file = { git = "https://github.com/astral-sh/ruff.git", tag = "v0.4.
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.137"
 serde_yaml = "0.9"
+bincode = "2.0.1"
 unindent = "0.2.4"
 encoding_rs = "0.8.35"
 

@@ -26,6 +26,10 @@ pub trait FileSystem: Send + Sync {
     fn read(&self, file_name: &str) -> PyResult<String>;
 
     fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()>;
+
+    fn read_bytes(&self, file_name: &str) -> PyResult<Vec<u8>>;
+
+    fn write_bytes(&mut self, file_name: &str, contents: &[u8]) -> PyResult<()>;
 }
 
 #[derive(Clone)]
@@ -143,6 +147,23 @@ impl FileSystem for RealBasicFileSystem {
         file.write_all(contents.as_bytes())?;
         Ok(())
     }
+
+    fn read_bytes(&self, file_name: &str) -> PyResult<Vec<u8>> {
+        let path = Path::new(file_name);
+        fs::read(path).map_err(|e| {
+            PyFileNotFoundError::new_err(format!("Failed to read file {file_name}: {e}"))
+        })
+    }
+
+    fn write_bytes(&mut self, file_name: &str, contents: &[u8]) -> PyResult<()> {
+        let file_path: PathBuf = file_name.into();
+        if let Some(patent_dir) = file_path.parent() {
+            fs::create_dir_all(patent_dir)?;
+        }
+        let mut file = File::create(file_path)?;
+        file.write_all(contents)?;
+        Ok(())
+    }
 }
 
 #[pymethods]
@@ -179,13 +200,23 @@ impl PyRealBasicFileSystem {
     fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
         self.inner.write(file_name, contents)
     }
+
+    fn read_bytes(&self, file_name: &str) -> PyResult<Vec<u8>> {
+        self.inner.read_bytes(file_name)
+    }
+
+    fn write_bytes(&mut self, file_name: &str, contents: Vec<u8>) -> PyResult<()> {
+        self.inner.write_bytes(file_name, &contents)
+    }
 }
 
 type FileSystemContents = HashMap<String, String>;
+type BinaryFileSystemContents = HashMap<String, Vec<u8>>;
 
 #[derive(Clone)]
 pub struct FakeBasicFileSystem {
     contents: Arc<Mutex<FileSystemContents>>,
+    binary_contents: Arc<Mutex<BinaryFileSystemContents>>,
 }
 
 // Implements BasicFileSystem (defined in grimp.application.ports.filesystem.BasicFileSystem).
@@ -209,6 +240,7 @@ impl FakeBasicFileSystem {
         };
         Ok(FakeBasicFileSystem {
             contents: Arc::new(Mutex::new(parsed_contents)),
+            binary_contents: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 }
@@ -251,6 +283,7 @@ impl FileSystem for FakeBasicFileSystem {
     /// Checks if a file or directory exists within the file system.
     fn exists(&self, file_name: &str) -> bool {
         self.contents.lock().unwrap().contains_key(file_name)
+            || self.binary_contents.lock().unwrap().contains_key(file_name)
     }
 
     fn read(&self, file_name: &str) -> PyResult<String> {
@@ -267,6 +300,22 @@ impl FileSystem for FakeBasicFileSystem {
     fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
         let mut contents_mut = self.contents.lock().unwrap();
         contents_mut.insert(file_name.to_string(), contents.to_string());
+        Ok(())
+    }
+
+    fn read_bytes(&self, file_name: &str) -> PyResult<Vec<u8>> {
+        let binary_contents = self.binary_contents.lock().unwrap();
+        match binary_contents.get(file_name) {
+            Some(file_contents) => Ok(file_contents.clone()),
+            None => Err(PyFileNotFoundError::new_err(format!(
+                "No such file: {file_name}"
+            ))),
+        }
+    }
+
+    fn write_bytes(&mut self, file_name: &str, contents: &[u8]) -> PyResult<()> {
+        let mut binary_contents_mut = self.binary_contents.lock().unwrap();
+        binary_contents_mut.insert(file_name.to_string(), contents.to_vec());
         Ok(())
     }
 }
@@ -306,6 +355,14 @@ impl PyFakeBasicFileSystem {
 
     fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
         self.inner.write(file_name, contents)
+    }
+
+    fn read_bytes(&self, file_name: &str) -> PyResult<Vec<u8>> {
+        self.inner.read_bytes(file_name)
+    }
+
+    fn write_bytes(&mut self, file_name: &str, contents: Vec<u8>) -> PyResult<()> {
+        self.inner.write_bytes(file_name, &contents)
     }
 
     // Temporary workaround method for Python tests.
