@@ -255,7 +255,6 @@ impl FileSystem for FakeBasicFileSystem {
 
     fn read(&self, file_name: &str) -> PyResult<String> {
         let contents = self.contents.lock().unwrap();
-        eprintln!("{:?}", contents.keys().collect::<Vec<_>>());
         match contents.get(file_name) {
             Some(file_contents) => Ok(file_contents.clone()),
             None => Err(PyFileNotFoundError::new_err(format!(
@@ -266,11 +265,8 @@ impl FileSystem for FakeBasicFileSystem {
 
     #[allow(unused_variables)]
     fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
-        eprintln!("Writing into fake {}, {}", file_name, contents);
         let mut contents_mut = self.contents.lock().unwrap();
-        eprintln!("Contents currently {:?}", *contents_mut);
         contents_mut.insert(file_name.to_string(), contents.to_string());
-        eprintln!("Contents now {:?}", *contents_mut);
         Ok(())
     }
 }
@@ -415,7 +411,6 @@ pub fn get_file_system_boxed<'py>(
     file_system: &Bound<'py, PyAny>,
 ) -> PyResult<Box<dyn FileSystem + Send + Sync>> {
     let file_system_boxed: Box<dyn FileSystem + Send + Sync>;
-    eprintln!("Cloning file system.");
     if let Ok(py_real) = file_system.extract::<PyRef<PyRealBasicFileSystem>>() {
         file_system_boxed = Box::new(py_real.inner.clone());
     } else if let Ok(py_fake) = file_system.extract::<PyRef<PyFakeBasicFileSystem>>() {

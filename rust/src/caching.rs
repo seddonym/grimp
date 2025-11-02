@@ -20,7 +20,6 @@ pub fn write_cache_data_map_file<'py>(
     imports_by_module: Bound<'py, PyDict>,
     file_system: Bound<'py, PyAny>,
 ) -> PyResult<()> {
-    eprintln!("About to clone for write.");
     let mut file_system_boxed = get_file_system_boxed(&file_system)?;
 
     let imports_by_module_rust = imports_by_module_to_rust(imports_by_module);
@@ -43,7 +42,6 @@ pub fn read_cache_data_map_file<'py>(
     filename: &str,
     file_system: Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyDict>> {
-    eprintln!("About to clone for read.");
     let file_system_boxed = get_file_system_boxed(&file_system)?;
 
     let file_contents = file_system_boxed.read(filename)?;
