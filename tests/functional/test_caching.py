@@ -107,7 +107,7 @@ def test_build_graph_uses_cache(copied_cachingpackage):
 
 
 def _manipulate_data_file(data_file: Path, snippet: str, replacement: str) -> None:
-    with open(data_file, "r") as file:
+    with open(data_file) as file:
         filedata = file.read()
 
     filedata = filedata.replace(snippet, replacement)

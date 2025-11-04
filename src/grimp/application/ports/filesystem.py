@@ -1,6 +1,6 @@
 from __future__ import annotations
 import abc
-from typing import Iterator, List, Tuple
+from collections.abc import Iterator
 from typing import Protocol
 
 
@@ -28,7 +28,7 @@ class AbstractFileSystem(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def walk(self, directory_name: str) -> Iterator[Tuple[str, List[str], List[str]]]:
+    def walk(self, directory_name: str) -> Iterator[tuple[str, list[str], list[str]]]:
         """
         Given a directory, walk the file system recursively.
 
@@ -42,7 +42,7 @@ class AbstractFileSystem(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def split(self, file_name: str) -> Tuple[str, str]:
+    def split(self, file_name: str) -> tuple[str, str]:
         """
         Split the pathname path into a pair, (head, tail) where tail is the last pathname component
         and head is everything leading up to that. The tail part will never contain a slash;
@@ -105,7 +105,7 @@ class BasicFileSystem(Protocol):
 
     def join(self, *components: str) -> str: ...
 
-    def split(self, file_name: str) -> Tuple[str, str]: ...
+    def split(self, file_name: str) -> tuple[str, str]: ...
 
     def read(self, file_name: str) -> str: ...
 

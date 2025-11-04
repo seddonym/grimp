@@ -19,10 +19,8 @@ class ImportLibPackageFinder(AbstractPackageFinder):
         # Attempt to locate the package file.
         spec = importlib.util.find_spec(package_name)
         if not spec:
-            logger.debug("sys.path: {}".format(sys.path))
-            raise ValueError(
-                "Could not find package '{}' in your Python path.".format(package_name)
-            )
+            logger.debug(f"sys.path: {sys.path}")
+            raise ValueError(f"Could not find package '{package_name}' in your Python path.")
 
         if spec.has_location and spec.origin:
             if not self._is_a_package(spec, file_system) or self._has_a_non_namespace_parent(spec):

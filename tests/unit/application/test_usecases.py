@@ -1,4 +1,3 @@
-from typing import Dict, Optional, Set
 from unittest.mock import sentinel
 import pytest  # type: ignore
 
@@ -92,7 +91,7 @@ class TestBuildGraph:
 
         class AssertingCache(Cache):
             @classmethod
-            def cache_dir_or_default(cls, cache_dir: Optional[str]) -> str:
+            def cache_dir_or_default(cls, cache_dir: str | None) -> str:
                 return cache_dir or SOME_DEFAULT_CACHE_DIR
 
             def __init__(self, *args, **kwargs) -> None:
@@ -110,12 +109,12 @@ class TestBuildGraph:
                 )
                 assert self.cache_dir == expected_cache_dir
 
-            def read_imports(self, module_file: ModuleFile) -> Set[DirectImport]:
+            def read_imports(self, module_file: ModuleFile) -> set[DirectImport]:
                 return set()
 
             def write(
                 self,
-                imports_by_module: Dict[Module, Set[DirectImport]],
+                imports_by_module: dict[Module, set[DirectImport]],
             ) -> None:
                 pass
 

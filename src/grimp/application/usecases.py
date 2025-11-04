@@ -2,7 +2,8 @@
 Use cases handle application logic.
 """
 
-from typing import Dict, Sequence, Set, Type, Union, cast, Iterable
+from typing import cast
+from collections.abc import Sequence, Iterable
 
 from .scanning import scan_imports
 from ..application.ports import caching
@@ -23,7 +24,7 @@ def build_graph(
     *additional_package_names,
     include_external_packages: bool = False,
     exclude_type_checking_imports: bool = False,
-    cache_dir: Union[str, Type[NotSupplied], None] = NotSupplied,
+    cache_dir: str | type[NotSupplied] | None = NotSupplied,
 ) -> ImportGraph:
     """
     Build and return an import graph for the supplied package name(s).
@@ -69,13 +70,13 @@ def build_graph(
 
 def _find_packages(
     file_system: AbstractFileSystem, package_names: Sequence[object]
-) -> Set[FoundPackage]:
+) -> set[FoundPackage]:
     package_names = _validate_package_names_are_strings(package_names)
 
     module_finder: AbstractModuleFinder = settings.MODULE_FINDER
     package_finder: AbstractPackageFinder = settings.PACKAGE_FINDER
 
-    found_packages: Set[FoundPackage] = set()
+    found_packages: set[FoundPackage] = set()
 
     for package_name in package_names:
         package_directory = package_finder.determine_package_directory(
@@ -100,12 +101,12 @@ def _validate_package_names_are_strings(
 
 
 def _scan_packages(
-    found_packages: Set[FoundPackage],
+    found_packages: set[FoundPackage],
     file_system: AbstractFileSystem,
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
-    cache_dir: Union[str, Type[NotSupplied], None],
-) -> Dict[Module, Set[DirectImport]]:
+    cache_dir: str | type[NotSupplied] | None,
+) -> dict[Module, set[DirectImport]]:
     if cache_dir is not None:
         cache_dir_if_supplied = cache_dir if cache_dir != NotSupplied else None
         cache: caching.Cache = settings.CACHE_CLASS.setup(
@@ -122,7 +123,7 @@ def _scan_packages(
         for module_file in found_package.module_files
     }
 
-    imports_by_module_file: Dict[ModuleFile, Set[DirectImport]] = {}
+    imports_by_module_file: dict[ModuleFile, set[DirectImport]] = {}
 
     if cache_dir is not None:
         imports_by_module_file.update(_read_imports_from_cache(module_files_to_scan, cache=cache))
@@ -138,7 +139,7 @@ def _scan_packages(
             )
         )
 
-    imports_by_module: Dict[Module, Set[DirectImport]] = {
+    imports_by_module: dict[Module, set[DirectImport]] = {
         k.module: v for k, v in imports_by_module_file.items()
     }
 
@@ -149,8 +150,8 @@ def _scan_packages(
 
 
 def _assemble_graph(
-    found_packages: Set[FoundPackage],
-    imports_by_module: Dict[Module, Set[DirectImport]],
+    found_packages: set[FoundPackage],
+    imports_by_module: dict[Module, set[DirectImport]],
 ) -> ImportGraph:
     graph: ImportGraph = settings.IMPORT_GRAPH_CLASS()
 
@@ -175,7 +176,7 @@ def _assemble_graph(
     return graph
 
 
-def _is_external(module: Module, package_modules: Set[Module]) -> bool:
+def _is_external(module: Module, package_modules: set[Module]) -> bool:
     return not any(
         module.is_descendant_of(package_module) or module == package_module
         for package_module in package_modules
@@ -184,8 +185,8 @@ def _is_external(module: Module, package_modules: Set[Module]) -> bool:
 
 def _read_imports_from_cache(
     module_files: Iterable[ModuleFile], *, cache: caching.Cache
-) -> Dict[ModuleFile, Set[DirectImport]]:
-    imports_by_module_file: Dict[ModuleFile, Set[DirectImport]] = {}
+) -> dict[ModuleFile, set[DirectImport]]:
+    imports_by_module_file: dict[ModuleFile, set[DirectImport]] = {}
     for module_file in module_files:
         try:
             direct_imports = cache.read_imports(module_file)

@@ -1,6 +1,6 @@
 import os
 import tokenize
-from typing import Iterator, List, Tuple
+from collections.abc import Iterator
 
 from grimp.application.ports.filesystem import AbstractFileSystem, BasicFileSystem
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
@@ -18,13 +18,13 @@ class FileSystem(AbstractFileSystem):
     def dirname(self, filename: str) -> str:
         return os.path.dirname(filename)
 
-    def walk(self, directory_name: str) -> Iterator[Tuple[str, List[str], List[str]]]:
+    def walk(self, directory_name: str) -> Iterator[tuple[str, list[str], list[str]]]:
         yield from os.walk(directory_name, followlinks=True)
 
     def join(self, *components: str) -> str:
         return os.path.join(*components)
 
-    def split(self, file_name: str) -> Tuple[str, str]:
+    def split(self, file_name: str) -> tuple[str, str]:
         return os.path.split(file_name)
 
     def read(self, file_name: str) -> str:

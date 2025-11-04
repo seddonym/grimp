@@ -1,5 +1,3 @@
-from typing import Set, Tuple
-
 import pytest  # type: ignore
 
 from grimp.application.graph import ImportGraph
@@ -175,7 +173,7 @@ class TestFindShortestChain:
             (True, ("green.foo", "blue.bar")),
         ),
     )
-    def test_as_packages(self, as_packages: bool, expected_result: Set[Tuple]):
+    def test_as_packages(self, as_packages: bool, expected_result: set[tuple]):
         graph = ImportGraph()
         graph.add_module("green")
         graph.add_module("blue")
@@ -245,7 +243,7 @@ class TestFindShortestChains:
             (True, {("green.foo", "blue.bar")}),
         ),
     )
-    def test_first_level_child_import(self, as_packages: bool, expected_result: Set[Tuple]):
+    def test_first_level_child_import(self, as_packages: bool, expected_result: set[tuple]):
         graph = ImportGraph()
         graph.add_module("green")
         graph.add_module("blue")
@@ -277,7 +275,7 @@ class TestFindShortestChains:
             (True, {("green.foo.one", "blue.bar.two")}),
         ),
     )
-    def test_grandchildren_import(self, as_packages: bool, expected_result: Set[Tuple]):
+    def test_grandchildren_import(self, as_packages: bool, expected_result: set[tuple]):
         graph = ImportGraph()
         graph.add_module("green")
         graph.add_module("blue")
@@ -297,7 +295,7 @@ class TestFindShortestChains:
         ),
     )
     def test_import_between_child_and_top_level(
-        self, as_packages: bool, expected_result: Set[Tuple]
+        self, as_packages: bool, expected_result: set[tuple]
     ):
         graph = ImportGraph()
         graph.add_module("green")
@@ -317,7 +315,7 @@ class TestFindShortestChains:
         ),
     )
     def test_import_between_top_level_and_child(
-        self, as_packages: bool, expected_result: Set[Tuple]
+        self, as_packages: bool, expected_result: set[tuple]
     ):
         graph = ImportGraph()
         graph.add_module("blue")
@@ -342,7 +340,7 @@ class TestFindShortestChains:
             ),
         ),
     )
-    def test_short_indirect_import(self, as_packages: bool, expected_result: Set[Tuple]):
+    def test_short_indirect_import(self, as_packages: bool, expected_result: set[tuple]):
         graph = ImportGraph()
         graph.add_module("green")
         graph.add_module("blue")
@@ -375,7 +373,7 @@ class TestFindShortestChains:
             ),
         ),
     )
-    def test_long_indirect_import(self, as_packages: bool, expected_result: Set[Tuple]):
+    def test_long_indirect_import(self, as_packages: bool, expected_result: set[tuple]):
         graph = ImportGraph()
         graph.add_module("green")
         graph.add_module("blue")
