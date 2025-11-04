@@ -114,6 +114,11 @@ lint-rust:
 autofix-rust:
     @cargo clippy --all-targets --all-features --fix --allow-staged --allow-dirty
 
+# Fix any ruff errors
+[group('linting')]
+autofix-python:
+    @uv run ruff check --fix
+
 # Run linters.
 [group('linting')]
 lint:
