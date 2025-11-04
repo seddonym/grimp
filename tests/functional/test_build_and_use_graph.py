@@ -1,5 +1,4 @@
 from grimp import build_graph
-from typing import Set, Tuple, Optional
 import pytest
 
 
@@ -247,7 +246,7 @@ def test_find_shortest_chain():
         ),
     ],
 )
-def test_find_shortest_chains(as_packages: Optional[bool], expected_result: Set[Tuple]):
+def test_find_shortest_chains(as_packages: bool | None, expected_result: set[tuple]):
     importer = "testpackage.three"
     imported = "testpackage.one.alpha"
 

@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Set
 
 
 @dataclass(frozen=True)
@@ -67,7 +66,7 @@ class Layer:
     independent. This is the default.
     """
 
-    module_tails: Set[str]
+    module_tails: set[str]
     independent: bool
     closed: bool
 

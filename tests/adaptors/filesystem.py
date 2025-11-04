@@ -1,4 +1,5 @@
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any
+from collections.abc import Generator
 
 import yaml
 
@@ -11,9 +12,9 @@ DEFAULT_MTIME = 10000.0
 class FakeFileSystem(AbstractFileSystem):
     def __init__(
         self,
-        contents: Optional[str] = None,
-        content_map: Optional[Dict[str, str]] = None,
-        mtime_map: Optional[Dict[str, float]] = None,
+        contents: str | None = None,
+        content_map: dict[str, str] | None = None,
+        mtime_map: dict[str, float] | None = None,
     ) -> None:
         """
         Files can be declared as existing in the file system in two different ways, either
@@ -46,7 +47,7 @@ class FakeFileSystem(AbstractFileSystem):
         self.contents = self._parse_contents(contents)
         self._raw_contents = contents
         self.content_map = content_map if content_map else {}
-        self.mtime_map: Dict[str, float] = mtime_map if mtime_map else {}
+        self.mtime_map: dict[str, float] = mtime_map if mtime_map else {}
 
     @property
     def sep(self) -> str:
@@ -75,8 +76,8 @@ class FakeFileSystem(AbstractFileSystem):
         yield from self._walk_contents(directory_contents, containing_directory=directory_name)
 
     def _walk_contents(
-        self, directory_contents: Dict[str, Any], containing_directory: str
-    ) -> Generator[Tuple[str, List[str], List[str]], None, None]:
+        self, directory_contents: dict[str, Any], containing_directory: str
+    ) -> Generator[tuple[str, list[str], list[str]], None, None]:
         directories = []
         files = []
         for key, value in directory_contents.items():
@@ -97,7 +98,7 @@ class FakeFileSystem(AbstractFileSystem):
     def join(self, *components: str) -> str:
         return self.sep.join(c.rstrip(self.sep) for c in components)
 
-    def split(self, file_name: str) -> Tuple[str, str]:
+    def split(self, file_name: str) -> tuple[str, str]:
         components = file_name.split(self.sep)
         if len(components) == 2:
             # Handle case where file is child of the root, i.e. /some-file.txt.
@@ -106,7 +107,7 @@ class FakeFileSystem(AbstractFileSystem):
             components.insert(0, "")
         return (self.sep.join(components[:-1]), components[-1])
 
-    def _parse_contents(self, raw_contents: Optional[str]):
+    def _parse_contents(self, raw_contents: str | None):
         """
         Returns the raw contents parsed in the form:
             {
@@ -142,7 +143,7 @@ class FakeFileSystem(AbstractFileSystem):
 
         return yaml.safe_load(yamlified_string)
 
-    def _dedent(self, lines: List[str]) -> List[str]:
+    def _dedent(self, lines: list[str]) -> list[str]:
         """
         Dedent all lines by the same amount.
         """

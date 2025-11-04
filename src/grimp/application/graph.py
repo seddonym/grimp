@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import List, Optional, Sequence, Set, Tuple, TypedDict
+from typing import TypedDict
+from collections.abc import Sequence
 from grimp.domain.analysis import PackageDependency, Route
 from grimp.domain.valueobjects import Layer
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
@@ -18,7 +19,7 @@ class Import(TypedDict):
 
 # Corresponds to importer, imported.
 # Prefer this form to Import, as it's both more lightweight, and hashable.
-ImportTuple = Tuple[str, str]
+ImportTuple = tuple[str, str]
 
 
 class DetailedImport(Import):
@@ -33,14 +34,14 @@ class ImportGraph:
 
     def __init__(self) -> None:
         super().__init__()
-        self._cached_modules: Set[str] | None = None
+        self._cached_modules: set[str] | None = None
         self._rustgraph = rust.Graph()
 
     # Mechanics
     # ---------
 
     @property
-    def modules(self) -> Set[str]:
+    def modules(self) -> set[str]:
         """
         The names of all the modules in the graph.
         """
@@ -48,7 +49,7 @@ class ImportGraph:
             self._cached_modules = self._rustgraph.get_modules()
         return self._cached_modules
 
-    def find_matching_modules(self, expression: str) -> Set[str]:
+    def find_matching_modules(self, expression: str) -> set[str]:
         """
         Find all modules matching the passed expression.
 
@@ -135,8 +136,8 @@ class ImportGraph:
         *,
         importer: str,
         imported: str,
-        line_number: Optional[int] = None,
-        line_contents: Optional[str] = None,
+        line_number: int | None = None,
+        line_contents: str | None = None,
     ) -> None:
         """
         Add a direct import between two modules to the graph. If the modules are not already
@@ -166,7 +167,7 @@ class ImportGraph:
     # Descendants
     # -----------
 
-    def find_children(self, module: str) -> Set[str]:
+    def find_children(self, module: str) -> set[str]:
         """
         Find all modules one level below the module. For example, the children of
         foo.bar might be foo.bar.one and foo.bar.two, but not foo.bar.two.green.
@@ -180,7 +181,7 @@ class ImportGraph:
             raise ValueError("Cannot find children of a squashed module.")
         return self._rustgraph.find_children(module)
 
-    def find_descendants(self, module: str) -> Set[str]:
+    def find_descendants(self, module: str) -> set[str]:
         """
         Find all modules below the module. For example, the descendants of
         foo.bar might be foo.bar.one and foo.bar.two and foo.bar.two.green.
@@ -213,16 +214,16 @@ class ImportGraph:
             importer=importer, imported=imported, as_packages=as_packages
         )
 
-    def find_modules_directly_imported_by(self, module: str) -> Set[str]:
+    def find_modules_directly_imported_by(self, module: str) -> set[str]:
         return self._rustgraph.find_modules_directly_imported_by(module)
 
-    def find_modules_that_directly_import(self, module: str) -> Set[str]:
+    def find_modules_that_directly_import(self, module: str) -> set[str]:
         if self._rustgraph.contains_module(module):
             # TODO panics if module isn't in modules.
             return self._rustgraph.find_modules_that_directly_import(module)
         return set()
 
-    def get_import_details(self, *, importer: str, imported: str) -> List[DetailedImport]:
+    def get_import_details(self, *, importer: str, imported: str) -> list[DetailedImport]:
         """
         Return available metadata relating to the direct imports between two modules, in the form:
         [
@@ -246,7 +247,7 @@ class ImportGraph:
             imported=imported,
         )
 
-    def find_matching_direct_imports(self, import_expression: str) -> List[Import]:
+    def find_matching_direct_imports(self, import_expression: str) -> list[Import]:
         """
         Find all direct imports matching the passed expressions.
 
@@ -290,7 +291,7 @@ class ImportGraph:
     # Indirect imports
     # ----------------
 
-    def find_downstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
+    def find_downstream_modules(self, module: str, as_package: bool = False) -> set[str]:
         """
         Return a set of the names of all the modules that import (even indirectly) the
         supplied module name.
@@ -312,7 +313,7 @@ class ImportGraph:
         """
         return self._rustgraph.find_downstream_modules(module, as_package)
 
-    def find_upstream_modules(self, module: str, as_package: bool = False) -> Set[str]:
+    def find_upstream_modules(self, module: str, as_package: bool = False) -> set[str]:
         """
         Return a set of the names of all the modules that are imported (even indirectly) by the
         supplied module.
@@ -352,7 +353,7 @@ class ImportGraph:
 
     def find_shortest_chains(
         self, importer: str, imported: str, as_packages: bool = True
-    ) -> Set[Tuple[str, ...]]:
+    ) -> set[tuple[str, ...]]:
         """
         Find the shortest import chains that exist between the importer and imported, and
         between any modules contained within them if as_packages is True. Only one chain per
@@ -474,7 +475,7 @@ class ImportGraph:
             stringified_modules = "empty"
         return f"<{self.__class__.__name__}: {stringified_modules}>"
 
-    def __deepcopy__(self, memodict: dict) -> "ImportGraph":
+    def __deepcopy__(self, memodict: dict) -> ImportGraph:
         new_graph = ImportGraph()
         new_graph._rustgraph = self._rustgraph.clone()
         return new_graph

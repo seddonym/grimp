@@ -1,5 +1,4 @@
 from copy import copy
-from typing import Type
 import pytest  # type: ignore
 from grimp.application.ports.filesystem import BasicFileSystem
 from tests.adaptors.filesystem import FakeFileSystem
@@ -11,7 +10,7 @@ class _Base:
     Tests for methods that AbstractFileSystem and BasicFileSystem share.
     """
 
-    file_system_cls: Type[BasicFileSystem]
+    file_system_cls: type[BasicFileSystem]
 
     @pytest.mark.parametrize("path", ("/path/to", "/path/to/"))
     def test_join(self, path):

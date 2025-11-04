@@ -1,5 +1,3 @@
-from typing import Set
-
 import pytest  # type: ignore
 
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
@@ -945,5 +943,5 @@ def _module_to_module_file(module: Module) -> ModuleFile:
     return ModuleFile(module=module, mtime=some_mtime)
 
 
-def _modules_to_module_files(modules: Set[Module]) -> Set[ModuleFile]:
+def _modules_to_module_files(modules: set[Module]) -> set[ModuleFile]:
     return {_module_to_module_file(module) for module in modules}

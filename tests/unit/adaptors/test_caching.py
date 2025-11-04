@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import Set
 
 import pytest  # type: ignore
 
@@ -21,7 +20,7 @@ class SimplisticFileNamer(CacheFileNamer):
     @classmethod
     def make_data_file_name(
         cls,
-        found_packages: Set[FoundPackage],
+        found_packages: set[FoundPackage],
         include_external_packages: bool,
         exclude_type_checking_imports: bool,
     ) -> str:

@@ -114,6 +114,11 @@ lint-rust:
 autofix-rust:
     @cargo clippy --all-targets --all-features --fix --allow-staged --allow-dirty
 
+# Fix any ruff errors
+[group('linting')]
+autofix-python:
+    @uv run ruff check --fix
+
 # Run linters.
 [group('linting')]
 lint:
@@ -150,6 +155,13 @@ show-benchmark-results:
 [group('benchmarking')]
 benchmark-ci:
     @uv run --group=benchmark-ci pytest --codspeed
+
+# Upgrade Python code to the supplied version. (E.g. just upgrade 310)
+[group('maintenance')]
+upgrade-python MIN_VERSION:
+    @find {docs,src,tests} -name "*.py" -not -path "tests/assets/*" -exec uv run pyupgrade --py{{MIN_VERSION}}-plus --exit-zero-even-if-changed {} +
+    @just autofix-python
+    @just format-python
 
 # Run all linters, build docs and tests. Worth running before pushing to Github.
 [group('prepush')]

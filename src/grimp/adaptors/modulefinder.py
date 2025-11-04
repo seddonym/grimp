@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, List
+from collections.abc import Iterable
 
 from grimp.application.ports import modulefinder
 from grimp.application.ports.filesystem import AbstractFileSystem
@@ -14,7 +14,7 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
     ) -> modulefinder.FoundPackage:
         self.file_system = file_system
 
-        module_files: List[modulefinder.ModuleFile] = []
+        module_files: list[modulefinder.ModuleFile] = []
 
         for module_filename in self._get_python_files_inside_package(package_directory):
             module_name = self._module_name_from_filename(

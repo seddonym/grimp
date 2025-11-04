@@ -1,10 +1,9 @@
 from grimp.application.ports.modulefinder import AbstractModuleFinder, FoundPackage, ModuleFile
 from grimp.application.ports.filesystem import AbstractFileSystem
-from typing import FrozenSet, Dict
 
 
 class BaseFakeModuleFinder(AbstractModuleFinder):
-    module_files_by_package_name: Dict[str, FrozenSet[ModuleFile]] = {}
+    module_files_by_package_name: dict[str, frozenset[ModuleFile]] = {}
 
     def find_package(
         self, package_name: str, package_directory: str, file_system: AbstractFileSystem
