@@ -139,9 +139,9 @@ impl FileSystem for RealBasicFileSystem {
         if let Some(patent_dir) = file_path.parent() {
             fs::create_dir_all(patent_dir)?;
         }
-        let mut file = File::create(file_path)?;
-        file.write_all(contents.as_bytes())?;
-        Ok(())
+        File::create(file_path)?
+            .write_all(contents.as_bytes())
+            .map_err(Into::into)
     }
 }
 
