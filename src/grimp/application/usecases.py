@@ -7,7 +7,7 @@ from collections.abc import Sequence, Iterable
 
 from .scanning import scan_imports
 from ..application.ports import caching
-from ..application.ports.filesystem import AbstractFileSystem
+from ..application.ports.filesystem import AbstractFileSystem, BasicFileSystem
 from ..application.graph import ImportGraph
 from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage, ModuleFile
 from ..application.ports.packagefinder import AbstractPackageFinder
@@ -57,7 +57,7 @@ def build_graph(
 
     imports_by_module = _scan_packages(
         found_packages=found_packages,
-        file_system=file_system,
+        file_system=file_system.convert_to_basic(),
         include_external_packages=include_external_packages,
         exclude_type_checking_imports=exclude_type_checking_imports,
         cache_dir=cache_dir,
@@ -102,7 +102,7 @@ def _validate_package_names_are_strings(
 
 def _scan_packages(
     found_packages: set[FoundPackage],
-    file_system: AbstractFileSystem,
+    file_system: BasicFileSystem,
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
     cache_dir: str | type[NotSupplied] | None,
@@ -110,7 +110,7 @@ def _scan_packages(
     if cache_dir is not None:
         cache_dir_if_supplied = cache_dir if cache_dir != NotSupplied else None
         cache: caching.Cache = settings.CACHE_CLASS.setup(
-            file_system=file_system.convert_to_basic(),
+            file_system=file_system,
             found_packages=found_packages,
             include_external_packages=include_external_packages,
             exclude_type_checking_imports=exclude_type_checking_imports,
