@@ -5,7 +5,7 @@ use crate::module_finding::Module;
 use pyo3::types::PyAnyMethods;
 use pyo3::types::{PyDict, PySet};
 use pyo3::types::{PyDictMethods, PySetMethods};
-use pyo3::{Bound, PyAny, PyResult, Python, pyfunction};
+use pyo3::{Bound, FromPyObject, PyAny, PyResult, Python, pyfunction};
 use std::collections::{HashMap, HashSet};
 
 /// Writes the cache file containing all the imports for a given package.
@@ -21,7 +21,7 @@ pub fn write_cache_data_map_file<'py>(
 ) -> PyResult<()> {
     let mut file_system_boxed = get_file_system_boxed(&file_system)?;
 
-    let imports_by_module_rust = imports_by_module_to_rust(imports_by_module);
+    let ImportsByModule(imports_by_module_rust) = imports_by_module.extract()?;
 
     let file_contents = serialize_imports_by_module(&imports_by_module_rust);
 
@@ -50,27 +50,27 @@ pub fn read_cache_data_map_file<'py>(
     Ok(imports_by_module_to_py(py, imports_by_module))
 }
 
-fn imports_by_module_to_rust(
-    imports_by_module_py: Bound<PyDict>,
-) -> HashMap<Module, HashSet<DirectImport>> {
-    let mut imports_by_module_rust = HashMap::new();
+/// A newtype wrapper for HashMap<Module, HashSet<DirectImport>> that implements FromPyObject.
+pub struct ImportsByModule(pub HashMap<Module, HashSet<DirectImport>>);
 
-    for (py_key, py_value) in imports_by_module_py.iter() {
-        let module: Module = py_key.extract().unwrap();
-        let py_set = py_value
-            .downcast::<PySet>()
-            .expect("Expected value to be a Python set.");
-        let mut hashset: HashSet<DirectImport> = HashSet::new();
-        for element in py_set.iter() {
-            let direct_import: DirectImport = element
-                .extract()
-                .expect("Expected value to be DirectImport.");
-            hashset.insert(direct_import);
+impl<'py> FromPyObject<'py> for ImportsByModule {
+    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let py_dict = ob.downcast::<PyDict>()?;
+        let mut imports_by_module_rust = HashMap::new();
+
+        for (py_key, py_value) in py_dict.iter() {
+            let module: Module = py_key.extract()?;
+            let py_set = py_value.downcast::<PySet>()?;
+            let mut hashset: HashSet<DirectImport> = HashSet::new();
+            for element in py_set.iter() {
+                let direct_import: DirectImport = element.extract()?;
+                hashset.insert(direct_import);
+            }
+            imports_by_module_rust.insert(module, hashset);
         }
-        imports_by_module_rust.insert(module, hashset);
-    }
 
-    imports_by_module_rust
+        Ok(ImportsByModule(imports_by_module_rust))
+    }
 }
 
 fn serialize_imports_by_module(
