@@ -15,7 +15,6 @@ use std::collections::{HashMap, HashSet};
 /// - file_system: The file system interface to use. (A BasicFileSystem.)
 #[pyfunction]
 pub fn write_cache_data_map_file<'py>(
-    _py: Python<'py>,
     filename: &str,
     imports_by_module: Bound<'py, PyDict>,
     file_system: Bound<'py, PyAny>,
