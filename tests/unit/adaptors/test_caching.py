@@ -7,7 +7,7 @@ from grimp.adaptors.caching import Cache, CacheFileNamer
 from grimp.application.ports.caching import CacheMiss
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.domain.valueobjects import DirectImport, Module
-from tests.adaptors.filesystem import FakeFileSystem
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 
 
 class SimplisticFileNamer(CacheFileNamer):
@@ -124,7 +124,7 @@ class TestCacheFileNamer:
 
 class TestCache:
     SOME_MTIME = 1676645081.4935088
-    FILE_SYSTEM = FakeFileSystem(
+    FILE_SYSTEM = rust.FakeBasicFileSystem(
         contents="""
             .grimp_cache/
                 mypackage.meta.json
@@ -249,7 +249,7 @@ class TestCache:
         caplog.set_level(logging.INFO, logger=Cache.__module__)
 
         Cache.setup(
-            file_system=FakeFileSystem(),  # No cache files.
+            file_system=rust.FakeBasicFileSystem(),  # No cache files.
             found_packages=self.FOUND_PACKAGES,
             namer=SimplisticFileNamer,
             include_external_packages=False,
@@ -264,7 +264,7 @@ class TestCache:
     def test_logs_corrupt_cache_meta_file_reading(self, serialized_mtime: str, caplog):
         caplog.set_level(logging.WARNING, logger=Cache.__module__)
 
-        file_system = FakeFileSystem(
+        file_system = rust.FakeBasicFileSystem(
             contents="""
                 .grimp_cache/
                     mypackage.meta.json
@@ -292,7 +292,7 @@ class TestCache:
     def test_logs_corrupt_cache_data_file_reading(self, caplog):
         caplog.set_level(logging.WARNING, logger=Cache.__module__)
 
-        file_system = FakeFileSystem(
+        file_system = rust.FakeBasicFileSystem(
             contents="""
                     .grimp_cache/
                         mypackage.meta.json
@@ -392,7 +392,7 @@ class TestCache:
         )
 
     def test_raises_cache_miss_for_missing_module_from_data(self):
-        file_system = FakeFileSystem(
+        file_system = rust.FakeBasicFileSystem(
             contents="""
                 .grimp_cache/
                     mypackage.meta.json
@@ -427,7 +427,7 @@ class TestCache:
 
     @pytest.mark.parametrize("serialized_mtime", ("INVALID_JSON", '["wrong", "type"]'))
     def test_raises_cache_miss_for_corrupt_meta_file(self, serialized_mtime):
-        file_system = FakeFileSystem(
+        file_system = rust.FakeBasicFileSystem(
             contents="""
                 .grimp_cache/
                     mypackage.meta.json
@@ -463,7 +463,7 @@ class TestCache:
 
     @pytest.mark.parametrize("serialized_import", ("INVALID_JSON", '["wrong", "type"]'))
     def test_raises_cache_miss_for_corrupt_data_file(self, serialized_import):
-        file_system = FakeFileSystem(
+        file_system = rust.FakeBasicFileSystem(
             contents="""
                 .grimp_cache/
                     mypackage.meta.json
@@ -553,7 +553,14 @@ class TestCache:
             | expected_additional_imports
         )
 
-    @pytest.mark.parametrize("cache_dir", ("/tmp/some-cache-dir", "/tmp/some-cache-dir/", None))
+    @pytest.mark.parametrize(
+        "cache_dir",
+        (
+            "/tmp/some-cache-dir",
+            "/tmp/some-cache-dir/",
+            None,
+        ),
+    )
     @pytest.mark.parametrize(
         "include_external_packages, expected_data_file_name",
         (
@@ -565,7 +572,7 @@ class TestCache:
         self, include_external_packages, expected_data_file_name, cache_dir, caplog
     ):
         caplog.set_level(logging.INFO, logger=Cache.__module__)
-        file_system = FakeFileSystem()
+        file_system = rust.FakeBasicFileSystem()
         blue_one = Module(name="blue.one")
         blue_two = Module(name="blue.two")
         green_one = Module(name="green.one")
@@ -672,7 +679,7 @@ class TestCache:
 
     def test_write_to_cache_adds_marker_files(self):
         some_cache_dir = "/tmp/some-cache-dir"
-        file_system = FakeFileSystem()
+        file_system = rust.FakeBasicFileSystem()
         cache = Cache.setup(
             file_system=file_system,
             cache_dir=some_cache_dir,

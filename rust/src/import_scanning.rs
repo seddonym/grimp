@@ -18,7 +18,23 @@ pub struct DirectImport {
     pub line_contents: String,
 }
 
-pub fn py_found_packages_to_rust(py_found_packages: &Bound<'_, PyAny>) -> HashSet<FoundPackage> {
+impl<'py> FromPyObject<'py> for DirectImport {
+    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let importer: String = ob.getattr("importer")?.getattr("name")?.extract()?;
+        let imported: String = ob.getattr("imported")?.getattr("name")?.extract()?;
+        let line_number: usize = ob.getattr("line_number")?.extract()?;
+        let line_contents: String = ob.getattr("line_contents")?.extract()?;
+
+        Ok(DirectImport {
+            importer,
+            imported,
+            line_number,
+            line_contents,
+        })
+    }
+}
+
+fn py_found_packages_to_rust(py_found_packages: &Bound<'_, PyAny>) -> HashSet<FoundPackage> {
     let py_set = py_found_packages
         .downcast::<PySet>()
         .expect("Expected py_found_packages to be a Python set.");
@@ -36,7 +52,7 @@ pub fn py_found_packages_to_rust(py_found_packages: &Bound<'_, PyAny>) -> HashSe
     rust_found_packages
 }
 
-pub fn get_modules_from_found_packages(found_packages: &HashSet<FoundPackage>) -> HashSet<Module> {
+fn get_modules_from_found_packages(found_packages: &HashSet<FoundPackage>) -> HashSet<Module> {
     let mut modules = HashSet::new();
     for package in found_packages {
         for module_file in &package.module_files {
@@ -57,7 +73,7 @@ fn module_is_descendant(module_name: &str, potential_ancestor: &str) -> bool {
 /// Statically analyses the given module and returns a set of Modules that
 /// it imports.
 #[allow(clippy::borrowed_box)]
-pub fn scan_for_imports_no_py(
+fn scan_for_imports_no_py(
     file_system: &Box<dyn FileSystem + Send + Sync>,
     found_packages: &HashSet<FoundPackage>,
     include_external_packages: bool,
@@ -153,7 +169,7 @@ fn scan_for_imports_no_py_single_module(
     Ok(imports)
 }
 
-pub fn to_py_direct_imports<'a>(
+fn to_py_direct_imports<'a>(
     py: Python<'a>,
     rust_imports: &HashSet<DirectImport>,
 ) -> Bound<'a, PySet> {

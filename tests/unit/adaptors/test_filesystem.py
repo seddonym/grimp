@@ -147,6 +147,14 @@ class _Base:
         else:
             assert file_system.read(file_name) == expected_contents
 
+    def test_write(self):
+        some_filename, some_contents = "path/to/some-file.txt", "Some contents."
+        file_system = self.file_system_cls()
+
+        file_system.write(some_filename, some_contents)
+
+        assert file_system.read(some_filename) == some_contents
+
 
 class TestFakeFileSystem(_Base):
     file_system_cls = FakeFileSystem

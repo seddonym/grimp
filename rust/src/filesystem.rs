@@ -5,8 +5,10 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
+use std::fs::File;
+use std::io::prelude::*;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock, Mutex};
 use unindent::unindent;
 
 static ENCODING_RE: LazyLock<Regex> =
@@ -22,17 +24,19 @@ pub trait FileSystem: Send + Sync {
     fn exists(&self, file_name: &str) -> bool;
 
     fn read(&self, file_name: &str) -> PyResult<String>;
+
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()>;
 }
 
 #[derive(Clone)]
 #[pyclass]
-pub struct RealBasicFileSystem {}
+struct RealBasicFileSystem {}
 
 // Implements a BasicFileSystem (defined in grimp.application.ports.filesystem.BasicFileSystem)
 // that actually reads files.
 #[pyclass(name = "RealBasicFileSystem")]
 pub struct PyRealBasicFileSystem {
-    pub inner: RealBasicFileSystem,
+    inner: RealBasicFileSystem,
 }
 
 impl FileSystem for RealBasicFileSystem {
@@ -129,6 +133,16 @@ impl FileSystem for RealBasicFileSystem {
             })
         }
     }
+
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        let file_path: PathBuf = file_name.into();
+        if let Some(patent_dir) = file_path.parent() {
+            fs::create_dir_all(patent_dir)?;
+        }
+        File::create(file_path)?
+            .write_all(contents.as_bytes())
+            .map_err(Into::into)
+    }
 }
 
 #[pymethods]
@@ -161,19 +175,23 @@ impl PyRealBasicFileSystem {
     fn read(&self, file_name: &str) -> PyResult<String> {
         self.inner.read(file_name)
     }
+
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        self.inner.write(file_name, contents)
+    }
 }
 
 type FileSystemContents = HashMap<String, String>;
 
 #[derive(Clone)]
-pub struct FakeBasicFileSystem {
-    contents: Box<FileSystemContents>,
+struct FakeBasicFileSystem {
+    contents: Arc<Mutex<FileSystemContents>>,
 }
 
 // Implements BasicFileSystem (defined in grimp.application.ports.filesystem.BasicFileSystem).
 #[pyclass(name = "FakeBasicFileSystem")]
 pub struct PyFakeBasicFileSystem {
-    pub inner: FakeBasicFileSystem,
+    inner: FakeBasicFileSystem,
 }
 
 impl FakeBasicFileSystem {
@@ -190,7 +208,7 @@ impl FakeBasicFileSystem {
             parsed_contents.extend(unindented_map);
         };
         Ok(FakeBasicFileSystem {
-            contents: Box::new(parsed_contents),
+            contents: Arc::new(Mutex::new(parsed_contents)),
         })
     }
 }
@@ -232,16 +250,24 @@ impl FileSystem for FakeBasicFileSystem {
 
     /// Checks if a file or directory exists within the file system.
     fn exists(&self, file_name: &str) -> bool {
-        self.contents.contains_key(file_name)
+        self.contents.lock().unwrap().contains_key(file_name)
     }
 
     fn read(&self, file_name: &str) -> PyResult<String> {
-        match self.contents.get(file_name) {
-            Some(file_name) => Ok(file_name.clone()),
+        let contents = self.contents.lock().unwrap();
+        match contents.get(file_name) {
+            Some(file_contents) => Ok(file_contents.clone()),
             None => Err(PyFileNotFoundError::new_err(format!(
                 "No such file: {file_name}"
             ))),
         }
+    }
+
+    #[allow(unused_variables)]
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        let mut contents_mut = self.contents.lock().unwrap();
+        contents_mut.insert(file_name.to_string(), contents.to_string());
+        Ok(())
     }
 }
 
@@ -278,6 +304,10 @@ impl PyFakeBasicFileSystem {
         self.inner.read(file_name)
     }
 
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        self.inner.write(file_name, contents)
+    }
+
     // Temporary workaround method for Python tests.
     fn convert_to_basic(&self) -> PyResult<Self> {
         Ok(PyFakeBasicFileSystem {
@@ -289,7 +319,7 @@ impl PyFakeBasicFileSystem {
 /// Parses an indented string representing a file system structure
 /// into a HashMap where keys are full file paths.
 /// See tests.adaptors.filesystem.FakeFileSystem for the API.
-pub fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<String, String> {
+fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<String, String> {
     let mut file_paths_map: HashMap<String, String> = HashMap::new();
     let mut path_stack: Vec<String> = Vec::new(); // Stores current directory path components
     let mut first_line = true; // Flag to handle the very first path component
@@ -381,7 +411,6 @@ pub fn get_file_system_boxed<'py>(
     file_system: &Bound<'py, PyAny>,
 ) -> PyResult<Box<dyn FileSystem + Send + Sync>> {
     let file_system_boxed: Box<dyn FileSystem + Send + Sync>;
-
     if let Ok(py_real) = file_system.extract::<PyRef<PyRealBasicFileSystem>>() {
         file_system_boxed = Box::new(py_real.inner.clone());
     } else if let Ok(py_fake) = file_system.extract::<PyRef<PyFakeBasicFileSystem>>() {
@@ -391,5 +420,6 @@ pub fn get_file_system_boxed<'py>(
             "file_system must be an instance of RealBasicFileSystem or FakeBasicFileSystem",
         ));
     }
+
     Ok(file_system_boxed)
 }
