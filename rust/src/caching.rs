@@ -50,7 +50,6 @@ pub fn read_cache_data_map_file<'py>(
     Ok(imports_by_module_to_py(py, imports_by_module))
 }
 
-#[allow(unused_variables)]
 fn imports_by_module_to_rust(
     imports_by_module_py: Bound<PyDict>,
 ) -> HashMap<Module, HashSet<DirectImport>> {
@@ -74,7 +73,6 @@ fn imports_by_module_to_rust(
     imports_by_module_rust
 }
 
-#[allow(unused_variables)]
 fn serialize_imports_by_module(
     imports_by_module: &HashMap<Module, HashSet<DirectImport>>,
 ) -> String {
