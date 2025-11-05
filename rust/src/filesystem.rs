@@ -30,13 +30,13 @@ pub trait FileSystem: Send + Sync {
 
 #[derive(Clone)]
 #[pyclass]
-pub struct RealBasicFileSystem {}
+struct RealBasicFileSystem {}
 
 // Implements a BasicFileSystem (defined in grimp.application.ports.filesystem.BasicFileSystem)
 // that actually reads files.
 #[pyclass(name = "RealBasicFileSystem")]
 pub struct PyRealBasicFileSystem {
-    pub inner: RealBasicFileSystem,
+    inner: RealBasicFileSystem,
 }
 
 impl FileSystem for RealBasicFileSystem {
@@ -184,14 +184,14 @@ impl PyRealBasicFileSystem {
 type FileSystemContents = HashMap<String, String>;
 
 #[derive(Clone)]
-pub struct FakeBasicFileSystem {
+struct FakeBasicFileSystem {
     contents: Arc<Mutex<FileSystemContents>>,
 }
 
 // Implements BasicFileSystem (defined in grimp.application.ports.filesystem.BasicFileSystem).
 #[pyclass(name = "FakeBasicFileSystem")]
 pub struct PyFakeBasicFileSystem {
-    pub inner: FakeBasicFileSystem,
+    inner: FakeBasicFileSystem,
 }
 
 impl FakeBasicFileSystem {
@@ -319,7 +319,7 @@ impl PyFakeBasicFileSystem {
 /// Parses an indented string representing a file system structure
 /// into a HashMap where keys are full file paths.
 /// See tests.adaptors.filesystem.FakeFileSystem for the API.
-pub fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<String, String> {
+fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<String, String> {
     let mut file_paths_map: HashMap<String, String> = HashMap::new();
     let mut path_stack: Vec<String> = Vec::new(); // Stores current directory path components
     let mut first_line = true; // Flag to handle the very first path component
