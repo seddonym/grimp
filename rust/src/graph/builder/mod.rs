@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
@@ -75,18 +76,13 @@ impl GraphBuilder {
         // Thread 1: Discover modules
         let package = self.package.clone();
         let handle = thread::spawn(move || {
-            let modules = discover_python_modules(&package);
-            // Send modules to parser threads
-            for module in modules {
-                module_discovery_sender.send(module).unwrap();
-            }
-            drop(module_discovery_sender); // Close channel to signal completion
+            discover_python_modules(&package, module_discovery_sender);
         });
         thread_handles.push(handle);
 
         // Thread pool: Parse imports
         let num_workers = thread::available_parallelism()
-            .map(|n| n.get())
+            .map(|n| max(n.get() / 2, 1))
             .unwrap_or(4);
         for _ in 0..num_workers {
             let receiver = module_discovery_receiver.clone();
@@ -151,11 +147,16 @@ struct ParsedModule {
     imported_objects: Vec<ImportedObject>,
 }
 
-fn discover_python_modules(package: &PackageSpec) -> Vec<FoundModule> {
-    let mut modules = Vec::new();
+fn discover_python_modules(package: &PackageSpec, sender: channel::Sender<FoundModule>) {
+    let num_threads = thread::available_parallelism()
+        .map(|n| max(n.get() / 2, 1))
+        .unwrap_or(4);
 
-    let walker = WalkBuilder::new(&package.directory)
+    let package_clone = package.clone();
+
+    WalkBuilder::new(&package.directory)
         .standard_filters(false) // Don't use gitignore or other filters
+        .threads(num_threads)
         .filter_entry(|entry| {
             // Allow Python files
             if entry.file_type().is_some_and(|ft| ft.is_file()) {
@@ -170,31 +171,45 @@ fn discover_python_modules(package: &PackageSpec) -> Vec<FoundModule> {
 
             false
         })
-        .build();
+        .build_parallel()
+        .run(|| {
+            let sender = sender.clone();
+            let package = package_clone.clone();
 
-    for entry in walker.flatten() {
-        let path = entry.path();
-        if let Some(module_name) = path_to_module_name(path, package) {
-            let is_package = is_package(path);
+            Box::new(move |entry| {
+                use ignore::WalkState;
 
-            // Get mtime
-            let mtime_secs = fs::metadata(path)
-                .and_then(|m| m.modified())
-                .ok()
-                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                .map(|d| d.as_secs() as i64)
-                .unwrap_or(0);
+                let entry = match entry {
+                    Ok(e) => e,
+                    Err(_) => return WalkState::Continue,
+                };
 
-            modules.push(FoundModule {
-                name: module_name,
-                path: path.to_owned(),
-                is_package,
-                mtime_secs,
-            });
-        }
-    }
+                let path = entry.path();
+                if let Some(module_name) = path_to_module_name(path, &package) {
+                    let is_package = is_package(path);
 
-    modules
+                    // Get mtime
+                    let mtime_secs = fs::metadata(path)
+                        .and_then(|m| m.modified())
+                        .ok()
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|d| d.as_secs() as i64)
+                        .unwrap_or(0);
+
+                    let found_module = FoundModule {
+                        name: module_name,
+                        path: path.to_owned(),
+                        is_package,
+                        mtime_secs,
+                    };
+
+                    // Send module as soon as we discover it
+                    let _ = sender.send(found_module);
+                }
+
+                WalkState::Continue
+            })
+        });
 }
 
 fn parse_module_imports(module: &FoundModule, cache: &ImportCache) -> Option<ParsedModule> {
