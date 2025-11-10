@@ -17,7 +17,7 @@ use cache::{ImportsCache, load_cache};
 
 mod utils;
 use utils::{
-    ResolvedImport, is_internal, is_package, path_to_module_name, resolve_external_module,
+    ResolvedImport, distill_external_module, is_internal, is_package, path_to_module_name,
     resolve_internal_module, resolve_relative_import,
 };
 
@@ -28,7 +28,7 @@ pub struct PackageSpec {
 }
 
 pub fn build_graph(
-    package: &PackageSpec,
+    package: &PackageSpec, // TODO(peter) Support multiple packages
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
     cache_dir: Option<&PathBuf>,
@@ -48,6 +48,7 @@ pub fn build_graph(
         &parsed_modules,
         include_external_packages,
         exclude_type_checking_imports,
+        &HashSet::from([package.name.to_owned()]),
     );
 
     Ok(assemble_graph(&imports_by_module, &package.name))
@@ -269,6 +270,7 @@ fn resolve_imports(
     parsed_modules: &[ParsedModule],
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
+    packages: &HashSet<String>,
 ) -> HashMap<String, HashSet<ResolvedImport>> {
     let all_modules: HashSet<String> = parsed_modules
         .iter()
@@ -304,14 +306,17 @@ fn resolve_imports(
                     line_contents: imported_object.line_contents.clone(),
                 });
             } else if include_external_packages {
-                // It's an external module and we're including them
-                let external_module = resolve_external_module(&absolute_import_name);
-                resolved_imports.insert(ResolvedImport {
-                    importer: parsed_module.module.name.to_string(),
-                    imported: external_module,
-                    line_number: imported_object.line_number,
-                    line_contents: imported_object.line_contents.clone(),
-                });
+                // Try to resolve as an external module
+                if let Some(external_module) =
+                    distill_external_module(&absolute_import_name, packages)
+                {
+                    resolved_imports.insert(ResolvedImport {
+                        importer: parsed_module.module.name.to_string(),
+                        imported: external_module,
+                        line_number: imported_object.line_number,
+                        line_contents: imported_object.line_contents.clone(),
+                    });
+                }
             }
         }
 

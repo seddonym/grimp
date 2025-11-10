@@ -20,12 +20,14 @@ pub fn is_package(module_path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// Check if a module is a descendant of another module.
+pub fn is_descendant(module_name: &str, potential_ancestor: &str) -> bool {
+    module_name.starts_with(&format!("{}.", potential_ancestor))
+}
+
 /// Check if module is internal
 pub fn is_internal(module_name: &str, package: &str) -> bool {
-    if module_name == package || module_name.starts_with(&format!("{}.", package)) {
-        return true;
-    }
-    false
+    module_name == package || is_descendant(module_name, package)
 }
 
 /// Convert module path to module name
@@ -105,13 +107,62 @@ pub fn resolve_internal_module(
     None
 }
 
-/// Get external module name
-pub fn resolve_external_module(module_name: &str) -> String {
-    // For simplicity, just return the root module for external imports
-    // This matches the basic behavior from _distill_external_module
-    module_name
-        .split('.')
-        .next()
-        .unwrap_or(module_name)
-        .to_string()
+/// Given a module that we already know is external, turn it into a module to add to the graph.
+///
+/// The 'distillation' process involves removing any unwanted subpackages. For example,
+/// django.models.db should be turned into simply django.
+///
+/// The process is more complex for potential namespace packages, as it's not possible to
+/// determine the portion package simply from name. Rather than adding the overhead of a
+/// filesystem read, we just get the shallowest component that does not clash with an internal
+/// module namespace. Take, for example, foo.blue.alpha.one. If one of the found
+/// packages is foo.blue.beta, the module will be distilled to foo.blue.alpha.
+/// Alternatively, if the found package is foo.green, the distilled module will
+/// be foo.blue.
+///
+/// Returns None if the module is a parent of one of the internal packages (doesn't make sense,
+/// probably an import of a namespace package).
+pub fn distill_external_module(
+    module_name: &str,
+    found_package_names: &HashSet<String>,
+) -> Option<String> {
+    for found_package in found_package_names {
+        // If it's a module that is a parent of the package, return None
+        // as it doesn't make sense and is probably an import of a namespace package.
+        if is_descendant(found_package, module_name) {
+            return None;
+        }
+    }
+
+    let module_root = module_name.split('.').next().unwrap();
+
+    // If it shares a namespace with an internal module, get the shallowest component that does
+    // not clash with an internal module namespace.
+    let mut candidate_portions: Vec<String> = Vec::new();
+    let mut sorted_found_packages: Vec<&String> = found_package_names.iter().collect();
+    sorted_found_packages.sort();
+    sorted_found_packages.reverse();
+
+    for found_package in sorted_found_packages {
+        if is_descendant(found_package, module_root) {
+            let mut internal_components: Vec<&str> = found_package.split('.').collect();
+            let mut external_components: Vec<&str> = module_name.split('.').collect();
+            let mut external_namespace_components: Vec<&str> = vec![];
+            while external_components[0] == internal_components[0] {
+                external_namespace_components.push(external_components.remove(0));
+                internal_components.remove(0);
+            }
+            external_namespace_components.push(external_components[0]);
+            candidate_portions.push(external_namespace_components.join("."));
+        }
+    }
+
+    if !candidate_portions.is_empty() {
+        // If multiple internal modules share a namespace with this module, use the deepest one
+        // as we know that that will be a namespace too.
+        candidate_portions.sort_by_key(|portion| portion.split('.').count());
+        Some(candidate_portions.last().unwrap().clone())
+    } else {
+        Some(module_root.to_string())
+    }
 }
