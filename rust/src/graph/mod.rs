@@ -82,6 +82,10 @@ pub struct GraphWrapper {
 }
 
 impl GraphWrapper {
+    pub fn from_graph(graph: Graph) -> Self {
+        GraphWrapper { _graph: graph }
+    }
+
     fn get_visible_module_by_name(&self, name: &str) -> Result<&Module, ModuleNotPresent> {
         self._graph
             .get_module_by_name(name)

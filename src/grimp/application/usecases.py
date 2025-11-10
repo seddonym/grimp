@@ -2,17 +2,17 @@
 Use cases handle application logic.
 """
 
+from collections.abc import Iterable, Sequence
 from typing import cast
-from collections.abc import Sequence, Iterable
 
-from .scanning import scan_imports
+from ..application.graph import ImportGraph
 from ..application.ports import caching
 from ..application.ports.filesystem import AbstractFileSystem, BasicFileSystem
-from ..application.graph import ImportGraph
 from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage, ModuleFile
 from ..application.ports.packagefinder import AbstractPackageFinder
 from ..domain.valueobjects import DirectImport, Module
 from .config import settings
+from .scanning import scan_imports
 
 
 class NotSupplied:
@@ -65,6 +65,43 @@ def build_graph(
 
     graph = _assemble_graph(found_packages, imports_by_module)
 
+    return graph
+
+
+def build_graph_rust(
+    package_name,
+    *additional_package_names,
+    include_external_packages: bool = False,
+    exclude_type_checking_imports: bool = False,
+    cache_dir: str | type[NotSupplied] | None = NotSupplied,
+) -> ImportGraph:
+    """
+    Build and return an import graph for the supplied package(s) using the Rust implementation.
+    """
+    from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
+
+    file_system: AbstractFileSystem = settings.FILE_SYSTEM
+    package_finder: AbstractPackageFinder = settings.PACKAGE_FINDER
+
+    # Determine the package directory
+    package_directory = package_finder.determine_package_directory(
+        package_name=package_name, file_system=file_system
+    )
+
+    # Create the graph_builder
+    package_spec = rust.PackageSpec(package_name, package_directory)
+    graph_builder = rust.GraphBuilder(package_spec)
+    if include_external_packages:
+        graph_builder = graph_builder.include_external_packages(True)
+    if exclude_type_checking_imports:
+        graph_builder = graph_builder.exclude_type_checking_imports(True)
+
+    # Build the graph
+    rust_graph = graph_builder.build()
+
+    # Wrap the rust graph in our ImportGraph wrapper
+    graph = ImportGraph()
+    graph._rustgraph = rust_graph
     return graph
 
 

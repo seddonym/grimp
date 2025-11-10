@@ -3,6 +3,7 @@ pub mod errors;
 pub mod exceptions;
 mod filesystem;
 pub mod graph;
+mod graph_building;
 pub mod import_parsing;
 mod import_scanning;
 pub mod module_expressions;
@@ -31,4 +32,7 @@ mod _rustgrimp {
     use crate::exceptions::{
         CorruptCache, InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError,
     };
+
+    #[pymodule_export]
+    use crate::graph_building::{PyGraphBuilder, PyPackageSpec};
 }

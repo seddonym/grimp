@@ -21,3 +21,4 @@ ignore_imports =
     grimp.application.graph -> grimp
     grimp.adaptors.filesystem -> grimp
     grimp.application.scanning -> grimp
+    grimp.application.usecases -> grimp

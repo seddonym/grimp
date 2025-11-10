@@ -1,14 +1,16 @@
 from __future__ import annotations
-from typing import TypedDict
+
 from collections.abc import Sequence
+from typing import TypedDict
+
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 from grimp.domain.analysis import PackageDependency, Route
 from grimp.domain.valueobjects import Layer
-from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 from grimp.exceptions import (
+    InvalidImportExpression,
+    InvalidModuleExpression,
     ModuleNotPresent,
     NoSuchContainer,
-    InvalidModuleExpression,
-    InvalidImportExpression,
 )
 
 
