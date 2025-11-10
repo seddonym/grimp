@@ -1,7 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
+use std::thread;
 
+use crossbeam::channel;
 use derive_new::new;
 use ignore::WalkBuilder;
 
@@ -48,17 +50,64 @@ impl GraphBuilder {
     }
 
     pub fn build(&self) -> Graph {
-        let modules = discover_python_modules(&self.package);
+        // Create channels for communication
+        let (module_discovery_sender, module_discovery_receiver) = channel::bounded(10000);
+        let (import_parser_sender, import_parser_receiver) = channel::bounded(10000);
 
-        let parsed_modules = parse_imports(&modules);
+        let mut thread_handles = Vec::new();
 
+        // Thread 1: Discover modules
+        let package = self.package.clone();
+        let handle = thread::spawn(move || {
+            let modules = discover_python_modules(&package);
+            // Send modules to parser threads
+            for module in modules {
+                module_discovery_sender.send(module).unwrap();
+            }
+            drop(module_discovery_sender); // Close channel to signal completion
+        });
+        thread_handles.push(handle);
+
+        // Thread pool: Parse imports
+        let num_workers = thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4);
+        for _ in 0..num_workers {
+            let receiver = module_discovery_receiver.clone();
+            let sender = import_parser_sender.clone();
+            let handle = thread::spawn(move || {
+                while let Ok(module) = receiver.recv() {
+                    if let Some(parsed) = parse_module_imports(&module) {
+                        sender.send(parsed).unwrap();
+                    }
+                }
+            });
+            thread_handles.push(handle);
+        }
+        drop(module_discovery_receiver); // Close original receiver
+        drop(import_parser_sender); // Close original sender
+
+        // Collect parsed modules
+        let mut parsed_modules = Vec::new();
+        while let Ok(parsed) = import_parser_receiver.recv() {
+            parsed_modules.push(parsed);
+        }
+
+        // Wait for all threads to complete
+        for handle in thread_handles {
+            handle.join().unwrap();
+        }
+
+        // Resolve imports and assemble graph (sequential)
         let imports_by_module = resolve_imports(
             &parsed_modules,
             self.include_external_packages,
             self.exclude_type_checking_imports,
         );
 
-        assemble_graph(&imports_by_module, &self.package.name)
+        let graph = assemble_graph(&imports_by_module, &self.package.name);
+
+        graph
     }
 }
 
@@ -111,25 +160,14 @@ fn discover_python_modules(package: &PackageSpec) -> Vec<FoundModule> {
     modules
 }
 
-fn parse_imports(modules: &[FoundModule]) -> Vec<ParsedModule> {
-    let mut parsed_modules = Vec::new();
-
-    for module in modules {
-        // Read the file
-        if let Ok(code) = fs::read_to_string(&module.path) {
-            // Parse imports
-            if let Ok(imported_objects) =
-                parse_imports_from_code(&code, module.path.to_str().unwrap_or(""))
-            {
-                parsed_modules.push(ParsedModule {
-                    module: module.clone(),
-                    imported_objects,
-                });
-            }
-        }
-    }
-
-    parsed_modules
+fn parse_module_imports(module: &FoundModule) -> Option<ParsedModule> {
+    let code = fs::read_to_string(&module.path).ok()?;
+    let imported_objects =
+        parse_imports_from_code(&code, module.path.to_str().unwrap_or("")).ok()?;
+    Some(ParsedModule {
+        module: module.clone(),
+        imported_objects,
+    })
 }
 
 fn resolve_imports(
