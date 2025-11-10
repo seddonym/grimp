@@ -19,6 +19,7 @@ use crate::graph::higher_order_queries::Level;
 use crate::graph::higher_order_queries::PackageDependency as PyPackageDependency;
 use crate::module_expressions::ModuleExpression;
 
+pub mod builder;
 pub mod direct_import_queries;
 pub mod graph_manipulation;
 pub mod hierarchy_queries;
