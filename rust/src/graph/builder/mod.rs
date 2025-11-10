@@ -47,8 +47,8 @@ pub fn build_graph(
 
     // Create channels for communication
     // This way we can start parsing moduels while we're still discovering them.
-    let (found_module_sender, found_module_receiver) = channel::bounded(10000);
-    let (parsed_module_sender, parser_module_receiver) = channel::bounded(10000);
+    let (found_module_sender, found_module_receiver) = channel::bounded(1000);
+    let (parsed_module_sender, parser_module_receiver) = channel::bounded(1000);
     let (error_sender, error_receiver) = channel::bounded(1);
 
     let mut thread_handles = Vec::new();
