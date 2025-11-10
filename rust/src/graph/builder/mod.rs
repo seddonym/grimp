@@ -8,6 +8,7 @@ use crossbeam::channel;
 use derive_new::new;
 use ignore::WalkBuilder;
 
+use crate::errors::{GrimpError, GrimpResult};
 use crate::graph::Graph;
 use crate::import_parsing::{ImportedObject, parse_imports_from_code};
 
@@ -31,22 +32,31 @@ pub fn build_graph(
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
     cache_dir: Option<&PathBuf>,
-) -> Graph {
+) -> GrimpResult<Graph> {
+    // Check if package directory exists
+    if !package.directory.exists() {
+        return Err(GrimpError::PackageDirectoryNotFound(
+            package.directory.display().to_string(),
+        ));
+    }
+
     // Load cache if available
     let mut cache = cache_dir
         .map(|dir| load_cache(dir, &package.name))
         .unwrap_or_default();
 
     // Create channels for communication
-    let (module_discovery_sender, module_discovery_receiver) = channel::bounded(10000);
-    let (import_parser_sender, import_parser_receiver) = channel::bounded(10000);
+    // This way we can start parsing moduels while we're still discovering them.
+    let (found_module_sender, found_module_receiver) = channel::bounded(10000);
+    let (parsed_module_sender, parser_module_receiver) = channel::bounded(10000);
+    let (error_sender, error_receiver) = channel::bounded(1);
 
     let mut thread_handles = Vec::new();
 
     // Thread 1: Discover modules
     let package_clone = package.clone();
     let handle = thread::spawn(move || {
-        discover_python_modules(&package_clone, module_discovery_sender);
+        discover_python_modules(&package_clone, found_module_sender);
     });
     thread_handles.push(handle);
 
@@ -55,30 +65,44 @@ pub fn build_graph(
         .map(|n| max(n.get() / 2, 1))
         .unwrap_or(4);
     for _ in 0..num_workers {
-        let receiver = module_discovery_receiver.clone();
-        let sender = import_parser_sender.clone();
+        let receiver = found_module_receiver.clone();
+        let sender = parsed_module_sender.clone();
+        let error_sender = error_sender.clone();
         let cache = cache.clone();
         let handle = thread::spawn(move || {
             while let Ok(module) = receiver.recv() {
-                if let Some(parsed) = parse_module_imports(&module, &cache) {
-                    sender.send(parsed).unwrap();
+                match parse_module_imports(&module, &cache) {
+                    Ok(parsed) => {
+                        let _ = sender.send(parsed);
+                    }
+                    Err(e) => {
+                        // Channel has capacity of 1, since we only care to catch one error.
+                        // Drop further errors.
+                        let _ = error_sender.try_send(e);
+                    }
                 }
             }
         });
         thread_handles.push(handle);
     }
-    drop(module_discovery_receiver); // Close original receiver
-    drop(import_parser_sender); // Close original sender
 
-    // Collect parsed modules
+    // Close original receivers/senders so threads know when to stop
+    drop(parsed_module_sender); // Main thread will know when no more parsed modules
+
+    // Collect parsed modules (this will continue until all parser threads finish and close their senders)
     let mut parsed_modules = Vec::new();
-    while let Ok(parsed) = import_parser_receiver.recv() {
+    while let Ok(parsed) = parser_module_receiver.recv() {
         parsed_modules.push(parsed);
     }
 
     // Wait for all threads to complete
     for handle in thread_handles {
         handle.join().unwrap();
+    }
+
+    // Check if any errors occurred
+    if let Ok(error) = error_receiver.try_recv() {
+        return Err(error);
     }
 
     // Update and save cache if cache_dir is set
@@ -89,17 +113,17 @@ pub fn build_graph(
                 CachedImports::new(parsed.module.mtime_secs, parsed.imported_objects.clone()),
             );
         }
-        save_cache(&cache, cache_dir, &package.name);
+        save_cache(&cache, cache_dir, &package.name)?;
     }
 
-    // Resolve imports and assemble graph (sequential)
+    // Resolve imports and assemble graph
     let imports_by_module = resolve_imports(
         &parsed_modules,
         include_external_packages,
         exclude_type_checking_imports,
     );
 
-    assemble_graph(&imports_by_module, &package.name)
+    Ok(assemble_graph(&imports_by_module, &package.name))
 }
 
 #[derive(Debug, Clone)]
@@ -154,6 +178,12 @@ fn discover_python_modules(package: &PackageSpec, sender: channel::Sender<FoundM
                 };
 
                 let path = entry.path();
+
+                // Only process files, not directories
+                if !path.is_file() {
+                    return WalkState::Continue;
+                }
+
                 if let Some(module_name) = path_to_module_name(path, &package) {
                     let is_package = is_package(path);
 
@@ -181,23 +211,27 @@ fn discover_python_modules(package: &PackageSpec, sender: channel::Sender<FoundM
         });
 }
 
-fn parse_module_imports(module: &FoundModule, cache: &ImportCache) -> Option<ParsedModule> {
+fn parse_module_imports(module: &FoundModule, cache: &ImportCache) -> GrimpResult<ParsedModule> {
     // Check if we have a cached version with matching mtime
     if let Some(cached) = cache.get(&module.path)
         && module.mtime_secs == cached.mtime_secs()
     {
         // Cache hit - use cached imports
-        return Some(ParsedModule {
+        return Ok(ParsedModule {
             module: module.clone(),
             imported_objects: cached.imported_objects().to_vec(),
         });
     }
 
     // Cache miss or file modified - parse the file
-    let code = fs::read_to_string(&module.path).ok()?;
-    let imported_objects =
-        parse_imports_from_code(&code, module.path.to_str().unwrap_or("")).ok()?;
-    Some(ParsedModule {
+    let code = fs::read_to_string(&module.path).map_err(|e| GrimpError::FileReadError {
+        path: module.path.display().to_string(),
+        error: e.to_string(),
+    })?;
+
+    let imported_objects = parse_imports_from_code(&code, module.path.to_str().unwrap_or(""))?;
+
+    Ok(ParsedModule {
         module: module.clone(),
         imported_objects,
     })

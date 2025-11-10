@@ -1,6 +1,6 @@
 use crate::exceptions;
 use pyo3::PyErr;
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyFileNotFoundError, PyIOError, PyValueError};
 use ruff_python_parser::ParseError as RuffParseError;
 use thiserror::Error;
 
@@ -36,6 +36,18 @@ pub enum GrimpError {
 
     #[error("Could not use corrupt cache file {0}.")]
     CorruptCache(String),
+
+    #[error("Failed to read file {path}: {error}")]
+    FileReadError { path: String, error: String },
+
+    #[error("Failed to get file metadata for {path}: {error}")]
+    FileMetadataError { path: String, error: String },
+
+    #[error("Failed to write cache file {path}: {error}")]
+    CacheWriteError { path: String, error: String },
+
+    #[error("Package directory does not exist: {0}")]
+    PackageDirectoryNotFound(String),
 }
 
 pub type GrimpResult<T> = Result<T, GrimpError>;
@@ -55,6 +67,12 @@ impl From<GrimpError> for PyErr {
                 line_number, text, ..
             } => PyErr::new::<exceptions::ParseError, _>((line_number, text)),
             GrimpError::CorruptCache(_) => exceptions::CorruptCache::new_err(value.to_string()),
+            GrimpError::FileReadError { .. } => PyIOError::new_err(value.to_string()),
+            GrimpError::FileMetadataError { .. } => PyIOError::new_err(value.to_string()),
+            GrimpError::CacheWriteError { .. } => PyIOError::new_err(value.to_string()),
+            GrimpError::PackageDirectoryNotFound(_) => {
+                PyFileNotFoundError::new_err(value.to_string())
+            }
         }
     }
 }

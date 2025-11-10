@@ -27,13 +27,13 @@ pub fn build_graph_rust(
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
     cache_dir: Option<String>,
-) -> GraphWrapper {
+) -> PyResult<GraphWrapper> {
     let cache_path = cache_dir.map(PathBuf::from);
     let graph = build_graph(
         &package.inner,
         include_external_packages,
         exclude_type_checking_imports,
         cache_path.as_ref(),
-    );
-    GraphWrapper::from_graph(graph)
+    )?;
+    Ok(GraphWrapper::from_graph(graph))
 }

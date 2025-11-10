@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use bincode::{Decode, Encode};
 
+use crate::errors::{GrimpError, GrimpResult};
 use crate::import_parsing::ImportedObject;
 
 #[derive(Debug, Clone, Encode, Decode)]
@@ -48,20 +49,31 @@ pub fn load_cache(cache_dir: &Path, package_name: &str) -> ImportCache {
     HashMap::new()
 }
 
-pub fn save_cache(cache: &ImportCache, cache_dir: &Path, package_name: &str) {
-    if let Err(e) = fs::create_dir_all(cache_dir) {
-        eprintln!("Failed to create cache directory: {}", e);
-        return;
-    }
+pub fn save_cache(cache: &ImportCache, cache_dir: &Path, package_name: &str) -> GrimpResult<()> {
+    fs::create_dir_all(cache_dir).map_err(|e| GrimpError::CacheWriteError {
+        path: cache_dir.display().to_string(),
+        error: e.to_string(),
+    })?;
 
     let cache_file = cache_dir.join(format!("{}.imports.bincode", package_name));
 
-    match bincode::encode_to_vec(cache, bincode::config::standard()) {
-        Ok(encoded) => {
-            if let Ok(mut file) = fs::File::create(&cache_file) {
-                let _ = file.write_all(&encoded);
-            }
+    let encoded = bincode::encode_to_vec(cache, bincode::config::standard()).map_err(|e| {
+        GrimpError::CacheWriteError {
+            path: cache_file.display().to_string(),
+            error: e.to_string(),
         }
-        Err(e) => eprintln!("Failed to encode cache: {}", e),
-    }
+    })?;
+
+    let mut file = fs::File::create(&cache_file).map_err(|e| GrimpError::CacheWriteError {
+        path: cache_file.display().to_string(),
+        error: e.to_string(),
+    })?;
+
+    file.write_all(&encoded)
+        .map_err(|e| GrimpError::CacheWriteError {
+            path: cache_file.display().to_string(),
+            error: e.to_string(),
+        })?;
+
+    Ok(())
 }
