@@ -26,111 +26,80 @@ pub struct PackageSpec {
     directory: PathBuf,
 }
 
-#[derive(Debug, Clone)]
-pub struct GraphBuilder {
-    package: PackageSpec, // TODO(peter) Support multiple packages
+pub fn build_graph(
+    package: &PackageSpec, // TODO(peter) Support multiple packages
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
-    cache_dir: Option<PathBuf>,
-}
+    cache_dir: Option<&PathBuf>,
+) -> Graph {
+    // Load cache if available
+    let mut cache = cache_dir
+        .map(|dir| load_cache(dir, &package.name))
+        .unwrap_or_default();
 
-impl GraphBuilder {
-    pub fn new(package: PackageSpec) -> Self {
-        GraphBuilder {
-            package,
-            include_external_packages: false,
-            exclude_type_checking_imports: false,
-            cache_dir: None,
-        }
-    }
+    // Create channels for communication
+    let (module_discovery_sender, module_discovery_receiver) = channel::bounded(10000);
+    let (import_parser_sender, import_parser_receiver) = channel::bounded(10000);
 
-    pub fn include_external_packages(mut self, yes: bool) -> Self {
-        self.include_external_packages = yes;
-        self
-    }
+    let mut thread_handles = Vec::new();
 
-    pub fn exclude_type_checking_imports(mut self, yes: bool) -> Self {
-        self.exclude_type_checking_imports = yes;
-        self
-    }
+    // Thread 1: Discover modules
+    let package_clone = package.clone();
+    let handle = thread::spawn(move || {
+        discover_python_modules(&package_clone, module_discovery_sender);
+    });
+    thread_handles.push(handle);
 
-    pub fn cache_dir(mut self, cache_dir: Option<PathBuf>) -> Self {
-        self.cache_dir = cache_dir;
-        self
-    }
-
-    pub fn build(&self) -> Graph {
-        // Load cache if available
-        let mut cache = self
-            .cache_dir
-            .as_ref()
-            .map(|dir| load_cache(dir, &self.package.name))
-            .unwrap_or_default();
-
-        // Create channels for communication
-        let (module_discovery_sender, module_discovery_receiver) = channel::bounded(10000);
-        let (import_parser_sender, import_parser_receiver) = channel::bounded(10000);
-
-        let mut thread_handles = Vec::new();
-
-        // Thread 1: Discover modules
-        let package = self.package.clone();
+    // Thread pool: Parse imports
+    let num_workers = thread::available_parallelism()
+        .map(|n| max(n.get() / 2, 1))
+        .unwrap_or(4);
+    for _ in 0..num_workers {
+        let receiver = module_discovery_receiver.clone();
+        let sender = import_parser_sender.clone();
+        let cache = cache.clone();
         let handle = thread::spawn(move || {
-            discover_python_modules(&package, module_discovery_sender);
+            while let Ok(module) = receiver.recv() {
+                if let Some(parsed) = parse_module_imports(&module, &cache) {
+                    sender.send(parsed).unwrap();
+                }
+            }
         });
         thread_handles.push(handle);
-
-        // Thread pool: Parse imports
-        let num_workers = thread::available_parallelism()
-            .map(|n| max(n.get() / 2, 1))
-            .unwrap_or(4);
-        for _ in 0..num_workers {
-            let receiver = module_discovery_receiver.clone();
-            let sender = import_parser_sender.clone();
-            let cache = cache.clone();
-            let handle = thread::spawn(move || {
-                while let Ok(module) = receiver.recv() {
-                    if let Some(parsed) = parse_module_imports(&module, &cache) {
-                        sender.send(parsed).unwrap();
-                    }
-                }
-            });
-            thread_handles.push(handle);
-        }
-        drop(module_discovery_receiver); // Close original receiver
-        drop(import_parser_sender); // Close original sender
-
-        // Collect parsed modules
-        let mut parsed_modules = Vec::new();
-        while let Ok(parsed) = import_parser_receiver.recv() {
-            parsed_modules.push(parsed);
-        }
-
-        // Wait for all threads to complete
-        for handle in thread_handles {
-            handle.join().unwrap();
-        }
-
-        // Update and save cache if cache_dir is set
-        if let Some(cache_dir) = &self.cache_dir {
-            for parsed in &parsed_modules {
-                cache.insert(
-                    parsed.module.path.clone(),
-                    CachedImports::new(parsed.module.mtime_secs, parsed.imported_objects.clone()),
-                );
-            }
-            save_cache(&cache, cache_dir, &self.package.name);
-        }
-
-        // Resolve imports and assemble graph (sequential)
-        let imports_by_module = resolve_imports(
-            &parsed_modules,
-            self.include_external_packages,
-            self.exclude_type_checking_imports,
-        );
-
-        assemble_graph(&imports_by_module, &self.package.name)
     }
+    drop(module_discovery_receiver); // Close original receiver
+    drop(import_parser_sender); // Close original sender
+
+    // Collect parsed modules
+    let mut parsed_modules = Vec::new();
+    while let Ok(parsed) = import_parser_receiver.recv() {
+        parsed_modules.push(parsed);
+    }
+
+    // Wait for all threads to complete
+    for handle in thread_handles {
+        handle.join().unwrap();
+    }
+
+    // Update and save cache if cache_dir is set
+    if let Some(cache_dir) = cache_dir {
+        for parsed in &parsed_modules {
+            cache.insert(
+                parsed.module.path.clone(),
+                CachedImports::new(parsed.module.mtime_secs, parsed.imported_objects.clone()),
+            );
+        }
+        save_cache(&cache, cache_dir, &package.name);
+    }
+
+    // Resolve imports and assemble graph (sequential)
+    let imports_by_module = resolve_imports(
+        &parsed_modules,
+        include_external_packages,
+        exclude_type_checking_imports,
+    );
+
+    assemble_graph(&imports_by_module, &package.name)
 }
 
 #[derive(Debug, Clone)]

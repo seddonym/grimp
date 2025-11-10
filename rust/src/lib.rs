@@ -34,5 +34,5 @@ mod _rustgrimp {
     };
 
     #[pymodule_export]
-    use crate::graph_building::{PyGraphBuilder, PyPackageSpec};
+    use crate::graph_building::{PyPackageSpec, build_graph_rust};
 }

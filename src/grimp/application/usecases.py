@@ -88,23 +88,23 @@ def build_graph_rust(
         package_name=package_name, file_system=file_system
     )
 
-    # Create the graph_builder
+    # Create package spec and build the graph
     package_spec = rust.PackageSpec(package_name, package_directory)
-    graph_builder = rust.GraphBuilder(package_spec)
-    if include_external_packages:
-        graph_builder = graph_builder.include_external_packages(True)
-    if exclude_type_checking_imports:
-        graph_builder = graph_builder.exclude_type_checking_imports(True)
 
     # Handle cache_dir
-    if cache_dir is not None:
-        if cache_dir is NotSupplied:
-            graph_builder = graph_builder.cache_dir(".grimp_cache")
-        else:
-            graph_builder = graph_builder.cache_dir(cache_dir)
+    cache_dir_arg: str | None = None
+    if cache_dir is NotSupplied:
+        cache_dir_arg = ".grimp_cache"
+    elif isinstance(cache_dir, str):
+        cache_dir_arg = cache_dir
 
     # Build the graph
-    rust_graph = graph_builder.build()
+    rust_graph = rust.build_graph_rust(
+        package_spec,
+        include_external_packages=include_external_packages,
+        exclude_type_checking_imports=exclude_type_checking_imports,
+        cache_dir=cache_dir_arg,
+    )
 
     # Wrap the rust graph in our ImportGraph wrapper
     graph = ImportGraph()

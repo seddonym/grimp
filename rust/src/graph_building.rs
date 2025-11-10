@@ -2,7 +2,7 @@ use pyo3::prelude::*;
 use std::path::PathBuf;
 
 use crate::graph::GraphWrapper;
-use crate::graph::builder::{GraphBuilder, PackageSpec};
+use crate::graph::builder::{PackageSpec, build_graph};
 
 #[pyclass(name = "PackageSpec")]
 #[derive(Clone)]
@@ -20,40 +20,20 @@ impl PyPackageSpec {
     }
 }
 
-#[pyclass(name = "GraphBuilder")]
-pub struct PyGraphBuilder {
-    inner: GraphBuilder,
-}
-
-#[pymethods]
-impl PyGraphBuilder {
-    #[new]
-    fn new(package: PyPackageSpec) -> Self {
-        PyGraphBuilder {
-            inner: GraphBuilder::new(package.inner),
-        }
-    }
-
-    fn include_external_packages(mut self_: PyRefMut<'_, Self>, yes: bool) -> PyRefMut<'_, Self> {
-        self_.inner = self_.inner.clone().include_external_packages(yes);
-        self_
-    }
-
-    fn exclude_type_checking_imports(
-        mut self_: PyRefMut<'_, Self>,
-        yes: bool,
-    ) -> PyRefMut<'_, Self> {
-        self_.inner = self_.inner.clone().exclude_type_checking_imports(yes);
-        self_
-    }
-
-    fn cache_dir(mut self_: PyRefMut<'_, Self>, cache_dir: Option<String>) -> PyRefMut<'_, Self> {
-        self_.inner = self_.inner.clone().cache_dir(cache_dir.map(PathBuf::from));
-        self_
-    }
-
-    fn build(&self) -> GraphWrapper {
-        let graph = self.inner.build();
-        GraphWrapper::from_graph(graph)
-    }
+#[pyfunction]
+#[pyo3(signature = (package, include_external_packages=false, exclude_type_checking_imports=false, cache_dir=None))]
+pub fn build_graph_rust(
+    package: &PyPackageSpec,
+    include_external_packages: bool,
+    exclude_type_checking_imports: bool,
+    cache_dir: Option<String>,
+) -> GraphWrapper {
+    let cache_path = cache_dir.map(PathBuf::from);
+    let graph = build_graph(
+        &package.inner,
+        include_external_packages,
+        exclude_type_checking_imports,
+        cache_path.as_ref(),
+    );
+    GraphWrapper::from_graph(graph)
 }
