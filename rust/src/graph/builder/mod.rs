@@ -61,10 +61,8 @@ pub fn build_graph(
     thread_handles.push(handle);
 
     // Thread pool: Parse imports
-    let num_workers = thread::available_parallelism()
-        .map(|n| max(n.get() / 2, 1))
-        .unwrap_or(4);
-    for _ in 0..num_workers {
+    let num_threads = num_threads_for_module_parsing();
+    for _ in 0..num_threads {
         let receiver = found_module_receiver.clone();
         let sender = parsed_module_sender.clone();
         let error_sender = error_sender.clone();
@@ -141,10 +139,7 @@ struct ParsedModule {
 }
 
 fn discover_python_modules(package: &PackageSpec, sender: channel::Sender<FoundModule>) {
-    let num_threads = thread::available_parallelism()
-        .map(|n| max(n.get() / 2, 1))
-        .unwrap_or(4);
-
+    let num_threads = num_threads_for_module_discovery();
     let package_clone = package.clone();
 
     WalkBuilder::new(&package.directory)
@@ -323,4 +318,20 @@ fn assemble_graph(
     }
 
     graph
+}
+
+/// Calculate the number of threads to use for module discovery.
+/// Uses half of available parallelism, with a minimum of 1 and default of 4.
+fn num_threads_for_module_discovery() -> usize {
+    thread::available_parallelism()
+        .map(|n| max(n.get() / 2, 1))
+        .unwrap_or(4)
+}
+
+/// Calculate the number of threads to use for module parsing.
+/// Uses half of available parallelism, with a minimum of 1 and default of 4.
+fn num_threads_for_module_parsing() -> usize {
+    thread::available_parallelism()
+        .map(|n| max(n.get() / 2, 1))
+        .unwrap_or(4)
 }
