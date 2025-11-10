@@ -96,6 +96,13 @@ def build_graph_rust(
     if exclude_type_checking_imports:
         graph_builder = graph_builder.exclude_type_checking_imports(True)
 
+    # Handle cache_dir
+    if cache_dir is not None:
+        if cache_dir is NotSupplied:
+            graph_builder = graph_builder.cache_dir(".grimp_cache")
+        else:
+            graph_builder = graph_builder.cache_dir(cache_dir)
+
     # Build the graph
     rust_graph = graph_builder.build()
 

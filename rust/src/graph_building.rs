@@ -47,6 +47,11 @@ impl PyGraphBuilder {
         self_
     }
 
+    fn cache_dir(mut self_: PyRefMut<'_, Self>, cache_dir: Option<String>) -> PyRefMut<'_, Self> {
+        self_.inner = self_.inner.clone().cache_dir(cache_dir.map(PathBuf::from));
+        self_
+    }
+
     fn build(&self) -> GraphWrapper {
         let graph = self.inner.build();
         GraphWrapper::from_graph(graph)

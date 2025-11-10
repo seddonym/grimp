@@ -3,10 +3,96 @@
 
 import argparse
 import os
+import shutil
 import sys
 import time
+from dataclasses import dataclass
+from typing import Callable
 
 import grimp
+
+
+@dataclass
+class BenchmarkResult:
+    """Result of a single benchmark run."""
+
+    name: str
+    elapsed: float
+    modules: int
+    imports: int
+
+
+def run_benchmark(
+    name: str,
+    build_func: Callable,
+    package_name: str,
+    cache_dir: str | None,
+) -> BenchmarkResult:
+    """Run a single benchmark and return the result."""
+    print(f"\n{name}:")
+    start = time.perf_counter()
+    graph = build_func(package_name, cache_dir=cache_dir)
+    elapsed = time.perf_counter() - start
+
+    modules = len(graph.modules)
+    imports = len(graph.find_matching_direct_imports(import_expression="** -> **"))
+
+    print(f"  Time:    {elapsed:.3f}s")
+    print(f"  Modules: {modules}")
+    print(f"  Imports: {imports}")
+
+    return BenchmarkResult(name, elapsed, modules, imports)
+
+
+def cleanup_cache_dir(cache_dir: str) -> None:
+    """Remove cache directory."""
+    if os.path.exists(cache_dir):
+        shutil.rmtree(cache_dir)
+
+
+def print_comparison(
+    py_results: list[BenchmarkResult], rust_results: list[BenchmarkResult]
+) -> None:
+    """Print comparison of benchmark results."""
+    py_no_cache, py_cold, py_warm = py_results
+    rust_no_cache, rust_cold, rust_warm = rust_results
+
+    print("\n" + "=" * 60)
+    print("Comparison:")
+    print(f"  Python (no cache):          {py_no_cache.elapsed:.3f}s")
+    print(
+        f"  Python (cold cache):        {py_cold.elapsed:.3f}s  "
+        f"({py_no_cache.elapsed / py_cold.elapsed:.2f}x speedup)"
+    )
+    print(
+        f"  Python (warm cache):        {py_warm.elapsed:.3f}s  "
+        f"({py_no_cache.elapsed / py_warm.elapsed:.2f}x speedup)"
+    )
+    print(
+        f"  Rust (no cache):            {rust_no_cache.elapsed:.3f}s  "
+        f"({py_no_cache.elapsed / rust_no_cache.elapsed:.2f}x vs Python no cache)"
+    )
+    print(
+        f"  Rust (cold cache):          {rust_cold.elapsed:.3f}s  "
+        f"({py_no_cache.elapsed / rust_cold.elapsed:.2f}x vs Python no cache)"
+    )
+    print(
+        f"  Rust (warm cache):          {rust_warm.elapsed:.3f}s  "
+        f"({py_no_cache.elapsed / rust_warm.elapsed:.2f}x vs Python no cache)"
+    )
+    print(f"\n  Python cache speedup:       {py_no_cache.elapsed / py_warm.elapsed:.2f}x")
+    print(f"  Rust cache speedup:         {rust_no_cache.elapsed / rust_warm.elapsed:.2f}x")
+
+    # Verify correctness
+    if py_no_cache.modules != rust_no_cache.modules:
+        print(
+            f"\n⚠️  Warning: Module count mismatch "
+            f"({py_no_cache.modules} vs {rust_no_cache.modules})"
+        )
+    if py_no_cache.imports != rust_no_cache.imports:
+        print(
+            f"⚠️  Warning: Import count mismatch ({py_no_cache.imports} vs {rust_no_cache.imports})"
+        )
 
 
 def benchmark_build_graph(package_name: str, working_dir: str | None = None) -> None:
@@ -22,45 +108,61 @@ def benchmark_build_graph(package_name: str, working_dir: str | None = None) -> 
     print(f"Benchmarking graph building for package: {package_name}")
     print("=" * 60)
 
+    cache_dir = ".grimp_cache_benchmark"
+
     # Benchmark Python version
-    print("\nPython version (build_graph):")
-    start = time.perf_counter()
-    graph_py = grimp.build_graph(package_name, cache_dir=None)
-    elapsed_py = time.perf_counter() - start
+    py_no_cache = run_benchmark(
+        "Python version without cache (build_graph)",
+        grimp.build_graph,
+        package_name,
+        None,
+    )
 
-    modules_py = len(graph_py.modules)
-    imports_py = len(graph_py.find_matching_direct_imports(import_expression="** -> **"))
+    cleanup_cache_dir(cache_dir)
+    py_cold = run_benchmark(
+        "Python version with cache - first run (cold cache)",
+        grimp.build_graph,
+        package_name,
+        cache_dir,
+    )
 
-    print(f"  Time:    {elapsed_py:.3f}s")
-    print(f"  Modules: {modules_py}")
-    print(f"  Imports: {imports_py}")
+    py_warm = run_benchmark(
+        "Python version with cache - second run (warm cache)",
+        grimp.build_graph,
+        package_name,
+        cache_dir,
+    )
 
     # Benchmark Rust version
-    print("\nRust version (build_graph_rust):")
-    start = time.perf_counter()
-    graph_rust = grimp.build_graph_rust(package_name, cache_dir=None)
-    elapsed_rust = time.perf_counter() - start
+    rust_no_cache = run_benchmark(
+        "Rust version without cache (build_graph_rust)",
+        grimp.build_graph_rust,
+        package_name,
+        None,
+    )
 
-    modules_rust = len(graph_rust.modules)
-    imports_rust = len(graph_rust.find_matching_direct_imports(import_expression="** -> **"))
+    cleanup_cache_dir(cache_dir)
+    rust_cold = run_benchmark(
+        "Rust version with cache - first run (cold cache)",
+        grimp.build_graph_rust,
+        package_name,
+        cache_dir,
+    )
 
-    print(f"  Time:    {elapsed_rust:.3f}s")
-    print(f"  Modules: {modules_rust}")
-    print(f"  Imports: {imports_rust}")
+    rust_warm = run_benchmark(
+        "Rust version with cache - second run (warm cache)",
+        grimp.build_graph_rust,
+        package_name,
+        cache_dir,
+    )
 
-    # Compare
-    print("\n" + "=" * 60)
-    print("Comparison:")
-    speedup = elapsed_py / elapsed_rust if elapsed_rust > 0 else float("inf")
-    print(f"  Speedup: {speedup:.2f}x")
-    print(f"  Python:  {elapsed_py:.3f}s")
-    print(f"  Rust:    {elapsed_rust:.3f}s")
+    cleanup_cache_dir(cache_dir)
 
-    # Verify correctness
-    if modules_py != modules_rust:
-        print(f"\n⚠️  Warning: Module count mismatch ({modules_py} vs {modules_rust})")
-    if imports_py != imports_rust:
-        print(f"⚠️  Warning: Import count mismatch ({imports_py} vs {imports_rust})")
+    # Print comparison
+    print_comparison(
+        [py_no_cache, py_cold, py_warm],
+        [rust_no_cache, rust_cold, rust_warm],
+    )
 
 
 def main():

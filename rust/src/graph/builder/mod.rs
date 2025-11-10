@@ -10,6 +10,9 @@ use ignore::WalkBuilder;
 use crate::graph::Graph;
 use crate::import_parsing::{ImportedObject, parse_imports_from_code};
 
+mod cache;
+use cache::{CachedImports, ImportCache, load_cache, save_cache};
+
 mod utils;
 use utils::{
     ResolvedImport, is_internal, is_package, path_to_module_name, resolve_external_module,
@@ -27,7 +30,7 @@ pub struct GraphBuilder {
     package: PackageSpec, // TODO(peter) Support multiple packages
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
-    // cache_dir: Option<PathBuf>  // TODO(peter)
+    cache_dir: Option<PathBuf>,
 }
 
 impl GraphBuilder {
@@ -36,6 +39,7 @@ impl GraphBuilder {
             package,
             include_external_packages: false,
             exclude_type_checking_imports: false,
+            cache_dir: None,
         }
     }
 
@@ -49,7 +53,19 @@ impl GraphBuilder {
         self
     }
 
+    pub fn cache_dir(mut self, cache_dir: Option<PathBuf>) -> Self {
+        self.cache_dir = cache_dir;
+        self
+    }
+
     pub fn build(&self) -> Graph {
+        // Load cache if available
+        let mut cache = self
+            .cache_dir
+            .as_ref()
+            .map(|dir| load_cache(dir, &self.package.name))
+            .unwrap_or_default();
+
         // Create channels for communication
         let (module_discovery_sender, module_discovery_receiver) = channel::bounded(10000);
         let (import_parser_sender, import_parser_receiver) = channel::bounded(10000);
@@ -75,9 +91,10 @@ impl GraphBuilder {
         for _ in 0..num_workers {
             let receiver = module_discovery_receiver.clone();
             let sender = import_parser_sender.clone();
+            let cache = cache.clone();
             let handle = thread::spawn(move || {
                 while let Ok(module) = receiver.recv() {
-                    if let Some(parsed) = parse_module_imports(&module) {
+                    if let Some(parsed) = parse_module_imports(&module, &cache) {
                         sender.send(parsed).unwrap();
                     }
                 }
@@ -98,6 +115,17 @@ impl GraphBuilder {
             handle.join().unwrap();
         }
 
+        // Update and save cache if cache_dir is set
+        if let Some(cache_dir) = &self.cache_dir {
+            for parsed in &parsed_modules {
+                cache.insert(
+                    parsed.module.path.clone(),
+                    CachedImports::new(parsed.module.mtime_secs, parsed.imported_objects.clone()),
+                );
+            }
+            save_cache(&cache, cache_dir, &self.package.name);
+        }
+
         // Resolve imports and assemble graph (sequential)
         let imports_by_module = resolve_imports(
             &parsed_modules,
@@ -105,9 +133,7 @@ impl GraphBuilder {
             self.exclude_type_checking_imports,
         );
 
-        let graph = assemble_graph(&imports_by_module, &self.package.name);
-
-        graph
+        assemble_graph(&imports_by_module, &self.package.name)
     }
 }
 
@@ -116,6 +142,7 @@ struct FoundModule {
     name: String,
     path: PathBuf,
     is_package: bool,
+    mtime_secs: i64,
 }
 
 #[derive(Debug)]
@@ -149,10 +176,20 @@ fn discover_python_modules(package: &PackageSpec) -> Vec<FoundModule> {
         let path = entry.path();
         if let Some(module_name) = path_to_module_name(path, package) {
             let is_package = is_package(path);
+
+            // Get mtime
+            let mtime_secs = fs::metadata(path)
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+
             modules.push(FoundModule {
                 name: module_name,
                 path: path.to_owned(),
                 is_package,
+                mtime_secs,
             });
         }
     }
@@ -160,7 +197,19 @@ fn discover_python_modules(package: &PackageSpec) -> Vec<FoundModule> {
     modules
 }
 
-fn parse_module_imports(module: &FoundModule) -> Option<ParsedModule> {
+fn parse_module_imports(module: &FoundModule, cache: &ImportCache) -> Option<ParsedModule> {
+    // Check if we have a cached version with matching mtime
+    if let Some(cached) = cache.get(&module.path)
+        && module.mtime_secs == cached.mtime_secs()
+    {
+        // Cache hit - use cached imports
+        return Some(ParsedModule {
+            module: module.clone(),
+            imported_objects: cached.imported_objects().to_vec(),
+        });
+    }
+
+    // Cache miss or file modified - parse the file
     let code = fs::read_to_string(&module.path).ok()?;
     let imported_objects =
         parse_imports_from_code(&code, module.path.to_str().unwrap_or("")).ok()?;

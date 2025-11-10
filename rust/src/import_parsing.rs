@@ -1,10 +1,12 @@
+use bincode::{Decode, Encode};
+
 use crate::errors::{GrimpError, GrimpResult};
 use ruff_python_ast::statement_visitor::{StatementVisitor, walk_body, walk_stmt};
 use ruff_python_ast::{Expr, Stmt};
 use ruff_python_parser::parse_module;
 use ruff_source_file::{LineIndex, SourceCode};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
 pub struct ImportedObject {
     pub name: String,
     pub line_number: usize,
