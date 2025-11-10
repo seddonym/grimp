@@ -13,7 +13,7 @@ use crate::graph::Graph;
 use crate::import_parsing::{ImportedObject, parse_imports_from_code};
 
 mod cache;
-use cache::{CachedImports, ImportCache, load_cache, save_cache};
+use cache::{ImportsCache, load_cache};
 
 mod utils;
 use utils::{
@@ -28,7 +28,7 @@ pub struct PackageSpec {
 }
 
 pub fn build_graph(
-    package: &PackageSpec, // TODO(peter) Support multiple packages
+    package: &PackageSpec,
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
     cache_dir: Option<&PathBuf>,
@@ -40,79 +40,8 @@ pub fn build_graph(
         ));
     }
 
-    // Load cache if available
-    let mut cache = cache_dir
-        .map(|dir| load_cache(dir, &package.name))
-        .unwrap_or_default();
-
-    // Create channels for communication
-    // This way we can start parsing moduels while we're still discovering them.
-    let (found_module_sender, found_module_receiver) = channel::bounded(1000);
-    let (parsed_module_sender, parser_module_receiver) = channel::bounded(1000);
-    let (error_sender, error_receiver) = channel::bounded(1);
-
-    let mut thread_handles = Vec::new();
-
-    // Thread 1: Discover modules
-    let package_clone = package.clone();
-    let handle = thread::spawn(move || {
-        discover_python_modules(&package_clone, found_module_sender);
-    });
-    thread_handles.push(handle);
-
-    // Thread pool: Parse imports
-    let num_threads = num_threads_for_module_parsing();
-    for _ in 0..num_threads {
-        let receiver = found_module_receiver.clone();
-        let sender = parsed_module_sender.clone();
-        let error_sender = error_sender.clone();
-        let cache = cache.clone();
-        let handle = thread::spawn(move || {
-            while let Ok(module) = receiver.recv() {
-                match parse_module_imports(&module, &cache) {
-                    Ok(parsed) => {
-                        let _ = sender.send(parsed);
-                    }
-                    Err(e) => {
-                        // Channel has capacity of 1, since we only care to catch one error.
-                        // Drop further errors.
-                        let _ = error_sender.try_send(e);
-                    }
-                }
-            }
-        });
-        thread_handles.push(handle);
-    }
-
-    // Close original receivers/senders so threads know when to stop
-    drop(parsed_module_sender); // Main thread will know when no more parsed modules
-
-    // Collect parsed modules (this will continue until all parser threads finish and close their senders)
-    let mut parsed_modules = Vec::new();
-    while let Ok(parsed) = parser_module_receiver.recv() {
-        parsed_modules.push(parsed);
-    }
-
-    // Wait for all threads to complete
-    for handle in thread_handles {
-        handle.join().unwrap();
-    }
-
-    // Check if any errors occurred
-    if let Ok(error) = error_receiver.try_recv() {
-        return Err(error);
-    }
-
-    // Update and save cache if cache_dir is set
-    if let Some(cache_dir) = cache_dir {
-        for parsed in &parsed_modules {
-            cache.insert(
-                parsed.module.path.clone(),
-                CachedImports::new(parsed.module.mtime_secs, parsed.imported_objects.clone()),
-            );
-        }
-        save_cache(&cache, cache_dir, &package.name)?;
-    }
+    // Discover and parse all modules in parallel
+    let parsed_modules = discover_and_parse_modules(package, cache_dir)?;
 
     // Resolve imports and assemble graph
     let imports_by_module = resolve_imports(
@@ -138,10 +67,111 @@ struct ParsedModule {
     imported_objects: Vec<ImportedObject>,
 }
 
-fn discover_python_modules(package: &PackageSpec, sender: channel::Sender<FoundModule>) {
-    let num_threads = num_threads_for_module_discovery();
-    let package_clone = package.clone();
+/// Discover and parse all Python modules in a package using parallel processing.
+///
+/// # Concurrency Model
+///
+/// This function uses a pipeline architecture with three stages:
+///
+/// 1. **Discovery Stage** (1 thread):
+///    - Walks the package directory to find Python files
+///    - Sends found modules to the parsing stage via `found_module_sender`
+///    - Closes the channel when complete
+///
+/// 2. **Parsing Stage** (N worker threads):
+///    - Each thread receives modules from `found_module_receiver`
+///    - Parses imports from each module (with caching)
+///    - Sends parsed modules to the collection stage via `parsed_module_sender`
+///    - Threads exit when `found_module_sender` is dropped (discovery complete)
+///
+/// 3. **Collection Stage** (main thread):
+///    - Receives parsed modules from `parser_module_receiver`
+///    - Stops when all parser threads exit and drop their `parsed_module_sender` clones
+///
+/// # Error Handling
+///
+/// Parse errors are sent via `error_sender`. We only capture the first error and return it.
+/// Subsequent errors are dropped since we fail fast on the first error.
+///
+/// # Returns
+///
+/// Returns a vector parsed modules, or the first error encountered.
+fn discover_and_parse_modules(
+    package: &PackageSpec,
+    cache_dir: Option<&PathBuf>,
+) -> GrimpResult<Vec<ParsedModule>> {
+    let thread_counts = calculate_thread_counts();
 
+    thread::scope(|scope| {
+        // Load cache if available
+        let mut cache = cache_dir.map(|dir| load_cache(dir, &package.name));
+
+        // Create channels for the pipeline
+        let (found_module_sender, found_module_receiver) = channel::bounded(1000);
+        let (parsed_module_sender, parsed_module_receiver) = channel::bounded(1000);
+        let (error_sender, error_receiver) = channel::bounded(1);
+
+        // Stage 1: Discovery thread
+        scope.spawn(|| {
+            discover_python_modules(package, thread_counts.module_discovery, found_module_sender);
+        });
+
+        // Stage 2: Parser thread pool
+        for _ in 0..thread_counts.module_parsing {
+            let receiver = found_module_receiver.clone();
+            let sender = parsed_module_sender.clone();
+            let error_sender = error_sender.clone();
+            let cache = cache.clone();
+            scope.spawn(move || {
+                while let Ok(module) = receiver.recv() {
+                    match parse_module_imports(&module, cache.as_ref()) {
+                        Ok(parsed) => {
+                            let _ = sender.send(parsed);
+                        }
+                        Err(e) => {
+                            let _ = error_sender.try_send(e);
+                        }
+                    }
+                }
+            });
+        }
+
+        // Close our copy of the sender so the receiver knows when all threads are done
+        drop(parsed_module_sender);
+
+        // Stage 3: Collection (in main thread)
+        let mut parsed_modules = Vec::new();
+        while let Ok(parsed) = parsed_module_receiver.recv() {
+            parsed_modules.push(parsed);
+        }
+
+        // Check if any errors occurred
+        if let Ok(error) = error_receiver.try_recv() {
+            return Err(error);
+        }
+
+        // Update and save cache if present
+        if let Some(cache) = &mut cache {
+            for parsed in &parsed_modules {
+                cache.set_imports(
+                    parsed.module.name.clone(),
+                    parsed.module.mtime_secs,
+                    parsed.imported_objects.clone(),
+                );
+            }
+            cache.save()?;
+        }
+
+        Ok(parsed_modules)
+    })
+}
+
+fn discover_python_modules(
+    package: &PackageSpec,
+    num_threads: usize,
+    sender: channel::Sender<FoundModule>,
+) {
+    let package = package.clone();
     WalkBuilder::new(&package.directory)
         .standard_filters(false) // Don't use gitignore or other filters
         .threads(num_threads)
@@ -162,7 +192,7 @@ fn discover_python_modules(package: &PackageSpec, sender: channel::Sender<FoundM
         .build_parallel()
         .run(|| {
             let sender = sender.clone();
-            let package = package_clone.clone();
+            let package = package.clone();
 
             Box::new(move |entry| {
                 use ignore::WalkState;
@@ -206,15 +236,18 @@ fn discover_python_modules(package: &PackageSpec, sender: channel::Sender<FoundM
         });
 }
 
-fn parse_module_imports(module: &FoundModule, cache: &ImportCache) -> GrimpResult<ParsedModule> {
+fn parse_module_imports(
+    module: &FoundModule,
+    cache: Option<&ImportsCache>,
+) -> GrimpResult<ParsedModule> {
     // Check if we have a cached version with matching mtime
-    if let Some(cached) = cache.get(&module.path)
-        && module.mtime_secs == cached.mtime_secs()
+    if let Some(cache) = cache
+        && let Some(imported_objects) = cache.get_imports(&module.name, module.mtime_secs)
     {
         // Cache hit - use cached imports
         return Ok(ParsedModule {
             module: module.clone(),
-            imported_objects: cached.imported_objects().to_vec(),
+            imported_objects,
         });
     }
 
@@ -320,18 +353,22 @@ fn assemble_graph(
     graph
 }
 
-/// Calculate the number of threads to use for module discovery.
-/// Uses half of available parallelism, with a minimum of 1 and default of 4.
-fn num_threads_for_module_discovery() -> usize {
-    thread::available_parallelism()
-        .map(|n| max(n.get() / 2, 1))
-        .unwrap_or(4)
+/// Thread counts for parallel processing stages.
+struct ThreadCounts {
+    module_discovery: usize,
+    module_parsing: usize,
 }
 
-/// Calculate the number of threads to use for module parsing.
-/// Uses half of available parallelism, with a minimum of 1 and default of 4.
-fn num_threads_for_module_parsing() -> usize {
-    thread::available_parallelism()
-        .map(|n| max(n.get() / 2, 1))
-        .unwrap_or(4)
+/// Calculate the number of threads to use for parallel operations.
+/// Uses 2/3 of available CPUs for both module discovery and parsing.
+/// Since both module discovery and parsing involve some IO, it makes sense to
+/// use slighly more threads than the available CPUs.
+fn calculate_thread_counts() -> ThreadCounts {
+    let num_threads = thread::available_parallelism()
+        .map(|n| max((2 * n.get()) / 3, 1))
+        .unwrap_or(4);
+    ThreadCounts {
+        module_discovery: num_threads,
+        module_parsing: num_threads,
+    }
 }
