@@ -39,6 +39,12 @@ class ImportGraph:
         self._cached_modules: set[str] | None = None
         self._rustgraph = rust.Graph()
 
+    @classmethod
+    def from_rustgraph(cls, rustgraph: rust.Graph) -> ImportGraph:
+        graph = ImportGraph()
+        graph._rustgraph = rustgraph
+        return graph
+
     # Mechanics
     # ---------
 

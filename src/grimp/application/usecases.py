@@ -107,9 +107,7 @@ def build_graph_rust(
     )
 
     # Wrap the rust graph in our ImportGraph wrapper
-    graph = ImportGraph()
-    graph._rustgraph = rust_graph
-    return graph
+    return ImportGraph.from_rustgraph(rust_graph)
 
 
 def _find_packages(
