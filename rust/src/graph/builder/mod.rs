@@ -26,7 +26,9 @@ use read_python_file::read_python_file;
 
 #[derive(Debug, Clone, new)]
 pub struct PackageSpec {
+    #[new(into)]
     name: String,
+    #[new(into)]
     directory: PathBuf,
 }
 
@@ -407,5 +409,62 @@ fn calculate_thread_counts() -> ThreadCounts {
     ThreadCounts {
         module_discovery: num_threads,
         module_parsing: num_threads,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::{DEFAULT_MTIME, TempFileSystemBuilder};
+    use map_macro::hash_set;
+
+    #[test]
+    fn test_discover_modules_happy_path() {
+        const SOME_MTIME: i64 = 12340000;
+
+        let temp_fs = TempFileSystemBuilder::new(
+            r#"
+            mypackage/
+                __init__.py
+                not-a-python-file.txt
+                .hidden
+                foo/
+                    __init__.py
+                    one.py
+                    two/
+                        __init__.py
+                        green.py
+                        blue.py
+            "#,
+        )
+        .with_file_mtime_map([("mypackage/foo/one.py", SOME_MTIME)])
+        .build()
+        .unwrap();
+
+        let result = discover_and_parse_modules(
+            &[PackageSpec::new("mypackage", temp_fs.join("mypackage"))],
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(result.len(), 6);
+        assert_eq!(
+            result
+                .iter()
+                .map(|p| (
+                    p.module.name.as_str(),
+                    p.module.is_package,
+                    p.module.mtime_secs
+                ))
+                .collect::<HashSet<_>>(),
+            hash_set! {
+                ("mypackage", true, DEFAULT_MTIME),
+                ("mypackage.foo", true, DEFAULT_MTIME),
+                ("mypackage.foo.one", false, SOME_MTIME),
+                ("mypackage.foo.two", true, DEFAULT_MTIME),
+                ("mypackage.foo.two.green", false, DEFAULT_MTIME),
+                ("mypackage.foo.two.blue", false, DEFAULT_MTIME),
+            }
+        );
     }
 }

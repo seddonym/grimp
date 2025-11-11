@@ -9,6 +9,9 @@ mod import_scanning;
 pub mod module_expressions;
 mod module_finding;
 
+#[cfg(test)]
+pub mod test_utils;
+
 use pyo3::prelude::*;
 
 #[pymodule]
