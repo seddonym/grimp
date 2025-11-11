@@ -24,7 +24,9 @@ def test_build_graph_on_real_package(package_name, snapshot):
 )
 def test_nominate_cycle_breakers_django(package_name, snapshot):
     graph = grimp.build_graph("django")
-
     cycle_breakers = graph.nominate_cycle_breakers(package_name)
-
     assert cycle_breakers == snapshot
+
+    graph_from_rust = grimp.build_graph("django")
+    cycle_breakers_from_rust = graph_from_rust.nominate_cycle_breakers(package_name)
+    assert cycle_breakers_from_rust == cycle_breakers

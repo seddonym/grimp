@@ -3,10 +3,10 @@ import re
 
 import pytest  # type: ignore
 
-from grimp import build_graph, exceptions
+from grimp import exceptions
 
 
-def test_syntax_error_includes_module():
+def test_syntax_error_includes_module(build_graph):
     dirname = os.path.dirname(__file__)
     filename = os.path.abspath(
         os.path.join(dirname, "..", "assets", "syntaxerrorpackage", "foo", "one.py")
@@ -21,7 +21,7 @@ def test_syntax_error_includes_module():
     assert expected_exception == excinfo.value
 
 
-def test_missing_root_init_file():
+def test_missing_root_init_file(build_graph):
     with pytest.raises(
         exceptions.NamespacePackageEncountered,
         match=re.escape(
