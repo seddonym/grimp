@@ -80,17 +80,12 @@ def build_graph_rust(
     """
     from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 
-    file_system: AbstractFileSystem = settings.FILE_SYSTEM
-    package_finder: AbstractPackageFinder = settings.PACKAGE_FINDER
-
-    # Collect all package names
-    all_package_names = [package_name] + list(additional_package_names)
-
     # Create package specs for all packages
+    all_package_names = [package_name] + list(additional_package_names)
     package_specs = []
     for package_name in all_package_names:
-        package_directory = package_finder.determine_package_directory(
-            package_name=package_name, file_system=file_system
+        package_directory = settings.PACKAGE_FINDER.determine_package_directory(
+            package_name=package_name, file_system=settings.FILE_SYSTEM
         )
         package_specs.append(rust.PackageSpec(package_name, package_directory))
 

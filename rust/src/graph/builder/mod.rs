@@ -12,8 +12,8 @@ use crate::errors::{GrimpError, GrimpResult};
 use crate::graph::Graph;
 use crate::import_parsing::{ImportedObject, parse_imports_from_code};
 
-mod cache;
-use cache::{ImportsCache, load_cache};
+mod imports_cache;
+use imports_cache::ImportsCache;
 
 mod utils;
 use utils::{
@@ -108,12 +108,10 @@ fn discover_and_parse_modules(
     let thread_counts = calculate_thread_counts();
 
     thread::scope(|scope| {
-        // Load caches for all packages if available - store in HashMap by package name
-        let caches: Option<HashMap<String, ImportsCache>> = cache_dir.map(|dir| {
-            packages
-                .iter()
-                .map(|pkg| (pkg.name.clone(), load_cache(dir, &pkg.name)))
-                .collect()
+        // Load cache for all packages if available
+        let mut cache: Option<ImportsCache> = cache_dir.map(|dir| {
+            let package_names: Vec<String> = packages.iter().map(|p| p.name.clone()).collect();
+            ImportsCache::load(dir, &package_names)
         });
 
         // Create channels for the pipeline
@@ -135,15 +133,10 @@ fn discover_and_parse_modules(
             let receiver = found_module_receiver.clone();
             let sender = parsed_module_sender.clone();
             let error_sender = error_sender.clone();
-            let caches = caches.clone();
+            let cache = cache.clone();
             scope.spawn(move || {
                 while let Ok(module) = receiver.recv() {
-                    // Look up the cache for this module's package
-                    let cache = caches
-                        .as_ref()
-                        .and_then(|map| map.get(&module.package_name));
-
-                    match parse_module_imports(&module, cache) {
+                    match parse_module_imports(&module, cache.as_ref()) {
                         Ok(parsed) => {
                             let _ = sender.send(parsed);
                         }
@@ -169,20 +162,17 @@ fn discover_and_parse_modules(
             return Err(error);
         }
 
-        // Update and save all caches
-        if let Some(mut caches) = caches {
+        // Update and save cache
+        if let Some(cache) = &mut cache {
             for parsed in &parsed_modules {
-                if let Some(cache) = caches.get_mut(&parsed.module.package_name) {
-                    cache.set_imports(
-                        parsed.module.name.clone(),
-                        parsed.module.mtime_secs,
-                        parsed.imported_objects.clone(),
-                    );
-                }
+                cache.set_imports(
+                    parsed.module.package_name.clone(),
+                    parsed.module.name.clone(),
+                    parsed.module.mtime_secs,
+                    parsed.imported_objects.clone(),
+                );
             }
-            for cache in caches.values_mut() {
-                cache.save()?;
-            }
+            cache.save()?;
         }
 
         Ok(parsed_modules)
@@ -284,7 +274,8 @@ fn parse_module_imports(
 ) -> GrimpResult<ParsedModule> {
     // Check if we have a cached version with matching mtime
     if let Some(cache) = cache
-        && let Some(imported_objects) = cache.get_imports(&module.name, module.mtime_secs)
+        && let Some(imported_objects) =
+            cache.get_imports(&module.package_name, &module.name, module.mtime_secs)
     {
         // Cache hit - use cached imports
         return Ok(ParsedModule {
