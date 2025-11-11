@@ -83,13 +83,16 @@ def build_graph_rust(
     file_system: AbstractFileSystem = settings.FILE_SYSTEM
     package_finder: AbstractPackageFinder = settings.PACKAGE_FINDER
 
-    # Determine the package directory
-    package_directory = package_finder.determine_package_directory(
-        package_name=package_name, file_system=file_system
-    )
+    # Collect all package names
+    all_package_names = [package_name] + list(additional_package_names)
 
-    # Create package spec and build the graph
-    package_spec = rust.PackageSpec(package_name, package_directory)
+    # Create package specs for all packages
+    package_specs = []
+    for package_name in all_package_names:
+        package_directory = package_finder.determine_package_directory(
+            package_name=package_name, file_system=file_system
+        )
+        package_specs.append(rust.PackageSpec(package_name, package_directory))
 
     # Handle cache_dir
     cache_dir_arg: str | None = None
@@ -100,7 +103,7 @@ def build_graph_rust(
 
     # Build the graph
     rust_graph = rust.build_graph_rust(
-        package_spec,
+        package_specs,
         include_external_packages=include_external_packages,
         exclude_type_checking_imports=exclude_type_checking_imports,
         cache_dir=cache_dir_arg,

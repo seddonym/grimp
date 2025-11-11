@@ -18,7 +18,7 @@ use cache::{ImportsCache, load_cache};
 mod utils;
 use utils::{
     ResolvedImport, distill_external_module, is_internal, is_package, path_to_module_name,
-    resolve_internal_module, resolve_relative_import,
+    read_python_file, resolve_internal_module, resolve_relative_import,
 };
 
 #[derive(Debug, Clone, new)]
@@ -28,34 +28,38 @@ pub struct PackageSpec {
 }
 
 pub fn build_graph(
-    package: &PackageSpec, // TODO(peter) Support multiple packages
+    packages: &[PackageSpec],
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
     cache_dir: Option<&PathBuf>,
 ) -> GrimpResult<Graph> {
-    // Check if package directory exists
-    if !package.directory.exists() {
-        return Err(GrimpError::PackageDirectoryNotFound(
-            package.directory.display().to_string(),
-        ));
+    // Check all package directories exist
+    for package in packages {
+        if !package.directory.exists() {
+            return Err(GrimpError::PackageDirectoryNotFound(
+                package.directory.display().to_string(),
+            ));
+        }
     }
+    let package_names: HashSet<String> = packages.iter().map(|p| p.name.clone()).collect();
 
-    // Discover and parse all modules in parallel
-    let parsed_modules = discover_and_parse_modules(package, cache_dir)?;
+    // Discover and parse all modules from all packages in parallel
+    let parsed_modules = discover_and_parse_modules(packages, cache_dir)?;
 
     // Resolve imports and assemble graph
     let imports_by_module = resolve_imports(
         &parsed_modules,
         include_external_packages,
         exclude_type_checking_imports,
-        &HashSet::from([package.name.to_owned()]),
+        &package_names,
     );
 
-    Ok(assemble_graph(&imports_by_module, &package.name))
+    Ok(assemble_graph(&imports_by_module, &package_names))
 }
 
 #[derive(Debug, Clone)]
 struct FoundModule {
+    package_name: String,
     name: String,
     path: PathBuf,
     is_package: bool,
@@ -68,14 +72,14 @@ struct ParsedModule {
     imported_objects: Vec<ImportedObject>,
 }
 
-/// Discover and parse all Python modules in a package using parallel processing.
+/// Discover and parse all Python modules in one or more packages using parallel processing.
 ///
 /// # Concurrency Model
 ///
 /// This function uses a pipeline architecture with three stages:
 ///
 /// 1. **Discovery Stage** (1 thread):
-///    - Walks the package directory to find Python files
+///    - Walks all package directories to find Python files
 ///    - Sends found modules to the parsing stage via `found_module_sender`
 ///    - Closes the channel when complete
 ///
@@ -98,14 +102,19 @@ struct ParsedModule {
 ///
 /// Returns a vector parsed modules, or the first error encountered.
 fn discover_and_parse_modules(
-    package: &PackageSpec,
+    packages: &[PackageSpec],
     cache_dir: Option<&PathBuf>,
 ) -> GrimpResult<Vec<ParsedModule>> {
     let thread_counts = calculate_thread_counts();
 
     thread::scope(|scope| {
-        // Load cache if available
-        let mut cache = cache_dir.map(|dir| load_cache(dir, &package.name));
+        // Load caches for all packages if available - store in HashMap by package name
+        let caches: Option<HashMap<String, ImportsCache>> = cache_dir.map(|dir| {
+            packages
+                .iter()
+                .map(|pkg| (pkg.name.clone(), load_cache(dir, &pkg.name)))
+                .collect()
+        });
 
         // Create channels for the pipeline
         let (found_module_sender, found_module_receiver) = channel::bounded(1000);
@@ -114,7 +123,11 @@ fn discover_and_parse_modules(
 
         // Stage 1: Discovery thread
         scope.spawn(|| {
-            discover_python_modules(package, thread_counts.module_discovery, found_module_sender);
+            discover_python_modules(
+                packages,
+                thread_counts.module_discovery,
+                found_module_sender,
+            );
         });
 
         // Stage 2: Parser thread pool
@@ -122,10 +135,15 @@ fn discover_and_parse_modules(
             let receiver = found_module_receiver.clone();
             let sender = parsed_module_sender.clone();
             let error_sender = error_sender.clone();
-            let cache = cache.clone();
+            let caches = caches.clone();
             scope.spawn(move || {
                 while let Ok(module) = receiver.recv() {
-                    match parse_module_imports(&module, cache.as_ref()) {
+                    // Look up the cache for this module's package
+                    let cache = caches
+                        .as_ref()
+                        .and_then(|map| map.get(&module.package_name));
+
+                    match parse_module_imports(&module, cache) {
                         Ok(parsed) => {
                             let _ = sender.send(parsed);
                         }
@@ -151,16 +169,20 @@ fn discover_and_parse_modules(
             return Err(error);
         }
 
-        // Update and save cache if present
-        if let Some(cache) = &mut cache {
+        // Update and save all caches
+        if let Some(mut caches) = caches {
             for parsed in &parsed_modules {
-                cache.set_imports(
-                    parsed.module.name.clone(),
-                    parsed.module.mtime_secs,
-                    parsed.imported_objects.clone(),
-                );
+                if let Some(cache) = caches.get_mut(&parsed.module.package_name) {
+                    cache.set_imports(
+                        parsed.module.name.clone(),
+                        parsed.module.mtime_secs,
+                        parsed.imported_objects.clone(),
+                    );
+                }
             }
-            cache.save()?;
+            for cache in caches.values_mut() {
+                cache.save()?;
+            }
         }
 
         Ok(parsed_modules)
@@ -168,18 +190,30 @@ fn discover_and_parse_modules(
 }
 
 fn discover_python_modules(
-    package: &PackageSpec,
+    packages: &[PackageSpec],
     num_threads: usize,
     sender: channel::Sender<FoundModule>,
 ) {
-    let package = package.clone();
-    WalkBuilder::new(&package.directory)
+    let packages: Vec<PackageSpec> = packages.to_vec();
+
+    let mut builder = WalkBuilder::new(&packages[0].directory);
+    for package in &packages[1..] {
+        builder.add(&package.directory);
+    }
+    builder
         .standard_filters(false) // Don't use gitignore or other filters
+        .hidden(true) // Ignore hidden files/directories
         .threads(num_threads)
         .filter_entry(|entry| {
-            // Allow Python files
+            // Allow Python files (but skip files with multiple dots like dotted.module.py)
             if entry.file_type().is_some_and(|ft| ft.is_file()) {
-                return entry.path().extension().and_then(|s| s.to_str()) == Some("py");
+                if entry.path().extension().and_then(|s| s.to_str()) == Some("py") {
+                    // Check if filename has multiple dots (invalid Python module names)
+                    if let Some(file_name) = entry.file_name().to_str() {
+                        return file_name.matches('.').count() == 1; // Only the .py extension
+                    }
+                }
+                return false;
             }
 
             // For directories, only descend if they contain __init__.py
@@ -189,52 +223,59 @@ fn discover_python_modules(
             }
 
             false
-        })
-        .build_parallel()
-        .run(|| {
-            let sender = sender.clone();
-            let package = package.clone();
+        });
 
-            Box::new(move |entry| {
-                use ignore::WalkState;
+    builder.build_parallel().run(|| {
+        let sender = sender.clone();
+        let packages = packages.clone();
 
-                let entry = match entry {
-                    Ok(e) => e,
-                    Err(_) => return WalkState::Continue,
+        Box::new(move |entry| {
+            use ignore::WalkState;
+
+            let entry = match entry {
+                Ok(e) => e,
+                Err(_) => return WalkState::Continue,
+            };
+
+            let path = entry.path();
+
+            // Only process files, not directories
+            if !path.is_file() {
+                return WalkState::Continue;
+            }
+
+            // Find which package this file belongs to by checking if path starts with package directory
+            let package = packages
+                .iter()
+                .find(|pkg| path.starts_with(&pkg.directory))
+                .unwrap();
+
+            if let Some(module_name) = path_to_module_name(path, package) {
+                let is_package = is_package(path);
+
+                // Get mtime
+                let mtime_secs = fs::metadata(path)
+                    .and_then(|m| m.modified())
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_secs() as i64)
+                    .unwrap_or(0);
+
+                let found_module = FoundModule {
+                    package_name: package.name.clone(),
+                    name: module_name,
+                    path: path.to_owned(),
+                    is_package,
+                    mtime_secs,
                 };
 
-                let path = entry.path();
+                // Send module as soon as we discover it
+                let _ = sender.send(found_module);
+            }
 
-                // Only process files, not directories
-                if !path.is_file() {
-                    return WalkState::Continue;
-                }
-
-                if let Some(module_name) = path_to_module_name(path, &package) {
-                    let is_package = is_package(path);
-
-                    // Get mtime
-                    let mtime_secs = fs::metadata(path)
-                        .and_then(|m| m.modified())
-                        .ok()
-                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                        .map(|d| d.as_secs() as i64)
-                        .unwrap_or(0);
-
-                    let found_module = FoundModule {
-                        name: module_name,
-                        path: path.to_owned(),
-                        is_package,
-                        mtime_secs,
-                    };
-
-                    // Send module as soon as we discover it
-                    let _ = sender.send(found_module);
-                }
-
-                WalkState::Continue
-            })
-        });
+            WalkState::Continue
+        })
+    });
 }
 
 fn parse_module_imports(
@@ -253,10 +294,7 @@ fn parse_module_imports(
     }
 
     // Cache miss or file modified - parse the file
-    let code = fs::read_to_string(&module.path).map_err(|e| GrimpError::FileReadError {
-        path: module.path.display().to_string(),
-        error: e.to_string(),
-    })?;
+    let code = read_python_file(&module.path)?;
 
     let imported_objects = parse_imports_from_code(&code, module.path.to_str().unwrap_or(""))?;
 
@@ -328,7 +366,7 @@ fn resolve_imports(
 
 fn assemble_graph(
     imports_by_module: &HashMap<String, HashSet<ResolvedImport>>,
-    package_name: &str,
+    package_names: &HashSet<String>,
 ) -> Graph {
     let mut graph = Graph::default();
 
@@ -339,7 +377,7 @@ fn assemble_graph(
 
         for import in imports {
             // Add the imported module
-            let imported_token = if is_internal(&import.imported, package_name) {
+            let imported_token = if is_internal(&import.imported, package_names) {
                 graph.get_or_add_module(&import.imported).token()
             } else {
                 graph.get_or_add_squashed_module(&import.imported).token()
