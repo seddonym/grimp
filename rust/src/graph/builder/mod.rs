@@ -18,8 +18,11 @@ use imports_cache::ImportsCache;
 mod utils;
 use utils::{
     ResolvedImport, distill_external_module, is_internal, is_package, path_to_module_name,
-    read_python_file, resolve_internal_module, resolve_relative_import,
+    resolve_internal_module, resolve_relative_import,
 };
+
+mod read_python_file;
+use read_python_file::read_python_file;
 
 #[derive(Debug, Clone, new)]
 pub struct PackageSpec {
