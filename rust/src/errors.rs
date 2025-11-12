@@ -37,6 +37,9 @@ pub enum GrimpError {
     #[error("Could not use corrupt cache file {0}.")]
     CorruptCache(String),
 
+    #[error("Error walking directory: {error}")]
+    WalkDirError { error: String },
+
     #[error("Failed to read file {path}: {error}")]
     FileReadError { path: String, error: String },
 
@@ -67,6 +70,7 @@ impl From<GrimpError> for PyErr {
                 line_number, text, ..
             } => PyErr::new::<exceptions::ParseError, _>((line_number, text)),
             GrimpError::CorruptCache(_) => exceptions::CorruptCache::new_err(value.to_string()),
+            GrimpError::WalkDirError { .. } => PyIOError::new_err(value.to_string()),
             GrimpError::FileReadError { .. } => PyIOError::new_err(value.to_string()),
             GrimpError::FileMetadataError { .. } => PyIOError::new_err(value.to_string()),
             GrimpError::CacheWriteError { .. } => PyIOError::new_err(value.to_string()),
