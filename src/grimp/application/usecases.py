@@ -2,17 +2,17 @@
 Use cases handle application logic.
 """
 
+from collections.abc import Iterable, Sequence
 from typing import cast
-from collections.abc import Sequence, Iterable
 
-from .scanning import scan_imports
+from ..application.graph import ImportGraph
 from ..application.ports import caching
 from ..application.ports.filesystem import AbstractFileSystem, BasicFileSystem
-from ..application.graph import ImportGraph
 from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage, ModuleFile
 from ..application.ports.packagefinder import AbstractPackageFinder
 from ..domain.valueobjects import DirectImport, Module
 from .config import settings
+from .scanning import scan_imports
 
 
 class NotSupplied:
@@ -66,6 +66,46 @@ def build_graph(
     graph = _assemble_graph(found_packages, imports_by_module)
 
     return graph
+
+
+def build_graph_rust(
+    package_name,
+    *additional_package_names,
+    include_external_packages: bool = False,
+    exclude_type_checking_imports: bool = False,
+    cache_dir: str | type[NotSupplied] | None = NotSupplied,
+) -> ImportGraph:
+    """
+    Build and return an import graph for the supplied package(s) using the Rust implementation.
+    """
+    from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
+
+    # Create package specs for all packages
+    all_package_names = [package_name] + list(additional_package_names)
+    package_specs = []
+    for package_name in all_package_names:
+        package_directory = settings.PACKAGE_FINDER.determine_package_directory(
+            package_name=package_name, file_system=settings.FILE_SYSTEM
+        )
+        package_specs.append(rust.PackageSpec(package_name, package_directory))
+
+    # Handle cache_dir
+    cache_dir_arg: str | None = None
+    if cache_dir is NotSupplied:
+        cache_dir_arg = ".grimp_cache"
+    elif isinstance(cache_dir, str):
+        cache_dir_arg = cache_dir
+
+    # Build the graph
+    rust_graph = rust.build_graph_rust(
+        package_specs,
+        include_external_packages=include_external_packages,
+        exclude_type_checking_imports=exclude_type_checking_imports,
+        cache_dir=cache_dir_arg,
+    )
+
+    # Wrap the rust graph in our ImportGraph wrapper
+    return ImportGraph.from_rustgraph(rust_graph)
 
 
 def _find_packages(

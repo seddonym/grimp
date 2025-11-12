@@ -3,10 +3,14 @@ pub mod errors;
 pub mod exceptions;
 mod filesystem;
 pub mod graph;
+mod graph_building;
 pub mod import_parsing;
 mod import_scanning;
 pub mod module_expressions;
 mod module_finding;
+
+#[cfg(test)]
+pub mod test_utils;
 
 use pyo3::prelude::*;
 
@@ -31,4 +35,7 @@ mod _rustgrimp {
     use crate::exceptions::{
         CorruptCache, InvalidModuleExpression, ModuleNotPresent, NoSuchContainer, ParseError,
     };
+
+    #[pymodule_export]
+    use crate::graph_building::{PyPackageSpec, build_graph_rust};
 }

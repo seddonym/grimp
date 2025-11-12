@@ -1,14 +1,15 @@
-import uuid
-import random
-import pytest
-import json
 import importlib
+import json
+import random
+import uuid
+from copy import deepcopy
 from pathlib import Path
 
-from grimp.application.graph import ImportGraph
-from grimp import PackageDependency, Route
+import pytest
+
 import grimp
-from copy import deepcopy
+from grimp import PackageDependency, Route
+from grimp.application.graph import ImportGraph
 
 
 @pytest.fixture(scope="module")
@@ -303,7 +304,7 @@ def test_build_django_uncached(benchmark):
 
     In this benchmark, the cache is turned off.
     """
-    benchmark(grimp.build_graph, "django", cache_dir=None)
+    benchmark(grimp.build_graph_rust, "django", cache_dir=None)
 
 
 def test_build_django_from_cache_no_misses(benchmark):
@@ -313,9 +314,9 @@ def test_build_django_from_cache_no_misses(benchmark):
     This benchmark fully utilizes the cache.
     """
     # Populate the cache first, before beginning the benchmark.
-    grimp.build_graph("django")
+    grimp.build_graph_rust("django")
 
-    benchmark(grimp.build_graph, "django")
+    benchmark(grimp.build_graph_rust, "django")
 
 
 @pytest.mark.parametrize(
@@ -364,7 +365,7 @@ def test_build_django_from_cache_a_few_misses(benchmark, number_of_misses: int):
     # turn off multiple runs, which could potentially be misleading when running locally.
 
     # Populate the cache first, before beginning the benchmark.
-    grimp.build_graph("django")
+    grimp.build_graph_rust("django")
     # Add some modules which won't be in the cache.
     # (Use some real python, which will take time to parse.)
     django_path = Path(importlib.util.find_spec("django").origin).parent  # type: ignore
@@ -380,7 +381,7 @@ def test_build_django_from_cache_a_few_misses(benchmark, number_of_misses: int):
         hash_buster = f"\n# Hash busting comment: {uuid.uuid4()}"
         new_module.write_text(module_contents + hash_buster)
 
-    benchmark.pedantic(grimp.build_graph, ["django"], rounds=1, iterations=1)
+    benchmark.pedantic(grimp.build_graph_rust, ["django"], rounds=1, iterations=1)
 
     # Delete the modules we just created.
     for module in extra_modules:

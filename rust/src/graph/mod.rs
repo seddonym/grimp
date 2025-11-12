@@ -19,6 +19,7 @@ use crate::graph::higher_order_queries::Level;
 use crate::graph::higher_order_queries::PackageDependency as PyPackageDependency;
 use crate::module_expressions::ModuleExpression;
 
+pub mod builder;
 pub mod direct_import_queries;
 pub mod graph_manipulation;
 pub mod hierarchy_queries;
@@ -81,6 +82,10 @@ pub struct GraphWrapper {
 }
 
 impl GraphWrapper {
+    pub fn from_graph(graph: Graph) -> Self {
+        GraphWrapper { _graph: graph }
+    }
+
     fn get_visible_module_by_name(&self, name: &str) -> Result<&Module, ModuleNotPresent> {
         self._graph
             .get_module_by_name(name)

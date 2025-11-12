@@ -1,9 +1,9 @@
 __version__ = "3.13"
 
-from .application.graph import DetailedImport, ImportGraph, Import
+from .application.graph import DetailedImport, Import, ImportGraph
 from .domain.analysis import PackageDependency, Route
-from .domain.valueobjects import DirectImport, Module, Layer
-from .main import build_graph
+from .domain.valueobjects import DirectImport, Layer, Module
+from .main import build_graph, build_graph_rust
 
 __all__ = [
     "Module",
@@ -14,5 +14,6 @@ __all__ = [
     "PackageDependency",
     "Route",
     "build_graph",
+    "build_graph_rust",
     "Layer",
 ]

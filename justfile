@@ -12,6 +12,11 @@ install-precommit:
 compile:
     @uv run maturin develop
 
+# Compiles the Rust code in release mode.
+[group('testing')]
+compile-release:
+    @uv run maturin develop --release
+
 # Compiles Rust, then runs Rust and Python tests.
 [group('testing')]
 compile-and-test:
@@ -170,3 +175,6 @@ full-check:
     @just build-docs
     @just test-all
     @echo '👍 {{GREEN}} Linting, docs and tests all good.{{NORMAL}}'
+
+benchmark-build-graph-rust-vs-python package_name package_dir: compile-release
+    uv run benchmark_build_graph.py {{package_name}} -d {{package_dir}}
