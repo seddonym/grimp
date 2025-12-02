@@ -66,6 +66,51 @@ class TestBuildGraph:
                 with pytest.raises(ValueError, match="Cannot find children of a squashed module."):
                     graph.find_children(module)
 
+    @pytest.mark.xfail(reason="Not yet supported")
+    def test_namespace_package_passed_as_root(self):
+        file_system = FakeFileSystem(
+            contents="""
+                /path/to/mypackage/
+                    foo/
+                        __init__.py
+                        one.py
+                        two/
+                            __init__.py
+                            green.py
+                            blue.py
+                    bar/
+                        __init__.py
+                        three.py
+                /different-path/to/mypackage/
+                    foobar/
+                        __init__.py
+                        four.py
+                """,
+        )
+
+        class FakePackageFinder(BaseFakePackageFinder):
+            directory_map = {
+                # TODO - PackageFinder assumes only a single directory per package.
+                # This isn't the case for namespace packages.
+                "mypackage": "/path/to/mypackage"
+            }
+
+        with override_settings(FILE_SYSTEM=file_system, PACKAGE_FINDER=FakePackageFinder()):
+            graph = usecases.build_graph("mypackage")
+
+        assert graph.modules == {
+            "mypackage",
+            "mypackage.foo",
+            "mypackage.foo.one",
+            "mypackage.foo.two",
+            "mypackage.foo.two.green",
+            "mypackage.foo.two.blue",
+            "mypackage.bar",
+            "mypackage.bar.three",
+            "mypackage.foobar",
+            "mypackage.foobar.four",
+        }
+
     def test_boolean_additional_package_raises_type_error(self):
         """
         Tests that a useful error message if build_graph is called
