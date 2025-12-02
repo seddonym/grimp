@@ -40,6 +40,7 @@ class _Base:
             ("/path/to/mypackage/readme.txt", True),
             ("/path/to/mypackage/foo/one.txt", True),
             ("/path/to/mypackage/foo/two/green.txt", True),
+            ("/path/to/mypackage/bar/blue.txt", True),
             ("/path/to/nonexistent.txt", False),
             ("/path/to/mypackage/purple.txt", False),
         ],
@@ -53,6 +54,8 @@ class _Base:
                     one.txt
                     two/
                         green.txt
+                bar/
+                    blue.txt
             """
         )
 

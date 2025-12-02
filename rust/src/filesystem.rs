@@ -323,7 +323,7 @@ fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<String
     let mut file_paths_map: HashMap<String, String> = HashMap::new();
     let mut path_stack: Vec<String> = Vec::new(); // Stores current directory path components
     let mut first_line = true; // Flag to handle the very first path component
-
+    let mut first_line_indent: usize = 0;
     // Normalize newlines and split into lines
     let buffer = file_system_string.replace("\r\n", "\n");
     let lines: Vec<&str> = buffer.split('\n').collect();
@@ -334,27 +334,25 @@ fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<String
         if line.is_empty() {
             continue; // Skip empty lines
         }
-
-        let current_indent = line.chars().take_while(|&c| c.is_whitespace()).count();
+        let current_indent =
+            line.chars().take_while(|&c| c.is_whitespace()).count() - first_line_indent;
         let trimmed_line = line.trim_start();
 
         // Assuming 4 spaces per indentation level for calculating depth
-        // Adjust this if your indentation standard is different (e.g., 2 spaces, tabs)
         let current_depth = current_indent / 4;
-
         if first_line {
             // The first non-empty line sets the base path.
             // It might be absolute (/a/b/) or relative (a/b/).
             let root_component = trimmed_line.trim_end_matches('/').to_string();
             path_stack.push(root_component);
             first_line = false;
+            first_line_indent = current_indent;
         } else {
             // Adjust the path_stack based on indentation level
             // Pop elements from the stack until we reach the correct parent directory depth
             while path_stack.len() > current_depth {
                 path_stack.pop();
             }
-
             // If the current line is a file, append it to the path for inserting into map,
             // then pop it off so that subsequent siblings are correctly handled.
             // If it's a directory, append it and it stays on the stack for its children.
