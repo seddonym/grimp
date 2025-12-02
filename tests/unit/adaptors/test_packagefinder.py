@@ -14,20 +14,20 @@ assets = (Path(__file__).parent.parent.parent / "assets").resolve()
 @pytest.mark.parametrize(
     "package, expected",
     (
-        ("testpackage", assets / "testpackage"),
+        ("testpackage", {str(assets / "testpackage")}),
         (
             "mynamespace.green",
-            assets / "namespacepackages" / "locationone" / "mynamespace" / "green",
+            {str(assets / "namespacepackages" / "locationone" / "mynamespace" / "green")},
         ),
         (
             "mynamespace.blue",
-            assets / "namespacepackages" / "locationtwo" / "mynamespace" / "blue",
+            {str(assets / "namespacepackages" / "locationtwo" / "mynamespace" / "blue")},
         ),
     ),
 )
-def test_determine_package_directory(package, expected):
-    assert ImportLibPackageFinder().determine_package_directory(package, FileSystem()) == str(
-        expected
+def test_determine_package_directories(package, expected):
+    assert (
+        ImportLibPackageFinder().determine_package_directories(package, FileSystem()) == expected
     )
 
 
@@ -40,7 +40,7 @@ def test_determine_package_directory_doesnt_support_namespace_packages():
             "namespace packages, adding an __init__.py file should fix the problem."
         ),
     ):
-        ImportLibPackageFinder().determine_package_directory("mynamespace", FakeFileSystem())
+        ImportLibPackageFinder().determine_package_directories("mynamespace", FakeFileSystem())
 
 
 @pytest.mark.parametrize(
@@ -53,8 +53,8 @@ def test_determine_package_directory_doesnt_support_namespace_packages():
         "mynamespace.yellow",
     ),
 )
-def test_determine_package_directory_doesnt_support_non_top_level_modules(package):
+def test_determine_package_directories_doesnt_support_non_top_level_modules(package):
     with pytest.raises(
         exceptions.NotATopLevelModule,
     ):
-        ImportLibPackageFinder().determine_package_directory(package, FakeFileSystem())
+        ImportLibPackageFinder().determine_package_directories(package, FakeFileSystem())
