@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class ImportLibPackageFinder(AbstractPackageFinder):
-    def determine_package_directory(
+    def _determine_package_directory(
         self, package_name: str, file_system: AbstractFileSystem
     ) -> str:
         # TODO - do we need to add the current working directory here?
@@ -33,6 +33,11 @@ class ImportLibPackageFinder(AbstractPackageFinder):
             "portion name instead. If you are not intentionally using namespace packages, "
             "adding an __init__.py file should fix the problem."
         )
+
+    def determine_package_directories(
+        self, package_name: str, file_system: AbstractFileSystem
+    ) -> set[str]:
+        return {self._determine_package_directory(package_name, file_system)}
 
     def _is_a_package(self, spec: ModuleSpec, file_system: AbstractFileSystem) -> bool:
         assert spec.origin
