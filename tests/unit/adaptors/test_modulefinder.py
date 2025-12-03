@@ -164,6 +164,53 @@ def test_ignores_orphaned_python_files():
     )
 
 
+def test_includes_nested_namespace_packages_but_not_orphans():
+    module_finder = ModuleFinder()
+
+    file_system = FakeFileSystem(
+        contents="""
+            /path/to/mypackage/
+                foo/
+                    blue/    
+                        __init__.py
+                        one.py
+                        two/
+                            __init__.py
+                            alpha.py
+                        noinitpackage/
+                            three.py
+                            orphan/
+                                __init__.py
+                                four.py
+                    green/
+                        five/
+                            __init__.py
+                            beta.py
+        """
+    )
+
+    result = module_finder.find_package(
+        package_name="mypackage",
+        package_directory="/path/to/mypackage",
+        file_system=file_system,
+    )
+
+    assert result == FoundPackage(
+        name="mypackage",
+        directory="/path/to/mypackage",
+        module_files=frozenset(
+            {
+                ModuleFile(module=Module("mypackage.foo.blue"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("mypackage.foo.blue.one"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("mypackage.foo.blue.two"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("mypackage.foo.blue.two.alpha"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("mypackage.foo.green.five"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("mypackage.foo.green.five.beta"), mtime=DEFAULT_MTIME),
+            }
+        ),
+    )
+
+
 @pytest.mark.parametrize(
     "extension, should_warn",
     (

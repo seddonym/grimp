@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from grimp.application.ports import modulefinder
 from grimp.application.ports.filesystem import AbstractFileSystem
 from grimp.domain.valueobjects import Module
+from collections.abc import Set
 
 logger = logging.getLogger(__name__)
 
@@ -37,14 +38,23 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
          Return:
             Generator of Python file names.
         """
+        # Containers are directories within `directory` that contain an __init__.py
+        # and who do not have any ancestors within `directory` that do contain an __init__.py.
+        # We keep track of these so we can tell the difference between nested namespace packages
+        # (which we do want to include) and orphaned packages (which we don't).
+        containers: set[str] = set()
         for dirpath, dirs, files in self.file_system.walk(directory):
-            # Don't include directories that aren't Python packages,
-            # nor their subdirectories.
-            current_dir_is_descendant = dirpath.startswith(directory) and dirpath != directory
-            if current_dir_is_descendant and "__init__.py" not in files:
-                for d in list(dirs):
-                    dirs.remove(d)
-                continue
+            if self._is_in_container(dirpath, containers):
+                # Are we somewhere inside a non-namespace package (i.e. portion)? If so, don't include directories
+                # that aren't Python packages, nor their subdirectories.
+                if "__init__.py" not in files:
+                    # Don't drill down further in this directory.
+                    for d in list(dirs):
+                        dirs.remove(d)
+                    continue
+            elif "__init__.py" in files:
+                # It's a container.
+                containers.add(dirpath)
 
             # Don't include hidden directories.
             dirs_to_remove = [d for d in dirs if self._should_ignore_dir(d)]
@@ -54,6 +64,12 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
             for filename in files:
                 if self._is_python_file(filename, dirpath):
                     yield self.file_system.join(dirpath, filename)
+
+    def _is_in_container(self, directory: str, containers: Set[str]) -> bool:
+        for container in containers:
+            if directory.startswith(container):
+                return True
+        return False
 
     def _should_ignore_dir(self, directory: str) -> bool:
         # TODO: make this configurable.
