@@ -161,6 +161,11 @@ def _assemble_graph(
 
     package_modules = {Module(found_package.name) for found_package in found_packages}
 
+    # Add root packages first. These will usually be the names of the found packages, but
+    # not in the case of namespace packages.
+    for root_package_name in root_package_names:
+        graph.add_module(root_package_name)
+
     for module, direct_imports in imports_by_module.items():
         graph.add_module(module.name)
         for direct_import in direct_imports:

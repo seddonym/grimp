@@ -66,7 +66,6 @@ class TestBuildGraph:
                 with pytest.raises(ValueError, match="Cannot find children of a squashed module."):
                     graph.find_children(module)
 
-    @pytest.mark.xfail(strict=True)
     def test_namespace_package_passed_as_root(self):
         file_system = FakeFileSystem(
             contents="""

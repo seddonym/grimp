@@ -22,7 +22,6 @@ GREEN_MODULES = {"mynamespace.green", "mynamespace.green.alpha"}
 BLUE_MODULES = {"mynamespace.blue", "mynamespace.blue.alpha", "mynamespace.blue.beta"}
 
 
-@pytest.mark.xfail(strict=True)
 def test_build_graph_for_namespace():
     graph = build_graph("mynamespace", cache_dir=None)
 
