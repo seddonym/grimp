@@ -1,4 +1,3 @@
-import re
 from pathlib import Path
 
 import pytest  # type: ignore
@@ -16,6 +15,18 @@ assets = (Path(__file__).parent.parent.parent / "assets").resolve()
     (
         ("testpackage", {str(assets / "testpackage")}),
         (
+            "missingrootinitpackage",
+            {
+                str(assets / "missingrootinitpackage"),
+            },
+        ),
+        (
+            "missingrootinitpackage.one",
+            {
+                str(assets / "missingrootinitpackage" / "one"),
+            },
+        ),
+        (
             "mynamespace.green",
             {str(assets / "namespacepackages" / "locationone" / "mynamespace" / "green")},
         ),
@@ -23,24 +34,19 @@ assets = (Path(__file__).parent.parent.parent / "assets").resolve()
             "mynamespace.blue",
             {str(assets / "namespacepackages" / "locationtwo" / "mynamespace" / "blue")},
         ),
+        (
+            "mynamespace",
+            {
+                str(assets / "namespacepackages" / "locationone" / "mynamespace"),
+                str(assets / "namespacepackages" / "locationtwo" / "mynamespace"),
+            },
+        ),
     ),
 )
 def test_determine_package_directories(package, expected):
     assert (
         ImportLibPackageFinder().determine_package_directories(package, FileSystem()) == expected
     )
-
-
-def test_determine_package_directory_doesnt_support_namespace_packages():
-    with pytest.raises(
-        exceptions.NamespacePackageEncountered,
-        match=re.escape(
-            "Package 'mynamespace' is a namespace package (see PEP 420). Try specifying the"
-            " portion name instead. If you are not intentionally using "
-            "namespace packages, adding an __init__.py file should fix the problem."
-        ),
-    ):
-        ImportLibPackageFinder().determine_package_directories("mynamespace", FakeFileSystem())
 
 
 @pytest.mark.parametrize(
