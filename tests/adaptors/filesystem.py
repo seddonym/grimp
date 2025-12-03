@@ -68,12 +68,23 @@ class FakeFileSystem(AbstractFileSystem):
         For each directory in the tree rooted at directory top (including top itself),
         it yields a 3-tuple (dirpath, dirnames, filenames).
         """
-        try:
-            directory_contents = self.contents[directory_name]
-        except KeyError:
-            return []
+        if contents_key := self._drill_down_for_contents_key(directory_name):
+            directory_contents = self.contents[contents_key]
+            assert isinstance(directory_contents, dict)
+            yield from self._walk_contents(directory_contents, containing_directory=contents_key)
 
-        yield from self._walk_contents(directory_contents, containing_directory=directory_name)
+        return []
+
+    def _drill_down_for_contents_key(self, directory_name: str) -> str | None:
+        if directory_name in self.contents:
+            return directory_name
+
+        if self.sep in directory_name:
+            # Try one level up.
+            parent = self.sep.join(directory_name.split(self.sep)[:-1])
+            return self._drill_down_for_contents_key(parent)
+        else:
+            return None
 
     def _walk_contents(
         self, directory_contents: dict[str, Any], containing_directory: str

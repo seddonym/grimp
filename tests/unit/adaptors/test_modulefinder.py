@@ -49,12 +49,52 @@ def test_happy_path():
     )
 
 
-def test_namespaced_packages():
+def test_when_package_is_namespace():
     module_finder = ModuleFinder()
 
     file_system = FakeFileSystem(
         contents="""
-        /path/to/somenamespace/foo/
+        /path/to/somenamespace/
+            foo/
+                __init__.py
+                blue.py
+                green/
+                    __init__.py
+                    one.py
+                    two/
+                        __init__.py
+        """
+    )
+
+    result = module_finder.find_package(
+        package_name="somenamespace",
+        package_directory="/path/to/somenamespace",
+        file_system=file_system,
+    )
+
+    assert result == FoundPackage(
+        name="somenamespace",
+        directory="/path/to/somenamespace",
+        module_files=frozenset(
+            {
+                # N.B. no ModuleFile for the namespace package.
+                ModuleFile(module=Module("somenamespace.foo"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("somenamespace.foo.blue"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("somenamespace.foo.green"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("somenamespace.foo.green.one"), mtime=DEFAULT_MTIME),
+                ModuleFile(module=Module("somenamespace.foo.green.two"), mtime=DEFAULT_MTIME),
+            }
+        ),
+    )
+
+
+def test_when_package_is_namespace_portion():
+    module_finder = ModuleFinder()
+
+    file_system = FakeFileSystem(
+        contents="""
+        /path/to/somenamespace/
+            foo/
                 __init__.py
                 blue.py
                 green/

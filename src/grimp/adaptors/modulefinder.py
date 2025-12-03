@@ -40,7 +40,8 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         for dirpath, dirs, files in self.file_system.walk(directory):
             # Don't include directories that aren't Python packages,
             # nor their subdirectories.
-            if "__init__.py" not in files:
+            current_dir_is_descendant = dirpath.startswith(directory) and dirpath != directory
+            if current_dir_is_descendant and "__init__.py" not in files:
                 for d in list(dirs):
                     dirs.remove(d)
                 continue
