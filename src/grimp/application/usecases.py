@@ -4,7 +4,7 @@ Use cases handle application logic.
 
 from typing import cast
 
-from collections.abc import Sequence, Iterable
+from collections.abc import Sequence, Iterable, Set, Mapping
 
 from .scanning import scan_imports
 from ..application.ports import caching
@@ -51,9 +51,10 @@ def build_graph(
     """
     file_system: AbstractFileSystem = settings.FILE_SYSTEM
 
+    root_package_names = [package_name] + list(additional_package_names)
     found_packages = _find_packages(
         file_system=file_system,
-        package_names=[package_name] + list(additional_package_names),
+        root_package_names=root_package_names,
     )
 
     imports_by_module = _scan_packages(
@@ -64,22 +65,22 @@ def build_graph(
         cache_dir=cache_dir,
     )
 
-    graph = _assemble_graph(found_packages, imports_by_module)
+    graph = _assemble_graph(root_package_names, found_packages, imports_by_module)
 
     return graph
 
 
 def _find_packages(
-    file_system: AbstractFileSystem, package_names: Sequence[object]
+    file_system: AbstractFileSystem, root_package_names: Sequence[object]
 ) -> set[FoundPackage]:
-    package_names = _validate_package_names_are_strings(package_names)
+    root_package_names = _validate_package_names_are_strings(root_package_names)
 
     module_finder: AbstractModuleFinder = settings.MODULE_FINDER
     package_finder: AbstractPackageFinder = settings.PACKAGE_FINDER
 
     found_packages: set[FoundPackage] = set()
 
-    for package_name in package_names:
+    for package_name in root_package_names:
         package_directories = package_finder.determine_package_directories(
             package_name=package_name, file_system=file_system
         )
@@ -103,7 +104,7 @@ def _validate_package_names_are_strings(
 
 
 def _scan_packages(
-    found_packages: set[FoundPackage],
+    found_packages: Set[FoundPackage],
     file_system: BasicFileSystem,
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
@@ -152,8 +153,9 @@ def _scan_packages(
 
 
 def _assemble_graph(
-    found_packages: set[FoundPackage],
-    imports_by_module: dict[Module, set[DirectImport]],
+    root_package_names: Sequence[str],
+    found_packages: Set[FoundPackage],
+    imports_by_module: Mapping[Module, Set[DirectImport]],
 ) -> ImportGraph:
     graph: ImportGraph = settings.IMPORT_GRAPH_CLASS()
 
@@ -178,7 +180,7 @@ def _assemble_graph(
     return graph
 
 
-def _is_external(module: Module, package_modules: set[Module]) -> bool:
+def _is_external(module: Module, package_modules: Set[Module]) -> bool:
     return not any(
         module.is_descendant_of(package_module) or module == package_module
         for package_module in package_modules

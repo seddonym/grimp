@@ -1,4 +1,4 @@
-from collections.abc import Collection
+from collections.abc import Collection, Set
 
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 from grimp.domain.valueobjects import DirectImport, Module
@@ -10,7 +10,7 @@ from grimp.application.ports.modulefinder import ModuleFile, FoundPackage
 def scan_imports(
     module_files: Collection[ModuleFile],
     *,
-    found_packages: set[FoundPackage],
+    found_packages: Set[FoundPackage],
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
 ) -> dict[ModuleFile, set[DirectImport]]:
