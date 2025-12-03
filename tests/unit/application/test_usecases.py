@@ -66,7 +66,7 @@ class TestBuildGraph:
                 with pytest.raises(ValueError, match="Cannot find children of a squashed module."):
                     graph.find_children(module)
 
-    @pytest.mark.xfail(reason="Not yet supported")
+    @pytest.mark.xfail(strict=True)
     def test_namespace_package_passed_as_root(self):
         file_system = FakeFileSystem(
             contents="""
@@ -90,9 +90,10 @@ class TestBuildGraph:
 
         class FakePackageFinder(BaseFakePackageFinder):
             directory_map = {
-                # TODO - PackageFinder assumes only a single directory per package.
-                # This isn't the case for namespace packages.
-                "mypackage": {"/path/to/mypackage"}
+                "mypackage": {
+                    "/path/to/mypackage",
+                    "/different-path/to/mypackage",
+                }
             }
 
         with override_settings(FILE_SYSTEM=file_system, PACKAGE_FINDER=FakePackageFinder()):

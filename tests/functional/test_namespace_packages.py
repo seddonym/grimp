@@ -1,6 +1,6 @@
 import pytest  # type: ignore
 
-from grimp import build_graph, exceptions
+from grimp import build_graph
 
 """
 For ease of reference, these are the imports of all the files:
@@ -17,14 +17,18 @@ nestednamespace.foo.alpha.green.one:
     nestednamespace.foo.alpha.blue.one, nestednamespace.bar.beta.orange
 """
 
-
-def test_build_graph_for_namespace():
-    with pytest.raises(exceptions.NamespacePackageEncountered):
-        build_graph("mynamespace", cache_dir=None)
-
-
+YELLOW_MODULES = {"mynamespace.yellow"}
 GREEN_MODULES = {"mynamespace.green", "mynamespace.green.alpha"}
 BLUE_MODULES = {"mynamespace.blue", "mynamespace.blue.alpha", "mynamespace.blue.beta"}
+
+
+@pytest.mark.xfail(strict=True)
+def test_build_graph_for_namespace():
+    graph = build_graph("mynamespace", cache_dir=None)
+
+    assert graph.modules == {"mynamespace"} | YELLOW_MODULES | GREEN_MODULES | BLUE_MODULES
+
+    assert graph.count_imports()
 
 
 @pytest.mark.parametrize(
@@ -100,13 +104,29 @@ def test_import_between_namespace_children():
 # Nested namespaces
 
 
+@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     "package_name",
     ("nestednamespace", "nestednamespace.foo", "nestednamespace.foo.alpha"),
 )
 def test_build_graph_for_nested_namespace(package_name):
-    with pytest.raises(exceptions.NamespacePackageEncountered):
-        build_graph(package_name, cache_dir=None)
+    graph = build_graph(package_name, cache_dir=None)
+
+    assert graph.modules == {
+        "nestednamespace",
+        "nestednamespace.foo",
+        "nestednamespace.foo.alpha",
+        "nestednamespace.foo.alpha.blue",
+        "nestednamespace.foo.alpha.blue.one",
+        "nestednamespace.foo.alpha.blue.two",
+        "nestednamespace.foo.alpha.green",
+        "nestednamespace.foo.alpha.green.one",
+        "nestednamespace.foo.alpha.green.two",
+        "nestednamespace.bar",
+        "nestednamespace.bar.beta",
+        "nestednamespace.bar.beta.orange",
+    }
+    assert graph.count_imports()
 
 
 @pytest.mark.parametrize(
