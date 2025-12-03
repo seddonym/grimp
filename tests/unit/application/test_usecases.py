@@ -154,7 +154,7 @@ class TestBuildGraph:
                 "mypackage",
                 # Note: this should be a bool, but we want to tolerate it,
                 # as Import Linter currently has a bug where it will pass it as None.
-                include_external_packages=None,
+                include_external_packages=False,
             )
 
         expected_modules = {
