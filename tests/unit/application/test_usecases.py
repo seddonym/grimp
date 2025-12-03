@@ -36,7 +36,7 @@ class TestBuildGraph:
         )
 
         class FakePackageFinder(BaseFakePackageFinder):
-            directory_map = {"mypackage": "/path/to/mypackage"}
+            directory_map = {"mypackage": {"/path/to/mypackage"}}
 
         with override_settings(FILE_SYSTEM=file_system, PACKAGE_FINDER=FakePackageFinder()):
             graph = usecases.build_graph(
@@ -92,7 +92,7 @@ class TestBuildGraph:
             directory_map = {
                 # TODO - PackageFinder assumes only a single directory per package.
                 # This isn't the case for namespace packages.
-                "mypackage": "/path/to/mypackage"
+                "mypackage": {"/path/to/mypackage"}
             }
 
         with override_settings(FILE_SYSTEM=file_system, PACKAGE_FINDER=FakePackageFinder()):
@@ -130,7 +130,7 @@ class TestBuildGraph:
         file_system = FakeFileSystem()
 
         class FakePackageFinder(BaseFakePackageFinder):
-            directory_map = {"mypackage": "/path/to/mypackage"}
+            directory_map = {"mypackage": {"/path/to/mypackage"}}
 
         SOME_DEFAULT_CACHE_DIR = ".some_default"
 
@@ -192,7 +192,7 @@ class TestBuildGraph:
         )
 
         class FakePackageFinder(BaseFakePackageFinder):
-            directory_map = {"mypackage": "/path/to/mypackage"}
+            directory_map = {"mypackage": {"/path/to/mypackage"}}
 
         with override_settings(FILE_SYSTEM=file_system, PACKAGE_FINDER=FakePackageFinder()):
             graph = usecases.build_graph(
