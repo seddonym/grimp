@@ -12,10 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 class ImportLibPackageFinder(AbstractPackageFinder):
-    def _determine_package_directory(
+    def determine_package_directories(
         self, package_name: str, file_system: AbstractFileSystem
-    ) -> str:
-        # TODO - do we need to add the current working directory here?
+    ) -> set[str]:
         # Attempt to locate the package file.
         spec = importlib.util.find_spec(package_name)
         if not spec:
@@ -26,18 +25,8 @@ class ImportLibPackageFinder(AbstractPackageFinder):
             if not self._is_a_package(spec, file_system) or self._has_a_non_namespace_parent(spec):
                 raise exceptions.NotATopLevelModule
 
-            return file_system.dirname(spec.origin)
-
-        raise exceptions.NamespacePackageEncountered(
-            f"Package '{package_name}' is a namespace package (see PEP 420). Try specifying the "
-            "portion name instead. If you are not intentionally using namespace packages, "
-            "adding an __init__.py file should fix the problem."
-        )
-
-    def determine_package_directories(
-        self, package_name: str, file_system: AbstractFileSystem
-    ) -> set[str]:
-        return {self._determine_package_directory(package_name, file_system)}
+        assert spec.submodule_search_locations  # This should be the case if spec.has_location.
+        return set(spec.submodule_search_locations)
 
     def _is_a_package(self, spec: ModuleSpec, file_system: AbstractFileSystem) -> bool:
         assert spec.origin
