@@ -13,7 +13,6 @@ from ..application.graph import ImportGraph
 from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage, ModuleFile
 from ..application.ports.packagefinder import AbstractPackageFinder
 from ..domain.valueobjects import DirectImport, Module
-from .. import exceptions
 from .config import settings
 
 
@@ -84,18 +83,14 @@ def _find_packages(
         package_directories = package_finder.determine_package_directories(
             package_name=package_name, file_system=file_system
         )
-        try:
-            [package_directory] = package_directories
-        except ValueError:
-            # TODO handle multiple directories.
-            raise exceptions.NamespacePackageEncountered
+        for package_directory in package_directories:
+            found_package = module_finder.find_package(
+                package_name=package_name,
+                package_directory=package_directory,
+                file_system=file_system,
+            )
+            found_packages.add(found_package)
 
-        found_package = module_finder.find_package(
-            package_name=package_name,
-            package_directory=package_directory,
-            file_system=file_system,
-        )
-        found_packages.add(found_package)
     return found_packages
 
 

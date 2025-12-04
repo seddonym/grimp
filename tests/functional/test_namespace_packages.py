@@ -1,6 +1,6 @@
 import pytest  # type: ignore
 
-from grimp import build_graph, exceptions
+from grimp import build_graph
 
 """
 For ease of reference, these are the imports of all the files:
@@ -17,14 +17,16 @@ nestednamespace.foo.alpha.green.one:
     nestednamespace.foo.alpha.blue.one, nestednamespace.bar.beta.orange
 """
 
-
-def test_build_graph_for_namespace():
-    with pytest.raises(exceptions.NamespacePackageEncountered):
-        build_graph("mynamespace", cache_dir=None)
-
-
+YELLOW_MODULES = {"mynamespace.yellow"}
 GREEN_MODULES = {"mynamespace.green", "mynamespace.green.alpha"}
 BLUE_MODULES = {"mynamespace.blue", "mynamespace.blue.alpha", "mynamespace.blue.beta"}
+
+
+def test_build_graph_for_namespace():
+    graph = build_graph("mynamespace", cache_dir=None)
+
+    assert graph.modules == YELLOW_MODULES | GREEN_MODULES | BLUE_MODULES
+    assert graph.count_imports()
 
 
 @pytest.mark.parametrize(
@@ -99,14 +101,42 @@ def test_import_between_namespace_children():
 
 # Nested namespaces
 
+FOO_ALPHA_BLUE_MODULES = {
+    "nestednamespace.foo.alpha.blue",
+    "nestednamespace.foo.alpha.blue.one",
+    "nestednamespace.foo.alpha.blue.two",
+}
+FOO_ALPHA_GREEN_MODULES = {
+    "nestednamespace.foo.alpha.green",
+    "nestednamespace.foo.alpha.green.one",
+    "nestednamespace.foo.alpha.green.two",
+}
+BAR_BETA_MODULES = {
+    "nestednamespace.bar.beta",
+    "nestednamespace.bar.beta.orange",
+}
+
 
 @pytest.mark.parametrize(
-    "package_name",
-    ("nestednamespace", "nestednamespace.foo", "nestednamespace.foo.alpha"),
+    "package_name, expected",
+    [
+        # TODO: include the namespace packages as modules too.
+        (
+            "nestednamespace",
+            FOO_ALPHA_BLUE_MODULES | FOO_ALPHA_GREEN_MODULES | BAR_BETA_MODULES,
+        ),
+        (
+            "nestednamespace.foo",
+            FOO_ALPHA_BLUE_MODULES | FOO_ALPHA_GREEN_MODULES,
+        ),
+        ("nestednamespace.foo.alpha", FOO_ALPHA_BLUE_MODULES | FOO_ALPHA_GREEN_MODULES),
+    ],
 )
-def test_build_graph_for_nested_namespace(package_name):
-    with pytest.raises(exceptions.NamespacePackageEncountered):
-        build_graph(package_name, cache_dir=None)
+def test_build_graph_for_nested_namespace(package_name, expected):
+    graph = build_graph(package_name, cache_dir=None)
+
+    assert graph.modules == expected
+    assert graph.count_imports()
 
 
 @pytest.mark.parametrize(
