@@ -181,6 +181,18 @@ class TestFakeFileSystem(_Base):
                 "/path/to/mypackage",
                 [MYPACKAGE, MYPACKAGE_FOO, MYPACKAGE_FOO_TWO],
             ),
+            (
+                "/path/to/mypackage/foo",
+                [MYPACKAGE_FOO, MYPACKAGE_FOO_TWO],
+            ),
+            (
+                "/path/to/mypackage/foo/two",
+                [MYPACKAGE_FOO_TWO],
+            ),
+            (
+                "/anotherpackage",
+                [("/anotherpackage", [], ["another.txt"])],
+            ),
         ],
     )
     def test_walk(self, directory: str, expected: list[WalkReturn]):
