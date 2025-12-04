@@ -49,39 +49,65 @@ def test_happy_path():
     )
 
 
-def test_namespaced_packages():
+MODULE_FILES_FOO_BLUE = {
+    ModuleFile(module=Module("somenamespace.foo.blue"), mtime=DEFAULT_MTIME),
+    ModuleFile(module=Module("somenamespace.foo.blue.one"), mtime=DEFAULT_MTIME),
+    ModuleFile(module=Module("somenamespace.foo.blue.two"), mtime=DEFAULT_MTIME),
+    ModuleFile(module=Module("somenamespace.foo.blue.two.alpha"), mtime=DEFAULT_MTIME),
+}
+MODULE_FILES_FOO_GREEN_FIVE = {
+    ModuleFile(module=Module("somenamespace.foo.green"), mtime=DEFAULT_MTIME),
+    ModuleFile(module=Module("somenamespace.foo.green.five"), mtime=DEFAULT_MTIME),
+    ModuleFile(module=Module("somenamespace.foo.green.five.beta"), mtime=DEFAULT_MTIME),
+}
+
+
+@pytest.mark.parametrize(
+    "package_name, package_directory, expected",
+    [
+        (
+            "somenamespace.foo.blue",
+            "/path/to/somenamespace/foo/blue",
+            FoundPackage(
+                name="somenamespace.foo.blue",
+                directory="/path/to/somenamespace/foo/blue",
+                module_files=MODULE_FILES_FOO_BLUE,
+            ),
+        ),
+    ],
+)
+def test_namespaced_packages(package_name: str, package_directory: str, expected: FoundPackage):
     module_finder = ModuleFinder()
 
     file_system = FakeFileSystem(
         contents="""
-        /path/to/somenamespace/foo/
-                __init__.py
-                blue.py
-                green/
-                    __init__.py
-                    one.py
-                    two/
+            /path/to/somenamespace/
+                foo/
+                    blue/
                         __init__.py
+                        one.py
+                        two/
+                            __init__.py
+                            alpha.py
+                        noinitpackage/
+                            three.py
+                            orphan/
+                                __init__.py
+                                four.py
+                    green/
+                        five/
+                            __init__.py
+                            beta.py
         """
     )
 
     result = module_finder.find_package(
-        package_name="somenamespace.foo",
-        package_directory="/path/to/somenamespace/foo",
+        package_name=package_name,
+        package_directory=package_directory,
         file_system=file_system,
     )
 
-    assert result == FoundPackage(
-        name="somenamespace.foo",
-        directory="/path/to/somenamespace/foo",
-        module_files={
-            ModuleFile(module=Module("somenamespace.foo"), mtime=DEFAULT_MTIME),
-            ModuleFile(module=Module("somenamespace.foo.blue"), mtime=DEFAULT_MTIME),
-            ModuleFile(module=Module("somenamespace.foo.green"), mtime=DEFAULT_MTIME),
-            ModuleFile(module=Module("somenamespace.foo.green.one"), mtime=DEFAULT_MTIME),
-            ModuleFile(module=Module("somenamespace.foo.green.two"), mtime=DEFAULT_MTIME),
-        },
-    )
+    assert result == expected
 
 
 def test_ignores_orphaned_python_files():
