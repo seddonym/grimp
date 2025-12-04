@@ -1,4 +1,5 @@
 import abc
+from collections.abc import Set
 from dataclasses import dataclass
 
 from grimp.domain.valueobjects import Module
@@ -20,7 +21,7 @@ class FoundPackage:
 
     name: str
     directory: str
-    module_files: frozenset[ModuleFile]
+    module_files: Set[ModuleFile]
 
 
 class AbstractModuleFinder(abc.ABC):

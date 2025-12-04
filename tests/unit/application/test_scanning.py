@@ -5,6 +5,7 @@ from grimp.application import scanning
 from grimp.domain.valueobjects import DirectImport, Module
 from tests.config import override_settings
 from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
+from collections.abc import Set
 
 
 @pytest.mark.parametrize(
@@ -175,7 +176,7 @@ def test_single_namespace_package_portion():
         FoundPackage(
             name="namespace.foo",
             directory="/path/to/namespace/foo",
-            module_files=frozenset(_modules_to_module_files(all_modules)),
+            module_files=_modules_to_module_files(all_modules),
         )
     }
 
@@ -263,18 +264,16 @@ def test_import_of_portion_not_in_graph(include_external_packages):
         FoundPackage(
             name="namespace.foo",
             directory="/path/to/namespace/foo",
-            module_files=frozenset(_modules_to_module_files(all_modules)),
+            module_files=_modules_to_module_files(all_modules),
         ),
         FoundPackage(
             name="namespace.bar.one.green",
             directory="/path/to/namespace/bar/one/green",
-            module_files=frozenset(
-                _modules_to_module_files(
-                    {
-                        MODULE_BAR_ONE_GREEN,
-                        MODULE_BAR_ONE_GREEN_ALPHA,
-                    }
-                )
+            module_files=_modules_to_module_files(
+                {
+                    MODULE_BAR_ONE_GREEN,
+                    MODULE_BAR_ONE_GREEN_ALPHA,
+                }
             ),
         ),
     }
@@ -454,7 +453,7 @@ def test_absolute_from_imports(include_external_packages, expected_result):
         FoundPackage(
             name="foo",
             directory="/path/to/foo",
-            module_files=frozenset(_modules_to_module_files(all_modules)),
+            module_files=_modules_to_module_files(all_modules),
         )
     }
 
@@ -514,7 +513,7 @@ def test_relative_from_imports(module_to_scan_is_package):
         FoundPackage(
             name="foo",
             directory="/path/to/foo",
-            module_files=frozenset(_modules_to_module_files(all_modules)),
+            module_files=_modules_to_module_files(all_modules),
         )
     }
 
@@ -577,7 +576,7 @@ def test_trims_to_known_modules(import_source):
         FoundPackage(
             name="foo",
             directory="/path/to/foo",
-            module_files=frozenset(_modules_to_module_files(all_modules)),
+            module_files=_modules_to_module_files(all_modules),
         )
     }
 
@@ -631,7 +630,7 @@ def test_trims_to_known_modules_within_init_file():
         FoundPackage(
             name="foo",
             directory="/path/to/foo",
-            module_files=frozenset(_modules_to_module_files(all_modules)),
+            module_files=_modules_to_module_files(all_modules),
         )
     }
 
@@ -684,7 +683,7 @@ def test_trims_whitespace_from_start_of_line_contents():
         FoundPackage(
             name="foo",
             directory="/path/to/foo",
-            module_files=frozenset(_modules_to_module_files(all_modules)),
+            module_files=_modules_to_module_files(all_modules),
         )
     }
 
@@ -752,14 +751,12 @@ def test_external_package_imports_for_namespace_packages(statement, expected_mod
         FoundPackage(
             name="namespace.foo.blue",
             directory="/path/to/namespace/foo/blue",
-            module_files=frozenset(
-                _modules_to_module_files(
-                    {
-                        Module("namespace.foo.blue"),
-                        module_to_scan,
-                        Module("namespace.foo.blue.beta"),
-                    }
-                )
+            module_files=_modules_to_module_files(
+                {
+                    Module("namespace.foo.blue"),
+                    module_to_scan,
+                    Module("namespace.foo.blue.beta"),
+                }
             ),
         )
     }
@@ -807,12 +804,12 @@ def test_scans_multiple_packages(statement):
         FoundPackage(
             name="foo",
             directory="/path/to/foo",
-            module_files=frozenset(_modules_to_module_files(foo_modules)),
+            module_files=_modules_to_module_files(foo_modules),
         ),
         FoundPackage(
             name="bar",
             directory="/path/to/bar",
-            module_files=frozenset(_modules_to_module_files(bar_modules)),
+            module_files=_modules_to_module_files(bar_modules),
         ),
     }
 
@@ -881,7 +878,7 @@ def test_exclude_type_checking_imports(
         FoundPackage(
             name="foo",
             directory="/path/to/foo",
-            module_files=frozenset(_modules_to_module_files(all_modules)),
+            module_files=_modules_to_module_files(all_modules),
         )
     }
 
@@ -943,5 +940,5 @@ def _module_to_module_file(module: Module) -> ModuleFile:
     return ModuleFile(module=module, mtime=some_mtime)
 
 
-def _modules_to_module_files(modules: set[Module]) -> set[ModuleFile]:
-    return {_module_to_module_file(module) for module in modules}
+def _modules_to_module_files(modules: Set[Module]) -> frozenset[ModuleFile]:
+    return frozenset({_module_to_module_file(module) for module in modules})

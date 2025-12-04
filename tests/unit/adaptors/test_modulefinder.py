@@ -74,15 +74,13 @@ def test_namespaced_packages():
     assert result == FoundPackage(
         name="somenamespace.foo",
         directory="/path/to/somenamespace/foo",
-        module_files=frozenset(
-            {
-                ModuleFile(module=Module("somenamespace.foo"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("somenamespace.foo.blue"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("somenamespace.foo.green"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("somenamespace.foo.green.one"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("somenamespace.foo.green.two"), mtime=DEFAULT_MTIME),
-            }
-        ),
+        module_files={
+            ModuleFile(module=Module("somenamespace.foo"), mtime=DEFAULT_MTIME),
+            ModuleFile(module=Module("somenamespace.foo.blue"), mtime=DEFAULT_MTIME),
+            ModuleFile(module=Module("somenamespace.foo.green"), mtime=DEFAULT_MTIME),
+            ModuleFile(module=Module("somenamespace.foo.green.one"), mtime=DEFAULT_MTIME),
+            ModuleFile(module=Module("somenamespace.foo.green.two"), mtime=DEFAULT_MTIME),
+        },
     )
 
 
@@ -114,13 +112,11 @@ def test_ignores_orphaned_python_files():
     assert result == FoundPackage(
         name="mypackage",
         directory="/path/to/mypackage",
-        module_files=frozenset(
-            {
-                ModuleFile(module=Module("mypackage"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("mypackage.two"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("mypackage.two.green"), mtime=DEFAULT_MTIME),
-            }
-        ),
+        module_files={
+            ModuleFile(module=Module("mypackage"), mtime=DEFAULT_MTIME),
+            ModuleFile(module=Module("mypackage.two"), mtime=DEFAULT_MTIME),
+            ModuleFile(module=Module("mypackage.two.green"), mtime=DEFAULT_MTIME),
+        },
     )
 
 
@@ -155,13 +151,11 @@ def test_ignores_dotted_python_files(extension, should_warn, caplog):
     assert result == FoundPackage(
         name="mypackage",
         directory="/path/to/mypackage",
-        module_files=frozenset(
-            {
-                ModuleFile(module=Module("mypackage"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("mypackage.foo"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("mypackage.bar"), mtime=DEFAULT_MTIME),
-            }
-        ),
+        module_files={
+            ModuleFile(module=Module("mypackage"), mtime=DEFAULT_MTIME),
+            ModuleFile(module=Module("mypackage.foo"), mtime=DEFAULT_MTIME),
+            ModuleFile(module=Module("mypackage.bar"), mtime=DEFAULT_MTIME),
+        },
     )
     if should_warn:
         assert caplog.messages == [
@@ -201,11 +195,9 @@ def test_ignores_hidden_directories():
     assert result == FoundPackage(
         name="mypackage",
         directory="/path/to/mypackage",
-        module_files=frozenset(
-            {
-                ModuleFile(Module("mypackage"), mtime=DEFAULT_MTIME),
-                ModuleFile(Module("mypackage.two"), mtime=DEFAULT_MTIME),
-                ModuleFile(Module("mypackage.two.green"), mtime=DEFAULT_MTIME),
-            }
-        ),
+        module_files={
+            ModuleFile(Module("mypackage"), mtime=DEFAULT_MTIME),
+            ModuleFile(Module("mypackage.two"), mtime=DEFAULT_MTIME),
+            ModuleFile(Module("mypackage.two.green"), mtime=DEFAULT_MTIME),
+        },
     )
