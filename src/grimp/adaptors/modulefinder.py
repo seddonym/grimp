@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Iterable
+from collections.abc import Iterable, Set
 
 from grimp.application.ports import modulefinder
 from grimp.application.ports.filesystem import AbstractFileSystem
@@ -37,13 +37,21 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
          Return:
             Generator of Python file names.
         """
+        portion_dirs: set[str] = set()
+
         for dirpath, dirs, files in self.file_system.walk(directory):
-            # Don't include directories that aren't Python packages,
-            # nor their subdirectories.
-            if "__init__.py" not in files:
-                for d in list(dirs):
-                    dirs.remove(d)
-                continue
+            if self._is_in_portion(dirpath, portion_dirs):
+                # Are we somewhere inside a non-namespace package?
+                if "__init__.py" not in files:
+                    # Don't drill down further in this directory.
+                    # (This means we won't include 'orphans' - Python packages deeply nested
+                    # in a package that has already included __init__.py files.
+                    for d in list(dirs):
+                        dirs.remove(d)
+                    continue
+            elif "__init__.py" in files:
+                # This directory is a portion (i.e. it has a top-level __init__.py).
+                portion_dirs.add(dirpath)
 
             # Don't include hidden directories.
             dirs_to_remove = [d for d in dirs if self._should_ignore_dir(d)]
@@ -53,6 +61,9 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
             for filename in files:
                 if self._is_python_file(filename, dirpath):
                     yield self.file_system.join(dirpath, filename)
+
+    def _is_in_portion(self, directory: str, portions: Set[str]) -> bool:
+        return any(directory.startswith(portion) for portion in portions)
 
     def _should_ignore_dir(self, directory: str) -> bool:
         # TODO: make this configurable.

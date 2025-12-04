@@ -56,7 +56,6 @@ MODULE_FILES_FOO_BLUE = {
     ModuleFile(module=Module("somenamespace.foo.blue.two.alpha"), mtime=DEFAULT_MTIME),
 }
 MODULE_FILES_FOO_GREEN_FIVE = {
-    ModuleFile(module=Module("somenamespace.foo.green"), mtime=DEFAULT_MTIME),
     ModuleFile(module=Module("somenamespace.foo.green.five"), mtime=DEFAULT_MTIME),
     ModuleFile(module=Module("somenamespace.foo.green.five.beta"), mtime=DEFAULT_MTIME),
 }
@@ -65,6 +64,24 @@ MODULE_FILES_FOO_GREEN_FIVE = {
 @pytest.mark.parametrize(
     "package_name, package_directory, expected",
     [
+        (
+            "somenamespace",
+            "/path/to/somenamespace",
+            FoundPackage(
+                name="somenamespace",
+                directory="/path/to/somenamespace",
+                module_files=MODULE_FILES_FOO_BLUE | MODULE_FILES_FOO_GREEN_FIVE,
+            ),
+        ),
+        (
+            "somenamespace.foo",
+            "/path/to/somenamespace/foo",
+            FoundPackage(
+                name="somenamespace.foo",
+                directory="/path/to/somenamespace/foo",
+                module_files=MODULE_FILES_FOO_BLUE | MODULE_FILES_FOO_GREEN_FIVE,
+            ),
+        ),
         (
             "somenamespace.foo.blue",
             "/path/to/somenamespace/foo/blue",
