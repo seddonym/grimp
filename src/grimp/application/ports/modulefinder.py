@@ -22,6 +22,8 @@ class FoundPackage:
     name: str
     directory: str
     module_files: Set[ModuleFile]
+    # Needs to be immutable so FoundPackage can appear in sets.
+    namespace_packages: frozenset[str] = frozenset()
 
 
 class AbstractModuleFinder(abc.ABC):

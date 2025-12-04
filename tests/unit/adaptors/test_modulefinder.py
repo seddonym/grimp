@@ -71,6 +71,13 @@ MODULE_FILES_FOO_GREEN_FIVE = {
                 name="somenamespace",
                 directory="/path/to/somenamespace",
                 module_files=MODULE_FILES_FOO_BLUE | MODULE_FILES_FOO_GREEN_FIVE,
+                namespace_packages=frozenset(
+                    {
+                        "somenamespace",
+                        "somenamespace.foo",
+                        "somenamespace.foo.green",
+                    }
+                ),
             ),
         ),
         (
@@ -80,6 +87,12 @@ MODULE_FILES_FOO_GREEN_FIVE = {
                 name="somenamespace.foo",
                 directory="/path/to/somenamespace/foo",
                 module_files=MODULE_FILES_FOO_BLUE | MODULE_FILES_FOO_GREEN_FIVE,
+                namespace_packages=frozenset(
+                    {
+                        "somenamespace.foo",
+                        "somenamespace.foo.green",
+                    }
+                ),
             ),
         ),
         (
