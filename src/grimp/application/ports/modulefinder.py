@@ -7,13 +7,13 @@ from grimp.domain.valueobjects import Module
 from .filesystem import AbstractFileSystem
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class ModuleFile:
     module: Module
     mtime: float
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class FoundPackage:
     """
     Set of modules found under a single package, together with metadata.
