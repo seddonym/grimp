@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from collections.abc import Iterable, Sequence
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class Route:
     """
     A set of 'chains' that share the same middle.
@@ -63,7 +63,7 @@ class Route:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class PackageDependency:
     """
     Dependencies from one package to another.

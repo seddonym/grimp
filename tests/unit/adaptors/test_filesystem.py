@@ -1,3 +1,4 @@
+from typing import TypeAlias
 from copy import copy
 import pytest  # type: ignore
 from grimp.application.ports.filesystem import BasicFileSystem
@@ -40,6 +41,7 @@ class _Base:
             ("/path/to/mypackage/readme.txt", True),
             ("/path/to/mypackage/foo/one.txt", True),
             ("/path/to/mypackage/foo/two/green.txt", True),
+            ("/path/to/mypackage/bar/blue.txt", True),
             ("/path/to/nonexistent.txt", False),
             ("/path/to/mypackage/purple.txt", False),
         ],
@@ -53,6 +55,8 @@ class _Base:
                     one.txt
                     two/
                         green.txt
+                bar/
+                    blue.txt
             """
         )
 
@@ -156,10 +160,42 @@ class _Base:
         assert file_system.read(some_filename) == some_contents
 
 
+WalkReturn: TypeAlias = tuple[str, list[str], list[str]]
+
+
 class TestFakeFileSystem(_Base):
     file_system_cls = FakeFileSystem
 
-    def test_walk(self):
+    MYPACKAGE: WalkReturn = ("/path/to/mypackage", ["foo"], ["__init__.py"])
+    MYPACKAGE_FOO: WalkReturn = ("/path/to/mypackage/foo", ["two"], ["__init__.py", "one.py"])
+    MYPACKAGE_FOO_TWO: WalkReturn = (
+        "/path/to/mypackage/foo/two",
+        [],
+        ["__init__.py", "green.py", "blue.py"],
+    )
+
+    @pytest.mark.parametrize(
+        "directory, expected",
+        [
+            (
+                "/path/to/mypackage",
+                [MYPACKAGE, MYPACKAGE_FOO, MYPACKAGE_FOO_TWO],
+            ),
+            (
+                "/path/to/mypackage/foo",
+                [MYPACKAGE_FOO, MYPACKAGE_FOO_TWO],
+            ),
+            (
+                "/path/to/mypackage/foo/two",
+                [MYPACKAGE_FOO_TWO],
+            ),
+            (
+                "/anotherpackage",
+                [("/anotherpackage", [], ["another.txt"])],
+            ),
+        ],
+    )
+    def test_walk(self, directory: str, expected: list[WalkReturn]):
         file_system = self.file_system_cls(
             """
             /path/to/mypackage/
@@ -175,11 +211,10 @@ class TestFakeFileSystem(_Base):
                 another.txt
         """
         )
-        assert [
-            ("/path/to/mypackage", ["foo"], ["__init__.py"]),
-            ("/path/to/mypackage/foo", ["two"], ["__init__.py", "one.py"]),
-            ("/path/to/mypackage/foo/two", [], ["__init__.py", "green.py", "blue.py"]),
-        ] == list(file_system.walk("/path/to/mypackage"))
+
+        result = list(file_system.walk(directory))
+
+        assert result == expected
 
     def test_empty_if_directory_does_not_exist(self):
         file_system = self.file_system_cls(
@@ -205,15 +240,15 @@ class TestFakeFileSystem(_Base):
         """
         file_system = self.file_system_cls(
             """
-                    /path/to/mypackage/
-                        foo/
-                            one.txt
-                            skipme/
-                                two.txt
-                            dontskip/
-                                three.txt
-                        bar/
-                            four.txt
+            /path/to/mypackage/
+                foo/
+                    one.txt
+                    skipme/
+                        two.txt
+                    dontskip/
+                        three.txt
+                bar/
+                    four.txt
         """
         )
 

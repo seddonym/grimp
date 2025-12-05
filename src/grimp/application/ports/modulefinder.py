@@ -1,4 +1,5 @@
 import abc
+from collections.abc import Set
 from dataclasses import dataclass
 
 from grimp.domain.valueobjects import Module
@@ -6,13 +7,13 @@ from grimp.domain.valueobjects import Module
 from .filesystem import AbstractFileSystem
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class ModuleFile:
     module: Module
     mtime: float
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class FoundPackage:
     """
     Set of modules found under a single package, together with metadata.
@@ -20,7 +21,9 @@ class FoundPackage:
 
     name: str
     directory: str
-    module_files: frozenset[ModuleFile]
+    module_files: Set[ModuleFile]
+    # Needs to be immutable so FoundPackage can appear in sets.
+    namespace_packages: frozenset[str] = frozenset()
 
 
 class AbstractModuleFinder(abc.ABC):

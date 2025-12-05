@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Iterable
+from collections.abc import Iterable, Set
 
 from grimp.application.ports import modulefinder
 from grimp.application.ports.filesystem import AbstractFileSystem
@@ -16,7 +16,10 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
 
         module_files: list[modulefinder.ModuleFile] = []
 
-        for module_filename in self._get_python_files_inside_package(package_directory):
+        python_files, namespace_dirs = self._get_python_files_and_namespace_dirs_inside_package(
+            package_directory
+        )
+        for module_filename in python_files:
             module_name = self._module_name_from_filename(
                 package_name, module_filename, package_directory
             )
@@ -25,25 +28,51 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
                 modulefinder.ModuleFile(module=Module(module_name), mtime=module_mtime)
             )
 
+        namespace_packages = frozenset(
+            {
+                self._namespace_from_dir(package_name, namespace_dir, package_directory)
+                for namespace_dir in namespace_dirs
+            }
+        )
+
         return modulefinder.FoundPackage(
             name=package_name,
             directory=package_directory,
             module_files=frozenset(module_files),
+            namespace_packages=namespace_packages,
         )
 
-    def _get_python_files_inside_package(self, directory: str) -> Iterable[str]:
+    def _get_python_files_and_namespace_dirs_inside_package(
+        self, directory: str
+    ) -> tuple[Iterable[str], Set[str]]:
         """
-        Get a list of Python files within the supplied package directory.
-         Return:
-            Generator of Python file names.
+        Search the supplied package directory for Python files and namespaces.
+
+        Return tuple consisting of:
+            1. Iterable of Python file names.
+            2. Set of namespace directories encountered.
         """
+        python_files: list[str] = []
+        candidate_namespace_dirs: list[str] = []
+        portion_dirs: set[str] = set()
+
         for dirpath, dirs, files in self.file_system.walk(directory):
-            # Don't include directories that aren't Python packages,
-            # nor their subdirectories.
-            if "__init__.py" not in files:
-                for d in list(dirs):
-                    dirs.remove(d)
-                continue
+            if self._is_in_portion(dirpath, portion_dirs):
+                # Are we somewhere inside a non-namespace package?
+                if "__init__.py" not in files:
+                    # Don't drill down further in this directory.
+                    # (This means we won't include 'orphans' - Python packages deeply nested
+                    # in a package that has already included __init__.py files.
+                    for d in list(dirs):
+                        dirs.remove(d)
+                    continue
+            elif "__init__.py" in files:
+                # This directory is a portion (i.e. it has a top-level __init__.py).
+                portion_dirs.add(dirpath)
+            else:
+                # We don't yet know whether this is a namespace dir. It'll only be one if we find
+                # a Python file somewhere within it.
+                candidate_namespace_dirs.append(dirpath)
 
             # Don't include hidden directories.
             dirs_to_remove = [d for d in dirs if self._should_ignore_dir(d)]
@@ -52,12 +81,30 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
 
             for filename in files:
                 if self._is_python_file(filename, dirpath):
-                    yield self.file_system.join(dirpath, filename)
+                    python_files.append(self.file_system.join(dirpath, filename))
+
+        namespace_dirs = self._determine_namespace_dirs(candidate_namespace_dirs, python_files)
+        return python_files, namespace_dirs
+
+    def _is_in_portion(self, directory: str, portions: Set[str]) -> bool:
+        return any(directory.startswith(portion) for portion in portions)
 
     def _should_ignore_dir(self, directory: str) -> bool:
         # TODO: make this configurable.
         # Skip adding directories that are hidden.
         return directory.startswith(".")
+
+    def _determine_namespace_dirs(
+        self, candidates: Iterable[str], python_files: Iterable[str]
+    ) -> set[str]:
+        namespace_dirs: set[str] = set()
+        for candidate in candidates:
+            candidate_with_trailing_sep = candidate + self.file_system.sep
+            for python_file in python_files:
+                if python_file.startswith(candidate_with_trailing_sep):
+                    namespace_dirs.add(candidate)
+                    break
+        return namespace_dirs
 
     def _is_python_file(self, filename: str, dirpath: str) -> bool:
         """
@@ -106,4 +153,21 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         )
         if components[-1] == "__init__":
             components.pop()
+        return ".".join(components)
+
+    def _namespace_from_dir(
+        self, package_name: str, namespace_dir: str, package_directory: str
+    ) -> str:
+        """
+        Args:
+            package_name (string) - the importable name of the top level package. Could
+                be namespaced.
+            namespace_dir (string) - the full name of the namespace directory.
+            package_directory (string) - the full path of the top level Python package directory.
+         Returns:
+            Absolute module name for importing (string).
+        """
+        parent_of_package_directory = package_directory[: -len(package_name)]
+        directory_relative_to_parent = namespace_dir[len(parent_of_package_directory) :]
+        components = directory_relative_to_parent.split(self.file_system.sep)
         return ".".join(components)

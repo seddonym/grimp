@@ -1,11 +1,13 @@
+from collections.abc import Mapping
 from grimp.application.ports.packagefinder import AbstractPackageFinder
+
 from grimp.application.ports.filesystem import AbstractFileSystem
 
 
 class BaseFakePackageFinder(AbstractPackageFinder):
-    directory_map: dict[str, str] = {}
+    directory_map: Mapping[str, set[str]] = {}
 
-    def determine_package_directory(
+    def determine_package_directories(
         self, package_name: str, file_system: AbstractFileSystem
-    ) -> str:
+    ) -> set[str]:
         return self.directory_map[package_name]

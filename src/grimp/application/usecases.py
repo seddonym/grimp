@@ -3,6 +3,7 @@ Use cases handle application logic.
 """
 
 from typing import cast
+import itertools
 from collections.abc import Sequence, Iterable
 
 from .scanning import scan_imports
@@ -79,15 +80,17 @@ def _find_packages(
     found_packages: set[FoundPackage] = set()
 
     for package_name in package_names:
-        package_directory = package_finder.determine_package_directory(
+        package_directories = package_finder.determine_package_directories(
             package_name=package_name, file_system=file_system
         )
-        found_package = module_finder.find_package(
-            package_name=package_name,
-            package_directory=package_directory,
-            file_system=file_system,
-        )
-        found_packages.add(found_package)
+        for package_directory in package_directories:
+            found_package = module_finder.find_package(
+                package_name=package_name,
+                package_directory=package_directory,
+                file_system=file_system,
+            )
+            found_packages.add(found_package)
+
     return found_packages
 
 
@@ -154,6 +157,11 @@ def _assemble_graph(
     imports_by_module: dict[Module, set[DirectImport]],
 ) -> ImportGraph:
     graph: ImportGraph = settings.IMPORT_GRAPH_CLASS()
+
+    for namespace_package in itertools.chain.from_iterable(
+        found_package.namespace_packages for found_package in found_packages
+    ):
+        graph.add_module(namespace_package)
 
     package_modules = {Module(found_package.name) for found_package in found_packages}
 

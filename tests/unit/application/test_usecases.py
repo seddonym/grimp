@@ -36,7 +36,7 @@ class TestBuildGraph:
         )
 
         class FakePackageFinder(BaseFakePackageFinder):
-            directory_map = {"mypackage": "/path/to/mypackage"}
+            directory_map = {"mypackage": {"/path/to/mypackage"}}
 
         with override_settings(FILE_SYSTEM=file_system, PACKAGE_FINDER=FakePackageFinder()):
             graph = usecases.build_graph(
@@ -85,7 +85,7 @@ class TestBuildGraph:
         file_system = FakeFileSystem()
 
         class FakePackageFinder(BaseFakePackageFinder):
-            directory_map = {"mypackage": "/path/to/mypackage"}
+            directory_map = {"mypackage": {"/path/to/mypackage"}}
 
         SOME_DEFAULT_CACHE_DIR = ".some_default"
 
@@ -147,14 +147,14 @@ class TestBuildGraph:
         )
 
         class FakePackageFinder(BaseFakePackageFinder):
-            directory_map = {"mypackage": "/path/to/mypackage"}
+            directory_map = {"mypackage": {"/path/to/mypackage"}}
 
         with override_settings(FILE_SYSTEM=file_system, PACKAGE_FINDER=FakePackageFinder()):
             graph = usecases.build_graph(
                 "mypackage",
                 # Note: this should be a bool, but we want to tolerate it,
                 # as Import Linter currently has a bug where it will pass it as None.
-                include_external_packages=None,
+                include_external_packages=False,
             )
 
         expected_modules = {
@@ -163,3 +163,48 @@ class TestBuildGraph:
             "mypackage.foo.one",
         }
         assert expected_modules == graph.modules
+
+    def test_namespace_package_passed_as_root(self):
+        file_system = FakeFileSystem(
+            contents="""
+                /path/to/mypackage/
+                    foo/
+                        __init__.py
+                        one.py
+                        two/
+                            __init__.py
+                            green.py
+                            blue.py
+                    bar/
+                        __init__.py
+                        three.py
+                /different-path/to/mypackage/
+                    foobar/
+                        __init__.py
+                        four.py
+                """,
+        )
+
+        class FakePackageFinder(BaseFakePackageFinder):
+            directory_map = {
+                "mypackage": {
+                    "/path/to/mypackage",
+                    "/different-path/to/mypackage",
+                }
+            }
+
+        with override_settings(FILE_SYSTEM=file_system, PACKAGE_FINDER=FakePackageFinder()):
+            graph = usecases.build_graph("mypackage")
+
+        assert graph.modules == {
+            "mypackage",
+            "mypackage.foo",
+            "mypackage.foo.one",
+            "mypackage.foo.two",
+            "mypackage.foo.two.green",
+            "mypackage.foo.two.blue",
+            "mypackage.bar",
+            "mypackage.bar.three",
+            "mypackage.foobar",
+            "mypackage.foobar.four",
+        }

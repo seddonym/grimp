@@ -49,41 +49,100 @@ def test_happy_path():
     )
 
 
-def test_namespaced_packages():
+MODULE_FILES_FOO_BLUE = {
+    ModuleFile(module=Module("somenamespace.foo.blue"), mtime=DEFAULT_MTIME),
+    ModuleFile(module=Module("somenamespace.foo.blue.one"), mtime=DEFAULT_MTIME),
+    ModuleFile(module=Module("somenamespace.foo.blue.two"), mtime=DEFAULT_MTIME),
+    ModuleFile(module=Module("somenamespace.foo.blue.two.alpha"), mtime=DEFAULT_MTIME),
+}
+MODULE_FILES_FOO_GREEN_FIVE = {
+    ModuleFile(module=Module("somenamespace.foo.green.five"), mtime=DEFAULT_MTIME),
+    ModuleFile(module=Module("somenamespace.foo.green.five.beta"), mtime=DEFAULT_MTIME),
+}
+
+
+@pytest.mark.parametrize(
+    "package_name, package_directory, expected",
+    [
+        (
+            "somenamespace",
+            "/path/to/somenamespace",
+            FoundPackage(
+                name="somenamespace",
+                directory="/path/to/somenamespace",
+                module_files=MODULE_FILES_FOO_BLUE | MODULE_FILES_FOO_GREEN_FIVE,
+                namespace_packages=frozenset(
+                    {
+                        "somenamespace",
+                        "somenamespace.foo",
+                        "somenamespace.foo.green",
+                    }
+                ),
+            ),
+        ),
+        (
+            "somenamespace.foo",
+            "/path/to/somenamespace/foo",
+            FoundPackage(
+                name="somenamespace.foo",
+                directory="/path/to/somenamespace/foo",
+                module_files=MODULE_FILES_FOO_BLUE | MODULE_FILES_FOO_GREEN_FIVE,
+                namespace_packages=frozenset(
+                    {
+                        "somenamespace.foo",
+                        "somenamespace.foo.green",
+                    }
+                ),
+            ),
+        ),
+        (
+            "somenamespace.foo.blue",
+            "/path/to/somenamespace/foo/blue",
+            FoundPackage(
+                name="somenamespace.foo.blue",
+                directory="/path/to/somenamespace/foo/blue",
+                module_files=MODULE_FILES_FOO_BLUE,
+            ),
+        ),
+    ],
+)
+def test_namespaced_packages(package_name: str, package_directory: str, expected: FoundPackage):
     module_finder = ModuleFinder()
 
     file_system = FakeFileSystem(
         contents="""
-        /path/to/somenamespace/foo/
-                __init__.py
-                blue.py
-                green/
-                    __init__.py
-                    one.py
-                    two/
+            /path/to/somenamespace/
+                foo/
+                    blue/
                         __init__.py
+                        one.py
+                        two/
+                            __init__.py
+                            alpha.py
+                        noinitpackage/
+                            three.py
+                            orphan/
+                                __init__.py
+                                four.py
+                    green/
+                        five/
+                            __init__.py
+                            beta.py
+                    non_python_directory/
+                        six/
+                            README.txt
+                    
+                    
         """
     )
 
     result = module_finder.find_package(
-        package_name="somenamespace.foo",
-        package_directory="/path/to/somenamespace/foo",
+        package_name=package_name,
+        package_directory=package_directory,
         file_system=file_system,
     )
 
-    assert result == FoundPackage(
-        name="somenamespace.foo",
-        directory="/path/to/somenamespace/foo",
-        module_files=frozenset(
-            {
-                ModuleFile(module=Module("somenamespace.foo"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("somenamespace.foo.blue"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("somenamespace.foo.green"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("somenamespace.foo.green.one"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("somenamespace.foo.green.two"), mtime=DEFAULT_MTIME),
-            }
-        ),
-    )
+    assert result == expected
 
 
 def test_ignores_orphaned_python_files():
@@ -114,13 +173,11 @@ def test_ignores_orphaned_python_files():
     assert result == FoundPackage(
         name="mypackage",
         directory="/path/to/mypackage",
-        module_files=frozenset(
-            {
-                ModuleFile(module=Module("mypackage"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("mypackage.two"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("mypackage.two.green"), mtime=DEFAULT_MTIME),
-            }
-        ),
+        module_files={
+            ModuleFile(module=Module("mypackage"), mtime=DEFAULT_MTIME),
+            ModuleFile(module=Module("mypackage.two"), mtime=DEFAULT_MTIME),
+            ModuleFile(module=Module("mypackage.two.green"), mtime=DEFAULT_MTIME),
+        },
     )
 
 
@@ -155,13 +212,11 @@ def test_ignores_dotted_python_files(extension, should_warn, caplog):
     assert result == FoundPackage(
         name="mypackage",
         directory="/path/to/mypackage",
-        module_files=frozenset(
-            {
-                ModuleFile(module=Module("mypackage"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("mypackage.foo"), mtime=DEFAULT_MTIME),
-                ModuleFile(module=Module("mypackage.bar"), mtime=DEFAULT_MTIME),
-            }
-        ),
+        module_files={
+            ModuleFile(module=Module("mypackage"), mtime=DEFAULT_MTIME),
+            ModuleFile(module=Module("mypackage.foo"), mtime=DEFAULT_MTIME),
+            ModuleFile(module=Module("mypackage.bar"), mtime=DEFAULT_MTIME),
+        },
     )
     if should_warn:
         assert caplog.messages == [
@@ -201,11 +256,9 @@ def test_ignores_hidden_directories():
     assert result == FoundPackage(
         name="mypackage",
         directory="/path/to/mypackage",
-        module_files=frozenset(
-            {
-                ModuleFile(Module("mypackage"), mtime=DEFAULT_MTIME),
-                ModuleFile(Module("mypackage.two"), mtime=DEFAULT_MTIME),
-                ModuleFile(Module("mypackage.two.green"), mtime=DEFAULT_MTIME),
-            }
-        ),
+        module_files={
+            ModuleFile(Module("mypackage"), mtime=DEFAULT_MTIME),
+            ModuleFile(Module("mypackage.two"), mtime=DEFAULT_MTIME),
+            ModuleFile(Module("mypackage.two.green"), mtime=DEFAULT_MTIME),
+        },
     )

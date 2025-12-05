@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class Module:
     """
     A Python module.
@@ -42,7 +42,7 @@ class Module:
         return self.name.startswith(f"{module.name}.")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class DirectImport:
     """
     An import between one module and another.
@@ -57,7 +57,7 @@ class DirectImport:
         return f"{self.importer} -> {self.imported} (l. {self.line_number})"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class Layer:
     """
     A layer within a layered architecture.
