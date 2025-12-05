@@ -25,7 +25,7 @@ BLUE_MODULES = {"mynamespace.blue", "mynamespace.blue.alpha", "mynamespace.blue.
 def test_build_graph_for_namespace():
     graph = build_graph("mynamespace", cache_dir=None)
 
-    assert graph.modules == YELLOW_MODULES | GREEN_MODULES | BLUE_MODULES
+    assert graph.modules == {"mynamespace"} | YELLOW_MODULES | GREEN_MODULES | BLUE_MODULES
     assert graph.count_imports()
 
 
@@ -120,16 +120,31 @@ BAR_BETA_MODULES = {
 @pytest.mark.parametrize(
     "package_name, expected",
     [
-        # TODO: include the namespace packages as modules too.
         (
             "nestednamespace",
-            FOO_ALPHA_BLUE_MODULES | FOO_ALPHA_GREEN_MODULES | BAR_BETA_MODULES,
+            {
+                "nestednamespace",
+                "nestednamespace.foo",
+                "nestednamespace.foo.alpha",
+                "nestednamespace.bar",
+            }
+            | FOO_ALPHA_BLUE_MODULES
+            | FOO_ALPHA_GREEN_MODULES
+            | BAR_BETA_MODULES,
         ),
         (
             "nestednamespace.foo",
-            FOO_ALPHA_BLUE_MODULES | FOO_ALPHA_GREEN_MODULES,
+            {
+                "nestednamespace.foo",
+                "nestednamespace.foo.alpha",
+            }
+            | FOO_ALPHA_BLUE_MODULES
+            | FOO_ALPHA_GREEN_MODULES,
         ),
-        ("nestednamespace.foo.alpha", FOO_ALPHA_BLUE_MODULES | FOO_ALPHA_GREEN_MODULES),
+        (
+            "nestednamespace.foo.alpha",
+            {"nestednamespace.foo.alpha"} | FOO_ALPHA_BLUE_MODULES | FOO_ALPHA_GREEN_MODULES,
+        ),
     ],
 )
 def test_build_graph_for_nested_namespace(package_name, expected):

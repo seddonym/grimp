@@ -197,7 +197,7 @@ class TestBuildGraph:
             graph = usecases.build_graph("mypackage")
 
         assert graph.modules == {
-            # TODO "mypackage" should also be included.
+            "mypackage",
             "mypackage.foo",
             "mypackage.foo.one",
             "mypackage.foo.two",

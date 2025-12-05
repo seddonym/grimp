@@ -3,7 +3,7 @@ Use cases handle application logic.
 """
 
 from typing import cast
-
+import itertools
 from collections.abc import Sequence, Iterable
 
 from .scanning import scan_imports
@@ -157,6 +157,11 @@ def _assemble_graph(
     imports_by_module: dict[Module, set[DirectImport]],
 ) -> ImportGraph:
     graph: ImportGraph = settings.IMPORT_GRAPH_CLASS()
+
+    for namespace_package in itertools.chain.from_iterable(
+        found_package.namespace_packages for found_package in found_packages
+    ):
+        graph.add_module(namespace_package)
 
     package_modules = {Module(found_package.name) for found_package in found_packages}
 
