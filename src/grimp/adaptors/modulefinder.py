@@ -53,8 +53,7 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
             2. Set of namespace directories encountered.
         """
         python_files: list[str] = []
-        namespace_dirs: set[str] = set()
-
+        candidate_namespace_dirs: list[str] = []
         portion_dirs: set[str] = set()
 
         for dirpath, dirs, files in self.file_system.walk(directory):
@@ -71,7 +70,9 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
                 # This directory is a portion (i.e. it has a top-level __init__.py).
                 portion_dirs.add(dirpath)
             else:
-                namespace_dirs.add(dirpath)
+                # We don't yet know whether this is a namespace dir. It'll only be one if we find
+                # a Python file somewhere within it.
+                candidate_namespace_dirs.append(dirpath)
 
             # Don't include hidden directories.
             dirs_to_remove = [d for d in dirs if self._should_ignore_dir(d)]
@@ -82,6 +83,7 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
                 if self._is_python_file(filename, dirpath):
                     python_files.append(self.file_system.join(dirpath, filename))
 
+        namespace_dirs = self._determine_namespace_dirs(candidate_namespace_dirs, python_files)
         return python_files, namespace_dirs
 
     def _is_in_portion(self, directory: str, portions: Set[str]) -> bool:
@@ -91,6 +93,18 @@ class ModuleFinder(modulefinder.AbstractModuleFinder):
         # TODO: make this configurable.
         # Skip adding directories that are hidden.
         return directory.startswith(".")
+
+    def _determine_namespace_dirs(
+        self, candidates: Iterable[str], python_files: Iterable[str]
+    ) -> set[str]:
+        namespace_dirs: set[str] = set()
+        for candidate in candidates:
+            candidate_with_trailing_sep = candidate + self.file_system.sep
+            for python_file in python_files:
+                if python_file.startswith(candidate_with_trailing_sep):
+                    namespace_dirs.add(candidate)
+                    break
+        return namespace_dirs
 
     def _is_python_file(self, filename: str, dirpath: str) -> bool:
         """

@@ -128,6 +128,11 @@ def test_namespaced_packages(package_name: str, package_directory: str, expected
                         five/
                             __init__.py
                             beta.py
+                    non_python_directory/
+                        six/
+                            README.txt
+                    
+                    
         """
     )
 
