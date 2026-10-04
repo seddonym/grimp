@@ -76,10 +76,11 @@ Building the graph
         *Note: external packages are only analysed as modules that are imported; any imports they make themselves will
         not be included in the graph.*
     :param bool, optional exclude_type_checking_imports: Whether to exclude imports made in type checking guards. If this is ``True``,
-        any import made under an ``if TYPE_CHECKING:`` statement will not be added to the graph.
+        any import made under an ``if TYPE_CHECKING:`` statement will not be added to the graph. Imports in its ``else``
+        branch are still added, as that is the branch that runs at runtime.
         See the `typing module documentation`_ for reference. (The type checking guard is detected purely by looking for
-        a statement in the form ``if TYPE_CHECKING`` or ``if {some_alias}.TYPE_CHECKING``. It does not check whether
-        ``TYPE_CHECKING`` is actually the attribute from the ``typing`` module.)
+        a statement in the form ``if TYPE_CHECKING`` or ``if {some_alias}.TYPE_CHECKING``, or the ``elif`` equivalents.
+        It does not check whether ``TYPE_CHECKING`` is actually the attribute from the ``typing`` module.)
     :param str, optional cache_dir: The directory to use for caching the graph. Defaults to ``.grimp_cache``. To disable caching,
         pass ``None``. See :doc:`caching`.
     :return: An import graph that you can use to analyse the package.

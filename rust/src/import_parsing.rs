@@ -122,29 +122,32 @@ impl<'a> StatementVisitor<'a> for Visitor<'a> {
                 }
                 walk_stmt(self, stmt);
             }
-            Stmt::If(if_stmt) => match if_stmt.test.as_ref() {
-                Expr::Name(expr) => {
-                    if expr.id == "TYPE_CHECKING" {
-                        self.typechecking_only = true;
-                        walk_stmt(self, stmt);
-                        self.typechecking_only = false;
-                    } else {
-                        walk_stmt(self, stmt);
-                    }
+            Stmt::If(if_stmt) => {
+                // Only the branches guarded by `TYPE_CHECKING` are type checking only. The other
+                // branches (e.g. `else`) run when `TYPE_CHECKING` is false, that is, at runtime.
+                let outer_typechecking_only = self.typechecking_only;
+                self.typechecking_only = outer_typechecking_only || is_type_checking(&if_stmt.test);
+                self.visit_body(&if_stmt.body);
+                for clause in &if_stmt.elif_else_clauses {
+                    self.typechecking_only = outer_typechecking_only
+                        || clause.test.as_ref().is_some_and(is_type_checking);
+                    self.visit_elif_else_clause(clause);
                 }
-                Expr::Attribute(expr) if expr.attr.id == "TYPE_CHECKING" => {
-                    self.typechecking_only = true;
-                    walk_stmt(self, stmt);
-                    self.typechecking_only = false;
-                }
-                _ => {
-                    walk_stmt(self, stmt);
-                }
-            },
+                self.typechecking_only = outer_typechecking_only;
+            }
             _ => {
                 walk_stmt(self, stmt);
             }
         }
+    }
+}
+
+/// Whether the expression is `TYPE_CHECKING` or `<something>.TYPE_CHECKING`.
+fn is_type_checking(expr: &Expr) -> bool {
+    match expr {
+        Expr::Name(name) => name.id == "TYPE_CHECKING",
+        Expr::Attribute(attribute) => attribute.attr.id == "TYPE_CHECKING",
+        _ => false,
     }
 }
 

@@ -1079,6 +1079,87 @@ def test_exclude_type_checking_imports(
     assert {module_foo_one_file: expected_result} == result
 
 
+@pytest.mark.parametrize(
+    "code, expected_imported_modules",
+    (
+        pytest.param(
+            """
+            if TYPE_CHECKING:
+                import foo.two
+            else:
+                import foo.three
+            """,
+            {"foo.three"},
+            id="else",
+        ),
+        pytest.param(
+            """
+            if typing.TYPE_CHECKING:
+                import foo.two
+            elif sys.version_info >= (3, 12):
+                import foo.three
+            else:
+                import foo.four
+            """,
+            {"foo.three", "foo.four"},
+            id="elif-and-else",
+        ),
+        pytest.param(
+            """
+            if sys.version_info >= (3, 12):
+                import foo.two
+            elif TYPE_CHECKING:
+                import foo.three
+            else:
+                import foo.four
+            """,
+            {"foo.two", "foo.four"},
+            id="elif-type-checking",
+        ),
+        pytest.param(
+            """
+            if TYPE_CHECKING:
+                if sys.version_info >= (3, 12):
+                    import foo.two
+                else:
+                    import foo.three
+                if TYPE_CHECKING:
+                    import foo.four
+                import foo.five
+            """,
+            set(),
+            id="nested",
+        ),
+    ),
+)
+def test_exclude_type_checking_imports_only_excludes_type_checking_branches(
+    code, expected_imported_modules
+):
+    all_modules = {Module(f"foo.{name}") for name in ("one", "two", "three", "four", "five")}
+    module_foo_one_file = _module_to_module_file(Module("foo.one"))
+    file_system = rust.FakeBasicFileSystem(content_map={"/path/to/foo/one.py": code})
+    found_packages = {
+        FoundPackage(
+            name="foo",
+            directory="/path/to/foo",
+            module_files=_modules_to_module_files(all_modules),
+        )
+    }
+
+    with override_settings(FILE_SYSTEM=file_system):
+        result = scanning.scan_imports(
+            {module_foo_one_file},
+            found_packages=found_packages,
+            include_external_packages=False,
+            exclude_type_checking_imports=True,
+        )
+
+    imported_modules = {
+        direct_import.imported.name for direct_import in result[module_foo_one_file]
+    }
+    assert imported_modules == expected_imported_modules
+
+
 def test_t_string_syntax():
     module_file_to_scan = _module_to_module_file(Module("foo.one"))
 

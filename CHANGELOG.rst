@@ -7,6 +7,8 @@ latest
 
 * Fix missing macOS wheels for regular (non-freethreaded) Python 3.14+
   (https://github.com/python-grimp/grimp/issues/317).
+* Fix imports in the ``else`` (or non-type checking ``elif``) branch of an ``if TYPE_CHECKING:``
+  statement being excluded by ``exclude_type_checking_imports``, even though they run at runtime.
 
 3.17 (2026-09-04)
 -----------------
