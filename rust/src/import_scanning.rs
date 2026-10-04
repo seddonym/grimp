@@ -130,9 +130,7 @@ fn scan_for_imports_no_py_single_module(
     let found_package_for_module = found_packages_by_module[module];
     let module_filename =
         _determine_module_filename(module, found_package_for_module, file_system).unwrap();
-    let module_contents = file_system
-        .read(&module_filename)
-        .map_err(GrimpError::FileReadError)?;
+    let module_contents = file_system.read(&module_filename)?;
     let imported_objects =
         import_parsing::parse_imports_from_code(&module_contents, &module_filename)?;
 

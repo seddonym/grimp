@@ -1,5 +1,6 @@
+use crate::errors::{GrimpError, GrimpResult};
 use itertools::Itertools;
-use pyo3::exceptions::{PyFileNotFoundError, PyTypeError, PyUnicodeError};
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use regex::Regex;
 use std::collections::HashMap;
@@ -50,7 +51,7 @@ pub trait FileSystem: Send + Sync {
 
     fn exists(&self, file_name: &str) -> bool;
 
-    fn read(&self, file_name: &str) -> PyResult<String>;
+    fn read(&self, file_name: &str) -> GrimpResult<String>;
 
     fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()>;
 }
@@ -110,7 +111,7 @@ impl FileSystem for RealBasicFileSystem {
         Path::new(file_name).is_file()
     }
 
-    fn read(&self, file_name: &str) -> PyResult<String> {
+    fn read(&self, file_name: &str) -> GrimpResult<String> {
         // Python files are assumed UTF-8 by default (PEP 686), but they can specify an alternative
         // encoding, which we need to take into account here.
         // See https://peps.python.org/pep-0263/
@@ -119,7 +120,7 @@ impl FileSystem for RealBasicFileSystem {
 
         let path = Path::new(file_name);
         let bytes = fs::read(path).map_err(|e| {
-            PyFileNotFoundError::new_err(format!("Failed to read file {file_name}: {e}"))
+            GrimpError::FileNotFound(format!("Failed to read file {file_name}: {e}"))
         })?;
 
         let s = String::from_utf8_lossy(&bytes);
@@ -136,17 +137,15 @@ impl FileSystem for RealBasicFileSystem {
             }
         }
 
-        // Use UnicodeError rather than UnicodeDecodeError, as the latter can't be created from just
-        // a message.
         if let Some(enc_name) = detected_encoding {
             let encoding = lookup_encoding(&enc_name).ok_or_else(|| {
-                PyUnicodeError::new_err(format!(
+                GrimpError::UndecodableFile(format!(
                     "Failed to decode file {file_name} (unknown encoding '{enc_name}')"
                 ))
             })?;
             let (decoded_s, _, had_errors) = encoding.decode(&bytes);
             if had_errors {
-                Err(PyUnicodeError::new_err(format!(
+                Err(GrimpError::UndecodableFile(format!(
                     "Failed to decode file {file_name} with encoding '{enc_name}'"
                 )))
             } else {
@@ -155,7 +154,9 @@ impl FileSystem for RealBasicFileSystem {
         } else {
             // Default to UTF-8 if no encoding is specified
             String::from_utf8(bytes).map_err(|e| {
-                PyUnicodeError::new_err(format!("Failed to decode file {file_name} as UTF-8: {e}"))
+                GrimpError::UndecodableFile(format!(
+                    "Failed to decode file {file_name} as UTF-8: {e}"
+                ))
             })
         }
     }
@@ -199,7 +200,7 @@ impl PyRealBasicFileSystem {
     }
 
     fn read(&self, file_name: &str) -> PyResult<String> {
-        self.inner.read(file_name)
+        Ok(self.inner.read(file_name)?)
     }
 
     fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
@@ -279,11 +280,11 @@ impl FileSystem for FakeBasicFileSystem {
         self.contents.lock().unwrap().contains_key(file_name)
     }
 
-    fn read(&self, file_name: &str) -> PyResult<String> {
+    fn read(&self, file_name: &str) -> GrimpResult<String> {
         let contents = self.contents.lock().unwrap();
         match contents.get(file_name) {
             Some(file_contents) => Ok(file_contents.clone()),
-            None => Err(PyFileNotFoundError::new_err(format!(
+            None => Err(GrimpError::FileNotFound(format!(
                 "No such file: {file_name}"
             ))),
         }
@@ -327,7 +328,7 @@ impl PyFakeBasicFileSystem {
     }
 
     fn read(&self, file_name: &str) -> PyResult<String> {
-        self.inner.read(file_name)
+        Ok(self.inner.read(file_name)?)
     }
 
     fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
