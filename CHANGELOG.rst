@@ -9,6 +9,9 @@ latest
   (https://github.com/python-grimp/grimp/issues/317).
 * Fix imports in the ``else`` (or non-type checking ``elif``) branch of an ``if TYPE_CHECKING:``
   statement being excluded by ``exclude_type_checking_imports``, even though they run at runtime.
+* Fix panic when a module declares its encoding using a name that Python accepts but that isn't a
+  WHATWG label, such as ``latin-1`` or ``utf_8``. Raise a ``UnicodeError`` naming the file, rather
+  than panicking, if a module can't be decoded.
 
 3.17 (2026-09-04)
 -----------------
