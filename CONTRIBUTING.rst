@@ -180,10 +180,11 @@ This is only possible if you're a maintainer.
 4. Update the ``release`` variable in ``docs/conf.py`` with the new version number.
 5. Update the ``__version__`` variable in ``src/grimp/__init__.py`` with the new version number.
 6. Update ``project.version`` in ``pyproject.toml`` with the new version number.
-7. ``git commit -am "Release v{new version number"``
-8. ``git push``
-9. Wait for tests to pass on CI.
-10. ``git tag v{new version number}``
-11. ``git push --tags``
-12. This should kick start the Github ``release`` workflow, which builds wheels and releases the
+7. ``uv lock`` to sync ``uv.lock`` with the new version.
+8. ``git commit -am "Release v{new version number"``
+9. ``git push``
+10. Wait for tests to pass on CI.
+11. ``git tag v{new version number}``
+12. ``git push --tags``
+13. This should kick start the Github ``release`` workflow, which builds wheels and releases the
     project to PyPI.

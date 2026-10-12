@@ -71,6 +71,8 @@ format:
 # Lint Python code.
 [group('linting')]
 lint-python:
+    @echo 'Checking uv.lock is up to date...'
+    @uv lock --check
     @echo 'Running ruff format...'
     @uv run ruff format --check
     @echo 'Running ruff check...'
