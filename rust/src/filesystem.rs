@@ -15,31 +15,46 @@ use unindent::unindent;
 static ENCODING_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)").unwrap());
 
+/// An encoding named in a Python source file's encoding declaration.
+enum Encoding {
+    /// True Latin-1 (ISO-8859-1): a straight byte-to-code-point mapping. This is handled
+    /// specially because encoding_rs follows the WHATWG standard, under which the `iso-8859-1`
+    /// label resolves to the Windows-1252 decoder instead (the two differ in the 0x80..=0x9f
+    /// range), and because Windows-1252 has undefined bytes that true Latin-1 decodes fine.
+    Latin1,
+    /// Any other encoding, delegated to encoding_rs.
+    Other(&'static encoding_rs::Encoding),
+}
+
 /// Look up the encoding named in a Python source file's encoding declaration.
 ///
 /// encoding_rs only knows the WHATWG labels, but Python accepts other spellings too, such as
 /// `latin-1`, `utf_8`, `utf-8-sig` or `euc_jp`.
-fn lookup_encoding(name: &str) -> Option<&'static encoding_rs::Encoding> {
-    encoding_rs::Encoding::for_label(name.as_bytes()).or_else(|| {
-        // Normalize the name like Python does: see `_get_normal_name` in Lib/tokenize.py, which
-        // special cases UTF-8 and Latin-1. Python's codec lookup also ignores the difference
-        // between underscores and hyphens.
-        let normalized = name.to_ascii_lowercase().replace('_', "-");
-        let is_spelling_of = |canonical: &str| {
-            normalized == canonical || normalized.starts_with(&format!("{canonical}-"))
-        };
-        let label = if is_spelling_of("utf-8") {
-            "utf-8"
-        } else if ["latin-1", "iso-8859-1", "iso-latin-1"]
-            .into_iter()
-            .any(is_spelling_of)
-        {
-            "iso-8859-1"
-        } else {
-            &normalized
-        };
-        encoding_rs::Encoding::for_label(label.as_bytes())
-    })
+fn lookup_encoding(name: &str) -> Option<Encoding> {
+    // Normalize the name like Python does: see `_get_normal_name` in Lib/tokenize.py, which
+    // special cases UTF-8 and Latin-1. Python's codec lookup also ignores the difference
+    // between underscores and hyphens.
+    //
+    // We check these special cases before deferring to encoding_rs, because some of the Latin-1
+    // aliases (e.g. `iso-8859-1`) are WHATWG labels that encoding_rs would otherwise resolve to
+    // the Windows-1252 decoder.
+    let normalized = name.to_ascii_lowercase().replace('_', "-");
+    let is_spelling_of = |canonical: &str| {
+        normalized == canonical || normalized.starts_with(&format!("{canonical}-"))
+    };
+    if ["latin-1", "iso-8859-1", "iso-latin-1"]
+        .into_iter()
+        .any(is_spelling_of)
+    {
+        return Some(Encoding::Latin1);
+    }
+    if is_spelling_of("utf-8") {
+        return encoding_rs::Encoding::for_label(b"utf-8").map(Encoding::Other);
+    }
+    // Try the name as given, then its normalized form.
+    encoding_rs::Encoding::for_label(name.as_bytes())
+        .or_else(|| encoding_rs::Encoding::for_label(normalized.as_bytes()))
+        .map(Encoding::Other)
 }
 
 pub trait FileSystem: Send + Sync {
@@ -143,13 +158,20 @@ impl FileSystem for RealBasicFileSystem {
                     "Failed to decode file {file_name} (unknown encoding '{enc_name}')"
                 ))
             })?;
-            let (decoded_s, _, had_errors) = encoding.decode(&bytes);
-            if had_errors {
-                Err(GrimpError::UndecodableFile(format!(
-                    "Failed to decode file {file_name} with encoding '{enc_name}'"
-                )))
-            } else {
-                Ok(decoded_s.into_owned())
+            match encoding {
+                // True Latin-1 maps every byte to the code point of the same value and so can
+                // never fail.
+                Encoding::Latin1 => Ok(bytes.iter().map(|&b| b as char).collect()),
+                Encoding::Other(encoding) => {
+                    let (decoded_s, _, had_errors) = encoding.decode(&bytes);
+                    if had_errors {
+                        Err(GrimpError::UndecodableFile(format!(
+                            "Failed to decode file {file_name} with encoding '{enc_name}'"
+                        )))
+                    } else {
+                        Ok(decoded_s.into_owned())
+                    }
+                }
             }
         } else {
             // Default to UTF-8 if no encoding is specified

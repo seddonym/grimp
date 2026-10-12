@@ -97,6 +97,42 @@ def test_build_graph_of_source_declaring_encoding_with_python_specific_name(
 
 
 @pytest.mark.parametrize(
+    "declared_encoding",
+    ("latin-1", "latin_1", "iso-8859-1", "iso_8859_1"),
+)
+def test_build_graph_of_true_latin_1_source(tmp_path, monkeypatch, declared_encoding):
+    """
+    Tests that Latin-1 is decoded as true byte-to-code-point Latin-1, rather than Windows-1252.
+
+    These two encodings only diverge in the 0x80..=0x9f byte range, so we exercise a byte in
+    that range (0x80, which is U+0080 in Latin-1 but U+20AC '€' in Windows-1252).
+    """
+    package_directory = tmp_path / "latin1package"
+    package_directory.mkdir()
+    (package_directory / "__init__.py").write_text("")
+    (package_directory / "imported.py").write_text("")
+    source = f"# -*- coding: {declared_encoding} -*-\nfrom .imported import something  # \x80\n"
+    (package_directory / "importer.py").write_bytes(source.encode("latin-1"))
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    graph = grimp.build_graph("latin1package", cache_dir=None)
+
+    result = graph.get_import_details(
+        importer="latin1package.importer", imported="latin1package.imported"
+    )
+
+    assert [
+        {
+            "importer": "latin1package.importer",
+            "imported": "latin1package.imported",
+            "is_lazy": False,
+            "line_number": 2,
+            "line_contents": "from .imported import something  # \x80",
+        },
+    ] == result
+
+
+@pytest.mark.parametrize(
     "contents, expected_problem",
     (
         pytest.param(b"x = '\xff'\n", "as UTF-8", id="invalid-utf-8"),
