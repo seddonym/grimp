@@ -415,7 +415,7 @@ wheels = [
 
 [[package]]
 name = "grimp"
-version = "3.16"
+version = "3.17"
 source = { editable = "." }
 
 [package.dev-dependencies]
