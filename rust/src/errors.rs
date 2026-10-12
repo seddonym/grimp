@@ -39,6 +39,9 @@ pub enum GrimpError {
 
     #[error("Cache file {0} was written by a different version of Grimp.")]
     CacheVersionMismatch(String),
+
+    #[error(transparent)]
+    FileReadError(PyErr),
 }
 
 pub type GrimpResult<T> = Result<T, GrimpError>;
@@ -61,6 +64,7 @@ impl From<GrimpError> for PyErr {
             GrimpError::CacheVersionMismatch(_) => {
                 exceptions::CacheVersionMismatch::new_err(value.to_string())
             }
+            GrimpError::FileReadError(error) => error,
         }
     }
 }
