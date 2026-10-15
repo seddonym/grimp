@@ -10,6 +10,14 @@ on:
     tags:
       - '*'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Rebuild and publish an existing release's missing wheels
+        required: false
+        type: choice
+        options:
+          - v3.16
+          - v3.17
 
 permissions:
   contents: read
@@ -24,7 +32,7 @@ jobs:
             target: x86_64
           - runner: ubuntu-latest
             target: x86
-          - runner: ubuntu-latest
+          - runner: ubuntu-24.04-arm
             target: aarch64
           - runner: ubuntu-latest
             target: armv7
@@ -34,6 +42,8 @@ jobs:
             target: ppc64le
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
       - uses: actions/setup-python@v6
         with:
           python-version: |
@@ -68,12 +78,14 @@ jobs:
             target: x86_64
           - runner: ubuntu-latest
             target: x86
-          - runner: ubuntu-latest
+          - runner: ubuntu-24.04-arm
             target: aarch64
           - runner: ubuntu-latest
             target: armv7
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
       - uses: actions/setup-python@v6
         with:
           python-version: |
@@ -119,6 +131,8 @@ jobs:
             free-threaded-interpreters: *free-threaded-interpreters
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
 
       # https://github.com/pyo3/maturin-action#windows-build-the-regular-and-free-threaded-interpreters-in-separate-jobs
       - uses: actions/setup-python@v6
@@ -162,6 +176,8 @@ jobs:
             target: aarch64
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
       - uses: actions/setup-python@v6
         with:
           python-version: |
@@ -209,6 +225,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
@@ -223,7 +241,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    if: "startsWith(github.ref, 'refs/tags/')"
+    if: "startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')"
     needs: [linux, musllinux, windows, macos, sdist]
     steps:
       - uses: actions/download-artifact@v4

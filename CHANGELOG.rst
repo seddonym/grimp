@@ -5,6 +5,7 @@ Changelog
 latest
 ------
 
+* Rebuild missing Python 3.15 wheels for Grimp 3.16 and 3.17 on macOS and Linux ARM64.
 * Fix missing macOS wheels for regular (non-freethreaded) Python 3.14+
   (https://github.com/python-grimp/grimp/issues/317).
 * Fix imports in the ``else`` (or non-type checking ``elif``) branch of an ``if TYPE_CHECKING:``
