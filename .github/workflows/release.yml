@@ -26,15 +26,20 @@ jobs:
           - runner: ubuntu-latest
             target: x86
             interpreters: *full-interpreters
-          # ghcr.io/rust-cross/manylinux2014-cross (used for these targets, since there's no
-          # official manylinux2014 image for them) doesn't yet bundle Python 3.15/3.15t - it
-          # only goes up to 3.14/3.14t.
-          - runner: ubuntu-latest
+          # A native arm64 runner, so maturin-action uses the official
+          # quay.io/pypa/manylinux2014_aarch64 image (same as x86_64/x86 above), rather than
+          # the ghcr.io/rust-cross/manylinux2014-cross cross-compilation image used for the
+          # remaining targets below, which doesn't yet bundle Python 3.15/3.15t.
+          - runner: ubuntu-24.04-arm
             target: aarch64
-            interpreters: &cross-interpreters '["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]'
+            interpreters: *full-interpreters
+          # ghcr.io/rust-cross/manylinux2014-cross (used for these targets, since there's no
+          # official manylinux2014 image for them, and no native GitHub-hosted runner for
+          # their architectures) doesn't yet bundle Python 3.15/3.15t - it only goes up to
+          # 3.14/3.14t.
           - runner: ubuntu-latest
             target: armv7
-            interpreters: *cross-interpreters
+            interpreters: &cross-interpreters '["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]'
           - runner: ubuntu-latest
             target: s390x
             interpreters: *cross-interpreters
@@ -65,9 +70,10 @@ jobs:
     strategy:
       matrix:
         platform:
-          # Unlike the `linux` job, all musllinux targets build inside
-          # ghcr.io/rust-cross/rust-musl-cross images (there's no official musllinux image),
-          # which don't yet bundle Python 3.15/3.15t - they only go up to 3.14/3.14t.
+          # Unlike the `linux` job, all musllinux targets - including aarch64, even on a
+          # native arm64 runner - build inside ghcr.io/rust-cross/rust-musl-cross images
+          # (there's no official musllinux image for maturin-action to use natively), which
+          # don't yet bundle Python 3.15/3.15t - they only go up to 3.14/3.14t.
           - runner: ubuntu-latest
             target: x86_64
             interpreters: *cross-interpreters
