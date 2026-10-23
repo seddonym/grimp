@@ -7,6 +7,9 @@ latest
 
 * Fix missing macOS wheels for regular (non-freethreaded) Python 3.14+
   (https://github.com/python-grimp/grimp/issues/317).
+* No Python 3.15 wheels are published for Linux aarch64, armv7, s390x or ppc64le, or for any
+  musllinux target, since the Docker images used to build those don't yet support Python 3.15.
+  Previously the release workflow silently skipped these wheels; now it does so explicitly.
 * Fix imports in the ``else`` (or non-type checking ``elif``) branch of an ``if TYPE_CHECKING:``
   statement being excluded by ``exclude_type_checking_imports``, even though they run at runtime.
 * Fix panic when a module declares its encoding using a name that Python accepts but that isn't a
