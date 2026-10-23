@@ -2,8 +2,8 @@
 Changelog
 =========
 
-latest
-------
+3.18 (2026-10-23)
+-----------------
 
 * Fix missing macOS wheels for regular (non-freethreaded) Python 3.14+
   (https://github.com/python-grimp/grimp/issues/317).
